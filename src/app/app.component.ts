@@ -18,7 +18,7 @@ export class AppComponent {
 
     try {
       // Construir la URL completa
-      const urlcompleta = `${'http://127.0.0.1:8000'}/Desprendibles/traerDesprendibles/${
+      const urlcompleta = `${'http://10.10.10.60:4545'}/Desprendibles/traerDesprendibles/${
         this.cedula
       }`;
 

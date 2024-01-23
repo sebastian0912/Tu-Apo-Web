@@ -190,16 +190,6 @@ tr {
 }
 
 
-select {
-    font-family: 'Poppins', sans-serif;
-    font-size: 16px;
-    margin: 0 50px 20px 30px;
-    width: 240px;
-    height: 50px;
-}
-
-
-
 .input {
     font-family: 'Poppins', sans-serif;
     width: 500px;
@@ -217,42 +207,6 @@ select {
 
 .input:focus {
     outline: none;
-}
-
-
-.input2 {
-    font-family: 'Poppins', sans-serif;
-    width: 230px;
-    height: 40px;
-    padding: 5px;
-    font-size: 16px;
-    border-width: 0px;
-    border-color: #cccccc;
-    background-color: #ffffff;
-    border-style: solid;
-    border-radius: 11px;
-    box-shadow: 0px 0px 5px rgba(66, 66, 66, 0.75);
-    position: relative;
-    margin-bottom: 20px;
-}
-
-.input2:focus {
-    outline: none;
-}
-
-.btn {
-    height: 50px;
-    font-weight: 600;
-    font-size: 16px;
-    color: #fff;
-    background-color: #0066cc;
-    padding: 10px 30px;
-    border: 2px solid #0066cc;
-    box-shadow: rgb(0, 0, 0) 0px 0px 0px 0px;
-    border-radius: 50px;
-    transition: 1000ms;
-    cursor: pointer;
-    font-family: 'Poppins', sans-serif;
 }
 
 .btn2 {
@@ -274,10 +228,6 @@ select {
 
 
 
-
-
-
-
 .loader-overlay {
     position: fixed;
     top: 0;
@@ -290,7 +240,6 @@ select {
     /* Asegúrate de que la capa esté en un nivel superior para cubrir todo el contenido */
 }
 
-
 .cajaloader {
     position: absolute;
     top: 50%;
@@ -299,7 +248,6 @@ select {
     z-index: 10000;
 
 }
-
 
 /*loader*/
 .custom-loader {
@@ -336,30 +284,77 @@ select {
 }
 
 
-@media only screen and (max-width: 768px) {
-    .cuadroTexto {
-        width: 100%;
-        margin: 20px 0;
+@media screen and (max-width: 600px) {
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
     }
 
-    .tabla {
+    .wrapper {
+        overflow-x: hidden;
+        box-sizing: content-box;
+        min-width: 100%;
+    }
+
+    .contenedor {
+        background: linear-gradient(115deg, #fdfdfd 45%, #194262 40%);
+        min-width: 100%;
+    }
+    
+    .cuadroTexto {
+        width: 300px;
+        height: 250px;
+        background: #ffffff;
+        border-radius: 15px;
+        box-shadow: 0px 0px 12px 8px rgba(0, 0, 0, 0.1);
+        font-size: 16pt;
+        font-weight: 700;  
+        margin: 0 auto;
+        margin-top: 50px;
+    }
+
+    .valoresEscribir {
         width: 100%;
-        margin: 20px 0;
+        margin: 0 auto;
+    }	
+
+    .valor .titulo {
+        margin: 20px 0px 30px 20px;
+        font-size: 14pt;
+        float: left;
     }
 
     .input {
-        width: 80%; /* O cualquier otro valor que funcione mejor en pantallas pequeñas */
-        margin-left: 10px; /* O ajusta según sea necesario */
+        font-family: 'Poppins', sans-serif;
+        width: 230px;
+        height: 40px;
+        padding: 5px;
+        font-size: 16px;
+        border-width: 0px;
+        border-color: #cccccc;
+        background-color: #ffffff;
+        border-style: solid;
+        border-radius: 11px;
+        box-shadow: 0px 0px 5px rgba(66, 66, 66, 0.75);
+    }
+    
+    .tabla{
+        margin-left: -5pt;
     }
 
-    .btn2 {
-        margin-top: 10px; /* O ajusta según sea necesario */
-        margin-left: 10px; /* O ajusta según sea necesario */
-        width: 200pt;
-        height: 50pt;
-        cursor: pointer;
-
+    th {
+        border-bottom: #b9b9b9 1px solid;
+        padding: 0 20px 0 20px;
+        background: #5e6a75;
+        color: #ffffff;
+        font-weight: 800;
+    }
+    
+    tr {
+        height: 30px;
+    
     }
 
-    /* Ajusta otros estilos según sea necesario */
 }
