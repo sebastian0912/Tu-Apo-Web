@@ -2,6 +2,8 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import Swal from 'sweetalert2'
+import { SequenceError } from 'rxjs';
 
 @Component({
   selector: 'app-root',
@@ -18,9 +20,8 @@ export class AppComponent {
 
     try {
       // Construir la URL completa
-      const urlcompleta = `${'http://10.10.10.60:4545'}/Desprendibles/traerDesprendibles/${
-        this.cedula
-      }`;
+      const urlcompleta = `${'http://10.10.10.60:4545'}/Desprendibles/traerDesprendibles/${this.cedula
+        }`;
 
       try {
         // Realizar la solicitud HTTP utilizando async/await
@@ -34,6 +35,15 @@ export class AppComponent {
           const responseData = await response.json();
           
           console.log(responseData);
+
+          if (responseData.message == 'No se encontró el número de cédula') {
+            Swal.fire({
+              icon: 'error',
+              title: 'Oops...',
+              text: 'No se encontró el número de cédula!',
+            })
+            return;
+          }
           // Mostrar los datos en la tabla
           this.mostrarDatosEnTabla(responseData);
 
@@ -113,8 +123,13 @@ export class AppComponent {
 
         // Ejemplo: desprendibles
         const desprendiblesCelda = document.createElement('td');
-        desprendiblesCelda.textContent = dato.desprendibles;
+        const enlaceDesprendibles = document.createElement('a');
+        enlaceDesprendibles.textContent = dato.desprendibles;
+        enlaceDesprendibles.href = dato.desprendibles; // Aquí estableces el enlace
+        enlaceDesprendibles.target = '_blank'; // Para abrir el enlace en una nueva pestaña
+        desprendiblesCelda.appendChild(enlaceDesprendibles);
         fila.appendChild(desprendiblesCelda);
+
 
         // Ejemplo: certificaciones
         const certificacionesCelda = document.createElement('td');
