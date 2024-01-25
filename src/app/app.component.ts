@@ -32,6 +32,7 @@ export class AppComponent {
         if (response.ok) {
           // Procesar la respuesta si la solicitud fue exitosa
           const responseData = await response.json();
+          
           console.log(responseData);
           // Mostrar los datos en la tabla
           this.mostrarDatosEnTabla(responseData);
