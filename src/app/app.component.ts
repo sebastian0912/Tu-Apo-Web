@@ -20,8 +20,9 @@ export class AppComponent {
 
     try {
       // Construir la URL completa
-      const urlcompleta = `${'http://10.10.10.60:4545'}/Desprendibles/traerDesprendibles/${this.cedula
-        }`;
+      const urlcompleta = `${'http://10.10.10.60:4545'}/Desprendibles/traerDesprendibles/${
+        this.cedula
+      }`;
 
       try {
         // Realizar la solicitud HTTP utilizando async/await
@@ -35,15 +36,6 @@ export class AppComponent {
           const responseData = await response.json();
 
           console.log(responseData);
-
-          if (responseData.message == 'No se encontró el número de cédula') {
-            Swal.fire({
-              icon: 'error',
-              title: 'Oops...',
-              text: 'No se encontró el número de cédula!',
-            })
-            return;
-          }
           // Mostrar los datos en la tabla
           this.mostrarDatosEnTabla(responseData);
 
@@ -123,24 +115,13 @@ export class AppComponent {
 
         // Ejemplo: desprendibles
         const desprendiblesCelda = document.createElement('td');
-        const enlaceDesprendibles = document.createElement('a');
-        enlaceDesprendibles.textContent = dato.desprendibles;
-        enlaceDesprendibles.href = dato.desprendibles; // Aquí estableces el enlace
-        enlaceDesprendibles.target = '_blank'; // Para abrir el enlace en una nueva pestaña
-        desprendiblesCelda.appendChild(enlaceDesprendibles);
+        desprendiblesCelda.textContent = dato.desprendibles;
         fila.appendChild(desprendiblesCelda);
-
 
         // Ejemplo: certificaciones
         const certificacionesCelda = document.createElement('td');
-        const enlaceCertificaciones = document.createElement('a');
-        enlaceCertificaciones.textContent = dato.certificaciones;
-        // Establecer el enlace para certificaciones
-        enlaceCertificaciones.href = 'URL_DE_CERTIFICACIONES'; // Reemplaza 'URL_DE_CERTIFICACIONES' con la URL real
-        enlaceCertificaciones.target = '_blank'; // Para abrir el enlace en una nueva pestaña
-        certificacionesCelda.appendChild(enlaceCertificaciones);
+        certificacionesCelda.textContent = dato.certificaciones;
         fila.appendChild(certificacionesCelda);
-
 
         // Ejemplo: cartas_retiro
         const cartas_retiroCelda = document.createElement('td');
@@ -149,24 +130,13 @@ export class AppComponent {
 
         // Ejemplo: carta_cesantias
         const carta_cesantiasCelda = document.createElement('td');
-        const enlaceCartaCesantias = document.createElement('a');
-        enlaceCartaCesantias.textContent = dato.carta_cesantias;
-        // Establecer el enlace para carta_cesantias
-        enlaceCartaCesantias.href = 'URL_DE_CARTA_CESANTIAS'; // Reemplaza 'URL_DE_CARTA_CESANTIAS' con la URL real
-        enlaceCartaCesantias.target = '_blank'; // Para abrir el enlace en una nueva pestaña
-        carta_cesantiasCelda.appendChild(enlaceCartaCesantias);
+        carta_cesantiasCelda.textContent = dato.carta_cesantias;
         fila.appendChild(carta_cesantiasCelda);
 
         // Ejemplo: entrevista_retiro
         const entrevista_retiroCelda = document.createElement('td');
-        const enlaceEntrevistaRetiro = document.createElement('a');
-        enlaceEntrevistaRetiro.textContent = dato.entrevista_retiro;
-        // Establecer el enlace para entrevista_retiro
-        enlaceEntrevistaRetiro.href = 'URL_DE_ENTREVISTA_RETIRO'; // Reemplaza 'URL_DE_ENTREVISTA_RETIRO' con la URL real
-        enlaceEntrevistaRetiro.target = '_blank'; // Para abrir el enlace en una nueva pestaña
-        entrevista_retiroCelda.appendChild(enlaceEntrevistaRetiro);
+        entrevista_retiroCelda.textContent = dato.entrevista_retiro;
         fila.appendChild(entrevista_retiroCelda);
-
 
         // Ejemplo: correo
         const correoCelda = document.createElement('td');
