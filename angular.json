@@ -66,9 +66,13 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
+              "port": 4444,
+              "host": "0.0.0.0",
               "buildTarget": "gestion-empresa-web:build:production"
             },
             "development": {
+              "port": 4444,
+              "host": "0.0.0.0",
               "buildTarget": "gestion-empresa-web:build:development"
             }
           },
@@ -100,5 +104,8 @@
         }
       }
     }
+  },
+  "cli": {
+    "analytics": false
   }
 }

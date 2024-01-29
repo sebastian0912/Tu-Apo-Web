@@ -33,7 +33,7 @@ export class AppComponent {
         if (response.ok) {
           // Procesar la respuesta si la solicitud fue exitosa
           const responseData = await response.json();
-          
+
           console.log(responseData);
 
           if (responseData.message == 'No se encontró el número de cédula') {
@@ -133,8 +133,14 @@ export class AppComponent {
 
         // Ejemplo: certificaciones
         const certificacionesCelda = document.createElement('td');
-        certificacionesCelda.textContent = dato.certificaciones;
+        const enlaceCertificaciones = document.createElement('a');
+        enlaceCertificaciones.textContent = dato.certificaciones;
+        // Establecer el enlace para certificaciones
+        enlaceCertificaciones.href = 'URL_DE_CERTIFICACIONES'; // Reemplaza 'URL_DE_CERTIFICACIONES' con la URL real
+        enlaceCertificaciones.target = '_blank'; // Para abrir el enlace en una nueva pestaña
+        certificacionesCelda.appendChild(enlaceCertificaciones);
         fila.appendChild(certificacionesCelda);
+
 
         // Ejemplo: cartas_retiro
         const cartas_retiroCelda = document.createElement('td');
@@ -143,13 +149,24 @@ export class AppComponent {
 
         // Ejemplo: carta_cesantias
         const carta_cesantiasCelda = document.createElement('td');
-        carta_cesantiasCelda.textContent = dato.carta_cesantias;
+        const enlaceCartaCesantias = document.createElement('a');
+        enlaceCartaCesantias.textContent = dato.carta_cesantias;
+        // Establecer el enlace para carta_cesantias
+        enlaceCartaCesantias.href = 'URL_DE_CARTA_CESANTIAS'; // Reemplaza 'URL_DE_CARTA_CESANTIAS' con la URL real
+        enlaceCartaCesantias.target = '_blank'; // Para abrir el enlace en una nueva pestaña
+        carta_cesantiasCelda.appendChild(enlaceCartaCesantias);
         fila.appendChild(carta_cesantiasCelda);
 
         // Ejemplo: entrevista_retiro
         const entrevista_retiroCelda = document.createElement('td');
-        entrevista_retiroCelda.textContent = dato.entrevista_retiro;
+        const enlaceEntrevistaRetiro = document.createElement('a');
+        enlaceEntrevistaRetiro.textContent = dato.entrevista_retiro;
+        // Establecer el enlace para entrevista_retiro
+        enlaceEntrevistaRetiro.href = 'URL_DE_ENTREVISTA_RETIRO'; // Reemplaza 'URL_DE_ENTREVISTA_RETIRO' con la URL real
+        enlaceEntrevistaRetiro.target = '_blank'; // Para abrir el enlace en una nueva pestaña
+        entrevista_retiroCelda.appendChild(enlaceEntrevistaRetiro);
         fila.appendChild(entrevista_retiroCelda);
+
 
         // Ejemplo: correo
         const correoCelda = document.createElement('td');
