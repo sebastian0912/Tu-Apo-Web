@@ -1,48 +1,40 @@
-/* http://meyerweb.com/eric/tools/css/reset/ 
-   v2.0 | 20110126
-   License: none (public domain)
-*/
+@import url('https://fonts.googleapis.com/css2?family=Roboto&display=swap');
+@import url('//fonts.googleapis.com/css?family=Oswald');
+@import url('//fonts.googleapis.com/css?family=Open+Sans');
 
-html, body, div, span, applet, object, iframe,
-h1, h2, h3, h4, h5, h6, p, blockquote, pre,
-a, abbr, acronym, address, big, cite, code,
-del, dfn, em, img, ins, kbd, q, s, samp,
-small, strike, strong, sub, sup, tt, var,
-b, u, i, center,
-dl, dt, dd, ol, ul, li,
-fieldset, form, label, legend,
-table, caption, tbody, tfoot, thead, tr, th, td,
-article, aside, canvas, details, embed, 
-figure, figcaption, footer, header, hgroup, 
-menu, nav, output, ruby, section, summary,
-time, mark, audio, video {
-	margin: 0;
-	padding: 0;
-	border: 0;
-	font-size: 100%;
-	font: inherit;
-	vertical-align: baseline;
+/* You can add global styles to this file, and also import other style files */
+*, *::before, *::after{
+  box-sizing: border-box; /* Set the sizing of an element to include it's border */
 }
-/* HTML5 display-role reset for older browsers */
-article, aside, details, figcaption, figure, 
-footer, header, hgroup, menu, nav, section {
-	display: block;
+
+*{
+  margin: 0; /* Set the default margin to 0 */
+  padding: 0; /* Set the default padding to 0 */
 }
-body {
-	line-height: 1;
+
+ul[role='list'], ol[role='list']{
+  list-style: none; /* Turn off numbered and unordered list decoration */
 }
-ol, ul {
-	list-style: none;
+
+html:focus-within{
+  scroll-behavior: smooth; /* Make the scrolling inside of any scrollable element smooth */
 }
-blockquote, q {
-	quotes: none;
+
+a:not([class]){
+  text-decoration-skip-ink: auto; /* Makes link undelines look better */
 }
-blockquote:before, blockquote:after,
-q:before, q:after {
-	content: '';
-	content: none;
+
+img, picture, svg, video, canvas{
+  max-width: 100%; /* Makes it responsive */
+  height: auto; /* Makes it responsive */
+  vertical-align: middle; /* Makes text next to inline images look better */
+  font-style: italic; /* If the images don't load it makes the alt decription look better */
+  background-repeat: no-repeat;
+  /* The background repeat and size are there if you want to load a picture first like a backroung image that is worse quality while the better quality image loads */
+  background-size: cover;
 }
-table {
-	border-collapse: collapse;
-	border-spacing: 0;
+
+input, button, textarea, select{
+  font: inherit; /* Makes these elements inherit fonts */
 }
+

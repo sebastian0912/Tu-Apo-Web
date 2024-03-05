@@ -2,57 +2,55 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import Swal from 'sweetalert2'
+import Swal from 'sweetalert2';
 import { SequenceError } from 'rxjs';
+import { urlBack } from '../model/Usuario';
 
 @Component({
   selector: 'app-desprendibles',
   standalone: true,
   imports: [CommonModule, RouterOutlet, FormsModule],
   templateUrl: './desprendibles.component.html',
-  styleUrl: './desprendibles.component.css'
+  styleUrl: './desprendibles.component.css',
 })
 export class DesprendiblesComponent {
   title = 'gestion-empresa-web';
   cedula: string = '';
 
   async sendCedula(): Promise<void> {
-
     try {
+      // Recuperar el JWT de localStorage
+      const body = localStorage.getItem('key'); // Asegúrate de que 'key' sea la clave correcta donde se almacena el JWT
+      const obj = JSON.parse(body || '{}'); // Añadido un '{}' por defecto para manejar null
+      const jwtKey = obj.jwt;
+
+      // Construir los encabezados, incluyendo el token de autorización
+      const headers = {
+        Authorization: jwtKey,
+      };
+
       // Construir la URL completa
-      const urlcompleta = `${'http://10.10.10.60:4545'}/Desprendibles/traerDesprendibles/${
-        this.cedula
-      }`;
+      const urlcompleta = `${urlBack.url}/Desprendibles/traerDesprendibles/${this.cedula}`;
 
-      try {
-        // Realizar la solicitud HTTP utilizando async/await
-        const response = await fetch(urlcompleta, {
-          method: 'GET',
-          // headers: headers,
-        });
+      // Realizar la solicitud HTTP utilizando async/await
+      const response = await fetch(urlcompleta, {
+        method: 'GET',
+        headers: headers, // Asegúrate de incluir los encabezados aquí
+      });
 
-        if (response.ok) {
-          // Procesar la respuesta si la solicitud fue exitosa
-          const responseData = await response.json();
-
-          console.log(responseData);
-          // Mostrar los datos en la tabla
-          this.mostrarDatosEnTabla(responseData);
-
-        } else {
-          // Lanzar un error si la respuesta no fue exitosa
-          throw new Error('Error en la petición GET');
-        }
-      } catch (error) {
-        // Manejar errores en la petición HTTP
-        console.error('Error en la petición HTTP GET');
-        console.error(error);
-        throw error; // Propagar el error para que se pueda manejar fuera de la función
+      if (response.ok) {
+        // Procesar la respuesta si la solicitud fue exitosa
+        const responseData = await response.json();
+        // Mostrar los datos en la tabla o manejar como sea necesario
+        this.mostrarDatosEnTabla(responseData);
+      } else {
+        // Lanzar un error si la respuesta no fue exitosa
+        throw new Error('Error en la petición GET');
       }
     } catch (error) {
-      // Manejar errores al intentar parsear el objeto JSON
+      // Manejar errores en la petición HTTP o en la recuperación del JWT
       console.error(
-        'Error al parsear el objeto JSON almacenado en localStorage'
+        'Error al realizar la petición HTTP GET o al manejar el JWT'
       );
       console.error(error);
       throw error; // Propagar el error para que se pueda manejar fuera de la función
@@ -115,18 +113,32 @@ export class DesprendiblesComponent {
 
         // Ejemplo: desprendibles
         const desprendiblesCelda = document.createElement('td');
-        desprendiblesCelda.textContent = dato.desprendibles;
+        const desprendiblesLink = document.createElement('a'); // Crear un elemento <a> para el enlace
+        desprendiblesLink.href = dato.desprendibles; // Establecer la URL del enlace
+        desprendiblesLink.textContent = 'Ver Desprendible'; // Establecer el texto del enlace. Puedes cambiarlo por lo que prefieras
+        desprendiblesLink.target = '_blank'; // Opcional: Abre el enlace en una nueva pestaña
+        // Agregar el enlace a la celda de la tabla
+        desprendiblesCelda.appendChild(desprendiblesLink);
         fila.appendChild(desprendiblesCelda);
 
         // Ejemplo: certificaciones
         const certificacionesCelda = document.createElement('td');
-        certificacionesCelda.textContent = dato.certificaciones;
-        fila.appendChild(certificacionesCelda);
+        const certificacionesLink = document.createElement('a');
+        certificacionesLink.href = dato.certificaciones;
+        certificacionesLink.textContent = "Ver Certificación";
+        certificacionesLink.target = "_blank";
+        certificacionesCelda.appendChild(certificacionesLink);
+        fila.appendChild(certificacionesCelda);        
 
         // Ejemplo: cartas_retiro
         const cartas_retiroCelda = document.createElement('td');
-        cartas_retiroCelda.textContent = dato.cartas_retiro;
+        const cartas_retiroLink = document.createElement('a');
+        cartas_retiroLink.href = dato.cartas_retiro;
+        cartas_retiroLink.textContent = "Ver Carta";
+        cartas_retiroLink.target = "_blank";
+        cartas_retiroCelda.appendChild(cartas_retiroLink);
         fila.appendChild(cartas_retiroCelda);
+        
 
         // Ejemplo: carta_cesantias
         const carta_cesantiasCelda = document.createElement('td');
@@ -135,8 +147,13 @@ export class DesprendiblesComponent {
 
         // Ejemplo: entrevista_retiro
         const entrevista_retiroCelda = document.createElement('td');
-        entrevista_retiroCelda.textContent = dato.entrevista_retiro;
+        const entrevista_retiroLink = document.createElement('a');
+        entrevista_retiroLink.href = dato.entrevista_retiro;
+        entrevista_retiroLink.textContent = "Ver Entrevista";
+        entrevista_retiroLink.target = "_blank";
+        entrevista_retiroCelda.appendChild(entrevista_retiroLink);
         fila.appendChild(entrevista_retiroCelda);
+        
 
         // Ejemplo: correo
         const correoCelda = document.createElement('td');
