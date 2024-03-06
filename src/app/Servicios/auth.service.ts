@@ -14,12 +14,19 @@ export class AuthService {
     const url = `${urlBack.url}/usuarios/ingresar`;
     try {
       const response = await this.http.post(url, { email, password }, { withCredentials: true }).toPromise();
+
       // Continúa la implementación basada en tu lógica de negocio
       return response;
     } catch (error) {
       console.error('Error al iniciar sesión', error);
       return null;
     }
+  }
+
+  // Implementa el método logout solo para limpiar todo el localStorage
+  logout(): void {
+    localStorage.clear();
+    window.location.href = '';
   }
   
 }

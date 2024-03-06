@@ -110,7 +110,7 @@
 	padding: 10px;
 	padding-left: 24px;
 	font-weight: 700;
-	width: 75%;
+	width: 100%;
 	transition: .2s;
 }
 
@@ -122,22 +122,27 @@
 }
 
 .login__submit {
-	background: #fff;
-	font-size: 14px;
-	margin-top: 30px;
-	padding: 16px 20px;
-	border-radius: 26px;
-	border: 1px solid #D4D3E8;
-	text-transform: uppercase;
-	font-weight: 700;
-	display: flex;
-	align-items: center;
-	width: 100%;
-	color: #8DD603;
-	box-shadow: 0px 2px 2px #FEBB2E;
-	cursor: pointer;
-	transition: .2s;
+    background: #fff;
+    font-size: 14px; /* Ajusta según sea necesario para el contenido */
+    margin-top: 30px;
+    padding: 8px 20px; /* Reducir el valor de padding vertical */
+    border-radius: 26px;
+    border: 1px solid #D4D3E8;
+    text-transform: uppercase;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    color: #8DD603;
+    box-shadow: 0px 2px 2px #FEBB2E;
+    cursor: pointer;
+    transition: .2s;
 }
+
+.button__text {
+    margin: 0; /* Asegura que no haya margen extra afectando la altura */
+}
+
 
 .login__submit:active,
 .login__submit:focus,

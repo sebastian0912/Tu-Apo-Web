@@ -6,19 +6,14 @@
 			<div class="screen__content">
 				<form class="login" id="signUp-form" [formGroup]="loginForm" (ngSubmit)="onSubmit()">
 					<div class="login__field">
-						<i class="login__icon fas fa-user"></i>
 						<input type="email" class="login__input" placeholder="Correo" id="signIn-email" formControlName="email">
 					</div>
-					<div class="login__field">
-						<i class="login__icon fas fa-lock"></i>
+					<div class="login__field">					
 						<input type="password" class="login__input" placeholder="Contraseña" id="signIn-password" formControlName="password">
-					</div>
-					<i class="bx bx-show-alt" id="icon"></i>
+					</div>					
+					
 					<button class="button login__submit">
-
 						<h4 class="button__text">Iniciar Sesión</h4>
-
-							<i class="button__icon fas"></i>
 					</button>
 				</form>
 

@@ -5,58 +5,87 @@ import { FormsModule } from '@angular/forms';
 import Swal from 'sweetalert2';
 import { SequenceError } from 'rxjs';
 import { urlBack } from '../model/Usuario';
+import { AuthService } from '../Servicios/auth.service';
+import { HttpClientModule } from '@angular/common/http';
 
 @Component({
   selector: 'app-desprendibles',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, FormsModule],
+  imports: [CommonModule, RouterOutlet, FormsModule, HttpClientModule],
   templateUrl: './desprendibles.component.html',
   styleUrl: './desprendibles.component.css',
+  providers: [AuthService],
 })
 export class DesprendiblesComponent {
   title = 'gestion-empresa-web';
   cedula: string = '';
 
-  async sendCedula(): Promise<void> {
-    try {
-      // Recuperar el JWT de localStorage
-      const body = localStorage.getItem('key'); // Asegúrate de que 'key' sea la clave correcta donde se almacena el JWT
-      const obj = JSON.parse(body || '{}'); // Añadido un '{}' por defecto para manejar null
-      const jwtKey = obj.jwt;
+  constructor(    private authService: AuthService,
+    ) {}
 
-      // Construir los encabezados, incluyendo el token de autorización
+  cerrarSesion(){
+    this.authService.logout()
+  }
+
+  async sendCedula(): Promise<void> {
+
+    if (this.cedula === '') {
+      Swal.fire({
+        icon: 'error',
+        title: 'Oops...',
+        text: 'Por favor ingrese un número de cédula.',
+      });
+      return;
+    }
+    
+    try {
+      const body = localStorage.getItem('key'); // Asegúrate de que 'key' sea la clave correcta
+      const obj = JSON.parse(body || '{}');
+      const jwtKey = obj.jwt;
+  
       const headers = {
         Authorization: jwtKey,
       };
-
-      // Construir la URL completa
+  
       const urlcompleta = `${urlBack.url}/Desprendibles/traerDesprendibles/${this.cedula}`;
-
-      // Realizar la solicitud HTTP utilizando async/await
+  
       const response = await fetch(urlcompleta, {
         method: 'GET',
-        headers: headers, // Asegúrate de incluir los encabezados aquí
+        headers: headers,
       });
-
+  
       if (response.ok) {
-        // Procesar la respuesta si la solicitud fue exitosa
         const responseData = await response.json();
-        // Mostrar los datos en la tabla o manejar como sea necesario
+
+        if (responseData.message === "No se encontró el número de cédula") {
+          Swal.fire({
+            icon: 'error',
+            title: 'Oops...',
+            text: 'No se encontraron desprendibles para la cédula ingresada.',
+          });
+          return;
+        }
+
         this.mostrarDatosEnTabla(responseData);
+      } else if (response.status === 401) { // Verificar si el problema es un token expirado o inválido
+        Swal.fire({
+          icon: 'error',
+          title: 'Oops...',
+          text: 'La sesión ha expirado, por favor inicie sesión nuevamente.',
+        }).then(() => {
+          window.location.href = '';
+        });      
+
       } else {
-        // Lanzar un error si la respuesta no fue exitosa
         throw new Error('Error en la petición GET');
       }
     } catch (error) {
-      // Manejar errores en la petición HTTP o en la recuperación del JWT
-      console.error(
-        'Error al realizar la petición HTTP GET o al manejar el JWT'
-      );
+      console.error('Error al realizar la petición HTTP GET o al manejar el JWT');
       console.error(error);
-      throw error; // Propagar el error para que se pueda manejar fuera de la función
+      throw error;
     }
   }
-
+  
   // Función para mostrar los datos en la tabla
   mostrarDatosEnTabla(responseData: any): void {
     // Obtener el elemento tbody de la tabla
