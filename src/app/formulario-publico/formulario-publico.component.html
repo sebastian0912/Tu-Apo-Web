@@ -6,7 +6,7 @@
       <h1>Formulario de contratación</h1>
     </div>
   
-    <button mat-raised-button color="primary" (click)="imprimirInformacion()"> Guardar </button>
+    <button type="submit" mat-raised-button color="primary" (click)="imprimirInformacion()"> Guardar </button>
   
     <div class="fila1">
   
@@ -225,6 +225,31 @@
             <mat-label>Cómo se enteró de la vacante</mat-label>
             <input matInput formControlName="fuenteVacante" placeholder="Ejemplo: Internet, Amigo">
           </mat-form-field>
+
+
+          <div class="file">
+            <input (change)="capturarFile($event)" type="file" class="input-file" id="file">
+            <button class="boton" onclick="document.getElementById('file').click()">Seleccione la foto de la parte frontal
+              de la cedula (Debe ser clara)</button>
+            <div class="preview-img" *ngIf="previsualizacion">
+              <img class="previo" [src]="previsualizacion" alt="1">
+            </div>
+          </div>
+  
+          <div class="file">
+            <input (change)="capturarFile2($event)" type="file" class="input-file" id="file2">
+            <button class="boton" onclick="document.getElementById('file2').click()" type="button">Seleccione la foto de la parte
+              trasera de la cedula (Debe ser clara)</button>
+            <div class="preview-img" *ngIf="previsualizacion2">
+              <img class="previo2" [src]="previsualizacion2" alt="2">
+            </div>
+          </div>
+
+          <!--LLAMAR COMPONENTE FIRMA y -->
+          <app-firma></app-firma>
+          <!-- llamar metodos que estan en el otro componente firma -->
+          <button (click)="limpiarFirma()" type="button">Limpiar Firma</button>
+          <button (click)="guardarFirma()" type="button">Guardar Firma</button>
   
         </div>
   

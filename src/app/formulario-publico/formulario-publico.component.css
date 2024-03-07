@@ -1,138 +1,152 @@
 .contenedor {
-    max-width: 100%;
-    box-sizing: content-box;
-  }
-  
-  .head {
-    width: 100%;
-    background-color: #8DD603;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-sizing: content-box;
-  }
-  
-  .datos {
-    width: 100%;
-    height: 100%;
-    background-color: #F2F3F5;
-    display: flex;
-    flex-wrap: wrap;
-  }
-  
-  .numeroHijos,
-  .datosPapa,
-  .datrosMama {
-    width: 100%;
-  }
-  
-  .head .hijos,
-  .head .papa,
-  .head .mama,
-  .head .datosEmpresa {
-    flex: 1;
-  }
-  
-  .logo {
-    background-color: #8DD603;
-    float: left;
-    margin-left: 50px;
-    margin-top: 5px;
-  }
-  
-  .title {
-    box-sizing: content-box;
-    background-color: #8DD603;
-    padding-left: 30px;
-    margin-top: 10px;
-    color: white;
-    height: 50px;
-    padding-top: 10px;
-  
-  }
-  
-  h1 {
-    font-family: 'Oswald';
-    font-size: 30pt;
-    margin-top: 0;
-    margin-bottom: 0;
-    margin-right: 50px;
-  }
-  
-  h1:nth-child(2) {
-    /* centrar en la mitad */
-    margin-left: 30px;
-    margin-top: 15px;
-    margin-bottom: 20px;
-    text-align: center;
-  }
-  
-  .opciones {
-    float: left;
-    margin-right: 110px;
-  }
-  
-  .example-section {
-    margin-left: 30px;
-    margin-bottom: 20px;
-    width: 30%;
-  }
-  
-  .example-section h3 {
-    font-family: 'Open Sans';
-  }
-  
-  
-  mat-form-field {
-    width: calc(30% - 40px);
-    /* Ajusta según tus márgenes */
-    margin: 10px 20px 10px 30px;
-    /* Mantén o ajusta los márgenes según sea necesario */
-  }
-  
-  mat-datepicker-toggle {
-    color: #8DD603;
-    margin-top: 0;
-    margin-bottom: 0;
-    padding: 0;
-  }
-  
-  mat-datepicker {
-    color: #8DD603;
-  }
-  
-  .edad-hijo-form-field {
-    width: calc(30% - 40px); /* Ajusta según tus márgenes */
-    margin: 10px 20px 10px 30px; /* Mantén o ajusta los márgenes según sea necesario */
-    min-width: 410px; /* Establece un ancho mínimo para los campos */
-  }
-  
-  .file {
-    margin-top: 10px;
-    margin-bottom: 10px;
-  }
-  
-  .input-file {
-    display: none;
-  }
-  
-  .check {
-    display: flex;
-    flex-wrap: wrap;
-    width: 50%; /* Asegura que ocupe todo el ancho disponible */
-    margin-left: 20px;
-  }
-  
-  .check2 {
-    width: 50%; /* Cada checkbox ocupa la mitad del contenedor para formar dos columnas */
-    box-sizing: border-box; /* Incluye el padding y el borde en el ancho especificado */
-    padding: 2px; /* Espacio entre los checkbox */
-  }
-  
-  
-  
-  
-  /*
+  max-width: 100%;
+  box-sizing: content-box;
+}
+
+.head {
+  width: 100%;
+  background-color: #8dd603;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-sizing: content-box;
+}
+
+.datos {
+  width: 100%;
+  height: 100%;
+  background-color: #f2f3f5;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.numeroHijos,
+.datosPapa,
+.datrosMama {
+  width: 100%;
+}
+
+.head .hijos,
+.head .papa,
+.head .mama,
+.head .datosEmpresa {
+  flex: 1;
+}
+
+.logo {
+  background-color: #8dd603;
+  float: left;
+  margin-left: 50px;
+  margin-top: 5px;
+}
+
+.title {
+  box-sizing: content-box;
+  background-color: #8dd603;
+  padding-left: 30px;
+  margin-top: 10px;
+  color: white;
+  height: 50px;
+  padding-top: 10px;
+}
+
+h1 {
+  font-family: "Oswald";
+  font-size: 30pt;
+  margin-top: 0;
+  margin-bottom: 0;
+  margin-right: 50px;
+}
+
+h1:nth-child(2) {
+  /* centrar en la mitad */
+  margin-left: 30px;
+  margin-top: 15px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.opciones {
+  float: left;
+  margin-right: 110px;
+}
+
+.example-section {
+  margin-left: 30px;
+  margin-bottom: 20px;
+  width: 30%;
+}
+
+.example-section h3 {
+  font-family: "Open Sans";
+}
+
+mat-form-field {
+  width: calc(30% - 40px);
+  /* Ajusta según tus márgenes */
+  margin: 10px 20px 10px 30px;
+  /* Mantén o ajusta los márgenes según sea necesario */
+}
+
+mat-datepicker-toggle {
+  color: #8dd603;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding: 0;
+}
+
+mat-datepicker {
+  color: #8dd603;
+}
+
+.edad-hijo-form-field {
+  width: calc(30% - 40px); /* Ajusta según tus márgenes */
+  margin: 10px 20px 10px 30px; /* Mantén o ajusta los márgenes según sea necesario */
+  min-width: 410px; /* Establece un ancho mínimo para los campos */
+}
+
+.file {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.input-file {
+  display: none;
+}
+
+.check {
+  display: flex;
+  flex-wrap: wrap;
+  width: 50%; /* Asegura que ocupe todo el ancho disponible */
+  margin-left: 20px;
+}
+
+.check2 {
+  width: 50%; /* Cada checkbox ocupa la mitad del contenedor para formar dos columnas */
+  box-sizing: border-box; /* Incluye el padding y el borde en el ancho especificado */
+  padding: 2px; /* Espacio entre los checkbox */
+}
+
+.input-file {
+  display: none;
+}
+
+.boton {
+  height: 51px;
+  width: 520px;
+  background-color: #8dd603;
+  border: none;
+  margin-top: 10px;
+  margin-left: 30px;
+  border-radius: 5px;
+  font-family: "Open Sans";
+  color: #fff;
+  font-size: 13pt;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/*
   @media screen and (max-width: 600px) {
     .titulo {
       font-size: 25pt;
@@ -203,8 +217,8 @@
       margin-top: 130px;
     }
   }*/
-  
-  /*
+
+/*
   @media screen and (min-width : 1224px) and (max-width : 1824px) {
     .contenedor {
       width: 100%;
@@ -255,4 +269,3 @@
   
   }
   */
-  
