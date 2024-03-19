@@ -1,7 +1,7 @@
 
 export let urlBack: { url: string } = {
-    url: "https://formulario.tsservicios.co"
-    //url: 'http://10.10.10.60:4545'
+    //url: "https://formulario.tsservicios.co"
+    url: 'http://10.10.10.60:4545'
     // url: 'http://127.0.0.1:8000' // Puedes descomentar esta línea y comentar la anterior para cambiar la URL del backend.
 };
 

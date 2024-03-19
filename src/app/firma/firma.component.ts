@@ -1,4 +1,5 @@
-import { Component, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, ViewChild, ElementRef, AfterViewInit, Inject, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import SignaturePad from 'signature_pad';
 
 @Component({
@@ -8,12 +9,16 @@ import SignaturePad from 'signature_pad';
   templateUrl: './firma.component.html',
   styleUrl: './firma.component.css'
 })
-export class FirmaComponent {
+export class FirmaComponent implements AfterViewInit {
   @ViewChild('signaturePadElement') signaturePadElement: ElementRef | undefined;
   signaturePad: any;
 
+  constructor(@Inject(PLATFORM_ID) private platformId: Object) {}
+
   ngAfterViewInit() {
-    this.signaturePad = new SignaturePad(this.signaturePadElement!.nativeElement);
+    if (isPlatformBrowser(this.platformId)) {
+      this.signaturePad = new SignaturePad(this.signaturePadElement!.nativeElement);
+    }
   }
 
   // Método para limpiar la firma
@@ -25,7 +30,12 @@ export class FirmaComponent {
   saveSignature() {
     if (!this.signaturePad.isEmpty()) {
       const data = this.signaturePad.toDataURL();
-      console.log(data); // Aquí puedes enviar la data (base64 image) a tu backend, etc.
+      // dejar solo el base64
+      const base64 = data.split(',')[1];
+      //console.log(base64);
+      return base64;
+      
+
     }
   }
 }
