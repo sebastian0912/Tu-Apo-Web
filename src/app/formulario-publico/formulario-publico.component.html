@@ -8,18 +8,19 @@
 
   <div class="fila1">
     <div class="cajabusqueda">
-      <mat-form-field appearance="fill">
+      <mat-form-field appearance="fill" *ngIf="!mostrarFormulario" class="cedulaAux">
         <mat-label> Escriba el número de cédula a buscar </mat-label>
         <input type="number" matInput [(ngModel)]="numeroCedula" placeholder="Ej: 10058478963">
       </mat-form-field>
 
-      <button type="button" class="boton" style="margin-top: -5px; margin-bottom: 5px;" mat-raised-button
-        color="primary" (click)="buscarCedula()"> Buscar </button>
-        <button type="button" class="boton" style="margin-top: -5px; margin-bottom: 5px;" mat-raised-button
-        color="primary" (click)="fillForm()"> Prueba PDF </button>
+      <button type="button" class="boton" *ngIf="!mostrarFormulario" 
+        mat-raised-button color="primary" (click)="buscarCedula()"> Buscar </button>
+
+      <button type="button" class="boton" mat-raised-button
+        color="primary" (click)="fillForm()"> Generar y guardar pdf </button>
     </div>
 
-    <form class="formulario" [formGroup]="formHojaDeVida">
+    <form class="formulario" [formGroup]="formHojaDeVida" id="formulario" >
       <div>
 
         <div class="title">
@@ -246,7 +247,7 @@
 
           <div class="file">
             <input (change)="capturarFile($event)" type="file" class="input-file" id="file">
-            <button class="boton" onclick="document.getElementById('file').click()" type="button">Seleccione la foto de
+            <button class="boton" onclick="document.getElementById('file').click()" type="button" style="background-color: #8dd603;">Seleccione la foto de
               la
               parte frontal
               de la cedula (Debe ser clara)</button>
@@ -257,13 +258,22 @@
 
           <div class="file">
             <input (change)="capturarFile2($event)" type="file" class="input-file" id="file2">
-            <button class="boton" onclick="document.getElementById('file2').click()" type="button">Seleccione la foto de
+            <button class="boton" onclick="document.getElementById('file2').click()" type="button" style="background-color: #8dd603;">Seleccione la foto de
               la parte
               trasera de la cedula (Debe ser clara)</button>
             <div class="preview-img" *ngIf="previsualizacion2">
               <img class="previo2" [src]="previsualizacion2" alt="2">
             </div>
           </div>
+
+          <div class="file">
+            <input (change)="capturarFile3($event)" type="file" class="input-file" id="file3">
+            <button class="boton" onclick="document.getElementById('file3').click()" type="button" style="background-color: #8dd603;">Suba uan foto suya</button>
+            <div class="preview-img" *ngIf="previsualizacion3">
+              <img class="previo2" [src]="previsualizacion3" alt="3">
+            </div>
+          </div>
+
           <div style="margin-right: 150px;"></div>
 
           <div class="firmaCaja">
@@ -1030,8 +1040,12 @@
             </mat-checkbox>
           </div>
         </div>
-        <button type="submit" mat-raised-button color="primary" style="width: 70%; margin: 0 auto; margin-top: 40px;"
+        <button type="submit" mat-raised-button color="primary" style="width: 70%; margin: 0 auto; margin-top: 40px; margin-bottom: 70px;"
           (click)="imprimirInformacion2()"> Guardar </button>
+
+
+        <button type="button" class="boton" mat-raised-button color="primary"
+          style="width: 50%; margin: 0 auto; margin-bottom: 50px;" (click)="fillForm()"> Generar y guardar pdf </button>
       </div>
 
 

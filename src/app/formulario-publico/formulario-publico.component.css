@@ -1,6 +1,8 @@
 .contenedor {
   max-width: 100%;
   box-sizing: content-box;
+  -webkit-text-size-adjust: 100%;
+
 }
 
 .head {
@@ -113,6 +115,10 @@ mat-datepicker {
   margin-bottom: 10px;
 }
 
+.cedulaAux {
+  margin-top: 25px;
+}
+
 .input-file {
   display: none;
 }
@@ -141,7 +147,6 @@ mat-datepicker {
 .boton {
   height: 51px;
   width: 420px;
-  background-color: #8dd603;
   border: none;
   margin-top: 10px;
   margin-left: 30px;
@@ -157,7 +162,7 @@ mat-datepicker {
   margin-right: 40px;
 }
 
-.firmaCaja{
+.firmaCaja {
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -165,14 +170,14 @@ mat-datepicker {
   align-items: center;
 }
 
-.botones{
+.botones {
   display: flex;
   justify-content: center;
   align-items: center;
   margin-top: 20px;
 }
 
-.botones button{
+.botones button {
   width: 200px;
   height: 50px;
   margin: 0 20px;
@@ -181,6 +186,21 @@ mat-datepicker {
   font-size: 13pt;
   font-weight: bold;
   cursor: pointer;
+}
+
+.cajabusqueda {
+  width: 100%;
+  height: 10vh;
+  /* Establece la altura a 100% de la altura de la ventana */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  /* Esto ya debería estar centrando los elementos verticalmente */
+}
+
+.cajabusqueda .boton {
+  margin-top: 0px;
+
 }
 
 
@@ -289,10 +309,37 @@ mat-datepicker {
     margin-top: 130px;
   }
 
-  .botones button{
+  .botones button {
     width: 150px;
     margin: 0 10px 0 0;
   }
+
+  .cajabusqueda {
+    flex-direction: column;
+    height: 25vh;
+
+  }
+
+  .cajabusqueda mat-form-field {
+    width: 80%;
+  }
+
+  .cajabusqueda .boton {
+    width: 80%;
+    margin-top: 10px;
+
+  }
+
+  .cajabusqueda .boton:nth-child(2) {
+    margin-left: 37px;
+
+  }
+
+  .cajabusqueda .boton:nth-child(3) {
+    margin-left: 0;
+  }
+
+
 }
 
 @media screen and (min-width: 601px) and (max-width: 1223px) {
@@ -331,7 +378,7 @@ mat-datepicker {
 
   .boton {
     width: 100%;
-    
+
   }
 
   .previo {
@@ -342,18 +389,16 @@ mat-datepicker {
     margin-left: -130px;
   }
 
-  .botones button{
+  .botones button {
     width: 145px;
     margin: 0 10px 0 0;
   }
 
-  .cajabusqueda .boton{
+  .cajabusqueda .boton {
     width: 40%;
   }
 
 }
-
-
 
 @media screen and (min-width : 1224px) and (max-width : 1824px) {
   .contenedor {
@@ -363,7 +408,8 @@ mat-datepicker {
 
   }
 
-  .cajabusqueda .boton{
+
+  .cajabusqueda .boton {
     width: 40%;
   }
 
@@ -399,13 +445,18 @@ mat-datepicker {
   }
 
 
-
   .previo {
     margin-left: -50px;
   }
 
   .previo2 {
     margin-left: -130px;
+  }
+
+  .logo {
+    width: 60%;
+    height: auto;
+    margin-top: -5px;
   }
 
 }

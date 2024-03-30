@@ -1,0 +1,526 @@
+.contenedor {
+    max-width: 100%;
+    box-sizing: content-box;
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-family: "Open Sans";
+    font-size: 16px;
+}
+
+.head {
+    width: 100%;
+    background-color: #8dd603;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-sizing: content-box;
+    margin-bottom: 10px;
+}
+
+.datos {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+.numeroHijos,
+.datosPapa,
+.datrosMama {
+    width: 100%;
+}
+
+.head .hijos,
+.head .papa,
+.head .mama,
+.head .datosEmpresa {
+    flex: 1;
+}
+
+.logo {
+    background-color: #8dd603;
+    float: left;
+    margin-left: 50px;
+    margin-top: 10px;
+    width: 70%;
+    margin-bottom: 10px;
+}
+
+.title {
+    box-sizing: content-box;
+    background-color: #8dd603;
+    padding-left: 30px;
+    margin-top: 10px;
+    color: white;
+    height: 50px;
+    padding-top: 10px;
+}
+
+.formulario {
+    padding: 30px;
+    text-align: center;
+}
+
+h1 {
+    font-size: 30pt;
+    margin-top: 0;
+    margin-bottom: 0;
+    margin-right: 50px;
+}
+
+h1,
+h2 {
+    font-family: "Oswald";
+    text-align: left;
+}
+
+h2 {
+    font-size: 18pt;
+    margin: 0;
+    padding: 0;
+    margin-left: 50px;
+}
+
+span {
+    font-weight: normal;
+    font-size: 14pt;
+    font-family: "Open Sans";
+    margin: 0;
+    padding: 0;
+}
+
+.info {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+
+}
+
+
+mat-form-field {
+    width: calc(30% - 40px);
+    /* Ajusta según tus márgenes */
+    margin: 10px 20px 10px 30px;
+    /* Mantén o ajusta los márgenes según sea necesario */
+}
+
+mat-datepicker-toggle {
+    color: #8dd603;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding: 0;
+}
+
+mat-datepicker {
+    color: #8dd603;
+}
+
+.cajabusqueda {
+    width: 100%;
+    height: 10vh;
+    /* Establece la altura a 100% de la altura de la ventana */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /* Esto ya debería estar centrando los elementos verticalmente */
+}
+
+.cajabusqueda .boton {
+    margin-top: 0px;
+    width: 50%;
+    margin: -5px 30px 0 0;
+}
+
+
+
+.boton {
+    height: 51px;
+    width: 80%;
+    border: none;
+    border-radius: 5px;
+    font-family: "Open Sans";
+    color: #fff;
+    font-size: 13pt;
+    font-weight: bold;
+    cursor: pointer;
+    margin: 0 auto;
+
+}
+
+.cedulaAux {
+    margin-top: 25px;
+}
+
+.input-file {
+    display: none;
+}
+
+.cajaPrueba {
+    width: 30%;
+    height: 350px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.imagen-gallina {
+    width: 200px;
+    height: 200px;
+    margin-bottom: 20px;
+}
+
+.campos-letras {
+    display: flex;
+    justify-content: center;
+    /* Centra horizontalmente */
+    flex-wrap: wrap;
+    /* Permite que los elementos se ajusten en filas */
+}
+
+.datos input {
+    text-align: center;
+    /* Centra el texto dentro del input */
+    margin: 2px;
+    /* Espaciado entre inputs, ajusta según necesidad */
+    /* Asegúrate de definir un ancho si tus inputs no lo tienen */
+    width: 100px;
+    /* O el ancho que mejor se ajuste a tu diseño */
+}
+
+
+
+
+.operaciones-matematicas {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    padding: 30px;
+}
+
+.operacion {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 10px;
+    width: 31%;
+    margin-right: 20px;
+}
+
+.operacion span {
+    margin-right: 10px;
+    margin-top: 5px;
+    width: 110px;
+}
+
+.operaciones-matematicas input[type="number"] {
+    width: 100px;
+    padding: 5px;
+}
+
+
+
+.pregunta-ramos {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    padding: 30px;
+
+}
+
+.opcion {
+    margin: 5px 0;
+    width: 25%;
+    margin: 0 auto;
+
+}
+
+.opcion label {
+    margin-left: 5px;
+    font-size: 14pt;
+
+}
+
+
+
+
+
+
+
+
+.comparaciones {
+    margin-top: 20px;
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    padding: 33px;
+    align-items: center;
+}
+
+.comparaciones div {
+    margin-bottom: 10px;
+    width: 30%;
+    margin: 0 auto;
+}
+
+.comparaciones span {
+    margin-right: 10px;
+}
+
+
+
+
+
+@media screen and (max-width: 600px) {
+
+    .logo {
+        width: 70%;
+        height: auto;
+        margin-top: 80px;
+    }
+
+    .head {
+        flex-direction: column;
+        align-items: center;
+        height: auto;
+        margin-bottom: 100px;
+        height: 100px;
+        width: 100%;
+        box-sizing: content-box;
+    }
+
+    .head .caja {
+        margin-top: 10px;
+        margin-bottom: 30px;
+        /* Ajusta el espacio entre la imagen y el título */
+        height: auto;
+    }
+
+    .head h1 {
+        margin: 0 auto;
+    }
+
+    .cajabusqueda {        
+        flex-direction: column;
+        width: 80%;
+        height: auto;
+        margin: 0 auto;
+    }
+
+    .cajabusqueda .cedulaAux{
+        margin-top: -20px;
+        width: 100%;
+    }
+
+    .cajabusqueda .boton {
+        width: 100%;
+        margin-top: 10px;
+        margin-left: 45px;
+    }
+
+    .datos {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .logo {
+        margin-top: 10px;
+    }
+
+    .formulario {
+        width: 100%;
+        height: 100%;
+    }
+
+    mat-form-field {
+        width: 80%;
+        margin-top: 10px;
+        margin-bottom: 0px;
+    }
+
+    .cajaPrueba{
+        width: 100%;
+        margin-bottom: 20px;
+    }
+
+    .formulario h2{
+        margin-left: -1px;
+    }
+
+
+
+
+    .operacion{
+        width: 100%;
+        margin-bottom: 20px;    
+    }
+
+
+
+    .pregunta-ramos{
+        width: 100%;
+        text-align: center;
+    }
+
+    .opcion{
+        width: 45%;
+        margin-bottom: 20px;
+    }
+
+
+
+    .comparaciones{
+        width: 100%;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+
+    .comparaciones div{
+        width: 100%;
+        margin-bottom: 20px;
+    }
+
+    .comparaciones .comparar span{
+        margin-right: 10px;
+        font-size: 15pt;
+    }
+
+    .boton {
+        width: 100%;
+        margin-top: 10px;
+        margin-left: 0;
+    }
+
+    /* dar estilo al cuadro del checkbox */
+
+}
+
+@media screen and (min-width: 601px) and (max-width: 1223px) {
+    .logo {
+        width: 70%;
+        height: auto;
+        margin-top: 80px;
+    }
+
+    .head {
+        flex-direction: column;
+        align-items: center;
+        height: auto;
+        margin-bottom: 100px;
+        height: 100px;
+        width: 100%;
+        box-sizing: content-box;
+    }
+
+    .head .caja {
+        margin-top: 10px;
+        margin-bottom: 30px;
+        /* Ajusta el espacio entre la imagen y el título */
+        height: auto;
+    }
+
+    .head h1 {
+        margin: 0 auto;
+    }
+
+    .cajabusqueda {        
+        flex-direction: column;
+        width: 80%;
+        height: auto;
+        margin: 0 auto;
+    }
+
+    .cajabusqueda .cedulaAux{
+        margin-top: -20px;
+        width: 100%;
+    }
+
+    .cajabusqueda .boton {
+        width: 100%;
+        margin-top: 10px;
+        margin-left: 45px;
+    }
+
+    .datos {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .logo {
+        margin-top: 10px;
+    }
+
+    .formulario {
+        width: 100%;
+        height: 100%;
+    }
+
+    mat-form-field {
+        width: 80%;
+        margin-top: 10px;
+        margin-bottom: 0px;
+    }
+
+    .cajaPrueba{
+        width: 40%;
+        margin-bottom: 20px;
+    }
+
+    .formulario h2{
+        margin-left: -1px;
+    }
+
+
+    .operaciones-matematicas{
+        text-align: center;
+    }
+
+    .operacion{
+        width: 40%;
+        margin-bottom: 20px;    
+    }
+
+    .pregunta-ramos{
+        width: 100%;
+        text-align: center;
+    }
+
+    .opcion{
+        width: 45%;
+        margin-bottom: 20px;
+    }
+
+
+
+    .comparaciones{
+        width: 100%;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+
+    .comparaciones div{
+        width: 100%;
+        margin-bottom: 20px;
+    }
+
+    .comparaciones .comparar span{
+        margin-right: 10px;
+        font-size: 15pt;
+    }
+
+    .boton {
+        width: 100%;
+        margin-top: 10px;
+        margin-left: 0;
+    }
+}
