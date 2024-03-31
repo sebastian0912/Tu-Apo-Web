@@ -25,15 +25,17 @@
 
     <form class="formulario" id="formulario">
         <h2>Seleccione la imagen que considere correcta. </h2>
+
         <div class="datos">
+
             <div class="quiz-container">
                 <div *ngFor="let question of questions; let i = index" class="question-box">
                     <div class="question">{{ question.text }}</div>
                     <div class="options-container">
                         <div *ngFor="let option of question.options; let j = index" class="option-box">
                             <label class="custom-option">
-                                <input type="radio" [name]="'question' + i"
-                                    (change)="selectOption(i, j, option.isCorrect)" />
+                                <input type="radio" [name]="'question1' + i"
+                                    (change)="selectOption(questions, i, j, option.isCorrect)" />
                                 <div class="option-content">
                                     <img [src]="option.image" class="option-image" alt="Option image">
                                     <div class="option-text">{{ option.text }}</div>
@@ -51,8 +53,8 @@
                     <div class="options-container">
                         <div *ngFor="let option of question.options; let j = index" class="option-box">
                             <label class="custom-option">
-                                <input type="radio" [name]="'question' + i"
-                                    (change)="selectOption(i, j, option.isCorrect)" />
+                                <input type="radio" [name]="'question2' + i"
+                                    (change)="selectOption(questions2, i, j, option.isCorrect)" />
                                 <div class="option-content">
                                     <img [src]="option.image" class="option-image" alt="Option image">
                                     <div class="option-text">{{ option.text }}</div>
@@ -61,6 +63,12 @@
                         </div>
                     </div>
                 </div>
+            </div>
+
+
+            <!--puntaje-->
+            <div class="puntaje">
+                <h2>Puntaje: {{score}}</h2>
             </div>
 
             <h2> Lea cuidadosamente los siguientes enunciados y seleccione verdadero o falso segun considere </h2>

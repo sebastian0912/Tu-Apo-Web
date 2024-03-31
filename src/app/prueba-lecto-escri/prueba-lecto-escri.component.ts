@@ -1,6 +1,7 @@
 import { ChangeDetectorRef, Component, ViewChild } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { urlBack } from '../model/Usuario';
+import html2canvas from 'html2canvas';
 
 import {
   FormsModule,
@@ -266,6 +267,72 @@ export class PruebaLectoEscriComponent {
   }
 
   enviarRespuestas() {
-    console.log(this.puntaje);
+
+    if(this.numeroCedula === undefined) {
+      Swal.fire({
+        title: 'Error al enviar la prueba',
+        text: 'Por favor, ingresa tu número de cédula.',
+        icon: 'error',
+        confirmButtonText: 'Aceptar',
+      });
+      return;
+    }
+
+    const contenedor = document.querySelector('.contenedor') as HTMLElement;
+
+    if (contenedor) {
+      html2canvas(contenedor).then((canvas) => {
+        // Here you have the canvas. You can convert it to an image, display it, or do whatever you need with it.
+        // For example, to display it in the document:
+        document.body.appendChild(canvas);
+
+        // Or to get the image as a data URL
+        const dataURL = canvas.toDataURL();
+        console.log(dataURL);
+        // You can send this URL to a server or save it directly in the browser.
+
+        // Now, let's send the score and dataURL to the database
+        const url = `${urlBack.url}/contratacion/pruebaLectoEscritura`;
+        const data = {
+          numerodeceduladepersona: this.numeroCedula,
+          porcentajelectoescritura: this.puntaje,
+          evidencia_lectoescritura: dataURL, // Use the actual dataURL here
+        };
+
+        this.http.post(url, data).subscribe(
+          (response: any) => {
+            console.log(response);
+            Swal.fire({
+              title: 'Prueba enviada',
+              text: 'Gracias por terminar el test. Tu resultado ha sido enviado.',
+              icon: 'success',
+              confirmButtonText: 'Aceptar',
+            }).then((result) => {
+              if (result.isConfirmed) {
+                window.location.reload(); // Recarga la página
+              }
+            });
+          },
+          (error) => {
+            console.error(error);
+            Swal.fire({
+              title: 'Error al enviar la prueba',
+              text: 'Ocurrió un error al enviar la prueba. Por favor, inténtalo de nuevo.',
+              icon: 'error',
+              confirmButtonText: 'Aceptar',
+            }).then((result) => {
+              if (result.isConfirmed) {
+                window.location.reload(); // Recarga la página
+              }
+            });
+          }
+        );
+        
+      });
+    } else {
+      console.log('The container element was not found.');
+    }
   }
+
+
 }

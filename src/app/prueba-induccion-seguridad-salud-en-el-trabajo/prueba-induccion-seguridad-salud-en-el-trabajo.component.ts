@@ -1,6 +1,7 @@
 import { ChangeDetectorRef, Component, ViewChild } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { urlBack } from '../model/Usuario';
+import html2canvas from 'html2canvas';
 
 import {
   FormsModule,
@@ -30,13 +31,15 @@ interface Option {
 interface Question {
   text: string;
   options: Option[];
+  selectedOptionIndex: number | null; // Nuevo campo para rastrear la opción seleccionada
 }
 
 interface TrueFalseQuestion {
-  id: number; // Un identificador único por si acaso
+  id: number;
   text: string;
   image: string;
-  selectedAnswer: boolean | null; // null significa que el usuario aún no ha seleccionado una respuesta
+  isCorrect: boolean; // Indica si la respuesta correcta es verdadera
+  selectedAnswer: boolean | null;
 }
 
 interface ImageQuestion {
@@ -47,21 +50,21 @@ interface ImageQuestion {
   correctAnswer: string; // La respuesta correcta
 }
 
-
-
-
 @Component({
   selector: 'app-prueba-induccion-seguridad-salud-en-el-trabajo',
   standalone: true,
-  imports: [RouterOutlet,
+  imports: [
+    RouterOutlet,
     HttpClientModule,
     FormsModule,
     ReactiveFormsModule,
     CommonModule,
     MatInputModule,
-    MatButtonModule,],
-  templateUrl: './prueba-induccion-seguridad-salud-en-el-trabajo.component.html',
-  styleUrl: './prueba-induccion-seguridad-salud-en-el-trabajo.component.css'
+    MatButtonModule,
+  ],
+  templateUrl:
+    './prueba-induccion-seguridad-salud-en-el-trabajo.component.html',
+  styleUrl: './prueba-induccion-seguridad-salud-en-el-trabajo.component.css',
 })
 export class PruebaInduccionSeguridadSaludEnElTrabajoComponent {
   pruebaLectoEscritura: FormGroup;
@@ -72,17 +75,27 @@ export class PruebaInduccionSeguridadSaludEnElTrabajoComponent {
   edad: string = '';
   grado: string = '';
 
-  puntaje = 100;
-
-
   questions: Question[] = [
     {
       text: 'Una de mis responsabilidades como trabajador frente al Sistema de Gestión de Seguridad y Salud en el trabajo es:',
       options: [
-        { text: 'No reportar los accidentes de trabajo.', isCorrect: false, image: '../../assets/Img/SaludYTrabajo/accidente.png' },
-        { text: 'Suministrar información clara, completa y veraz de mi estado de salud.', isCorrect: true, image: '../../assets/Img/SaludYTrabajo/salud-mental.png' },
-        { text: 'No respetar las señales de peligro.', isCorrect: false, image: '../../assets/Img/SaludYTrabajo/no-entrar.png' }
-      ]
+        {
+          text: 'No reportar los accidentes de trabajo.',
+          isCorrect: false,
+          image: '../../assets/Img/SaludYTrabajo/accidente.png',
+        },
+        {
+          text: 'Suministrar información clara, completa y veraz de mi estado de salud.',
+          isCorrect: true,
+          image: '../../assets/Img/SaludYTrabajo/salud-mental.png',
+        },
+        {
+          text: 'No respetar las señales de peligro.',
+          isCorrect: false,
+          image: '../../assets/Img/SaludYTrabajo/no-entrar.png',
+        },
+      ],
+      selectedOptionIndex: null, // Inicialmente, ningún usuario ha seleccionado una opción
     },
     // Más preguntas pueden ir aquí
   ];
@@ -91,10 +104,23 @@ export class PruebaInduccionSeguridadSaludEnElTrabajoComponent {
     {
       text: '"Tan pronto ocurre un accidente de Trabajo, yo debo":',
       options: [
-        { text: 'Asustarme, dando alaridos', isCorrect: false, image: '../../assets/Img/SaludYTrabajo/chico.png' },
-        { text: 'Sentarme a esperar a ver qué pasa', isCorrect: false, image: '../../assets/Img/SaludYTrabajo/sala-de-espera.png' },
-        { text: 'Informar al jefe inmediato y a la empresa temporal 10 sucedido', isCorrect: true, image: '../../assets/Img/SaludYTrabajo/doctor.png' }
-      ]
+        {
+          text: 'Asustarme, dando alaridos',
+          isCorrect: false,
+          image: '../../assets/Img/SaludYTrabajo/chico.png',
+        },
+        {
+          text: 'Sentarme a esperar a ver qué pasa',
+          isCorrect: false,
+          image: '../../assets/Img/SaludYTrabajo/sala-de-espera.png',
+        },
+        {
+          text: 'Informar al jefe inmediato y a la empresa temporal 10 sucedido',
+          isCorrect: true,
+          image: '../../assets/Img/SaludYTrabajo/doctor.png',
+        },
+      ],
+      selectedOptionIndex: null, // Inicialmente, ningún usuario ha seleccionado una opción
     },
     // Más preguntas pueden ir aquí
   ];
@@ -104,15 +130,17 @@ export class PruebaInduccionSeguridadSaludEnElTrabajoComponent {
       id: 1,
       text: 'El comité de Convivencia Laboral vela por el bienestar de los trabajadores',
       image: '../../assets/Img/SaludYTrabajo/director-de-la-silla.png',
+      isCorrect: true, // Suponiendo que esta afirmación es verdadera
+      selectedAnswer: null,
+    },
+    {
+      id: 2,
+      text: 'La empresa no está obligada a reportar accidentes de trabajo menores',
+      image: '../../assets/Img/SaludYTrabajo/contratista.png',
+      isCorrect: false, // Suponiendo que esta afirmación es falsa
       selectedAnswer: null,
     },
     // Agrega más preguntas aquí
-    {
-      id: 2,
-      text: 'El comité de Convivencia Laboral vela por el bienestar de los trabajadores',
-      image: '../../assets/Img/SaludYTrabajo/contratista.png',
-      selectedAnswer: null,
-    },
   ];
 
   imageQuestions: ImageQuestion[] = [
@@ -121,33 +149,32 @@ export class PruebaInduccionSeguridadSaludEnElTrabajoComponent {
       image: '../../assets/Img/SaludYTrabajo/accidenteAlmacen.png',
       statement: 'Selecciona la afirmación verdadera sobre la imagen.',
       options: ['Afirmación A', 'Afirmación B', 'Afirmación C'],
-      correctAnswer: 'Afirmación B'
+      correctAnswer: 'Afirmación B',
     },
     {
       id: 2,
       image: '../../assets/Img/SaludYTrabajo/resbaladizo.png',
       statement: 'Selecciona la afirmación verdadera sobre la imagen.',
       options: ['Afirmación A', 'Afirmación B', 'Afirmación C'],
-      correctAnswer: 'Afirmación B'
+      correctAnswer: 'Afirmación B',
     },
     {
       id: 3,
       image: '../../assets/Img/SaludYTrabajo/dolorEspalda.png',
       statement: 'Selecciona la afirmación verdadera sobre la imagen.',
       options: ['Afirmación A', 'Afirmación B', 'Afirmación C'],
-      correctAnswer: 'Afirmación B'
+      correctAnswer: 'Afirmación B',
     },
     {
       id: 4,
       image: '../../assets/Img/SaludYTrabajo/firmar.png',
       statement: 'Selecciona la afirmación verdadera sobre la imagen.',
       options: ['Afirmación A', 'Afirmación B', 'Afirmación C'],
-      correctAnswer: 'Afirmación B'
+      correctAnswer: 'Afirmación B',
     },
 
     // Más preguntas pueden ir aquí
   ];
-
 
   imageQuestions2: ImageQuestion[] = [
     {
@@ -155,86 +182,84 @@ export class PruebaInduccionSeguridadSaludEnElTrabajoComponent {
       image: '../../assets/Img/SaludYTrabajo/elementosTrabajo.png',
       statement: 'Usar siempre los Elementos de Protección Personal',
       options: ['Si', 'No'],
-      correctAnswer: 'Si'
+      correctAnswer: 'Si',
     },
     {
       id: 2,
       image: '../../assets/Img/SaludYTrabajo/estirado.png',
-      statement: 'Realizar las pausas activas para disminuir la tensión muscular y el estrés',
+      statement:
+        'Realizar las pausas activas para disminuir la tensión muscular y el estrés',
       options: ['Si', 'No'],
-      correctAnswer: 'Si'
+      correctAnswer: 'Si',
     },
     {
       id: 3,
       image: '../../assets/Img/SaludYTrabajo/lugar-de-trabajo.png',
-      statement: 'Mantener siempre mi puesto en Orden y Aseo, pues soy un trabajador ejemplar.',
+      statement:
+        'Mantener siempre mi puesto en Orden y Aseo, pues soy un trabajador ejemplar.',
       options: ['Si', 'No'],
-      correctAnswer: 'Si'
+      correctAnswer: 'Si',
     },
     // Más preguntas pueden ir aquí
   ];
-  
-  
-  
 
   score: number = 10;
 
-  selectOption(questionIndex: number, optionIndex: number, isCorrect: boolean): void {
-    // Primero deseleccionar cualquier respuesta previamente seleccionada
-    this.questions[questionIndex].options.forEach((option, index) => {
-      if (index !== optionIndex && option.isCorrect === false) {
-        this.score = Math.min(this.score + 1, 10); // Añadir un punto si previamente había seleccionado una opción incorrecta
-      }
-    });
+  selectOption(
+    questionsSet: Question[],
+    questionIndex: number,
+    optionIndex: number,
+    isCorrect: boolean
+  ): void {
+    const question = questionsSet[questionIndex];
 
-    // Luego procesar la selección actual
+    if (question.selectedOptionIndex === optionIndex) return;
+
+    question.selectedOptionIndex = optionIndex;
+
     if (!isCorrect && this.score > 0) {
-      this.score--; // Restar un punto si la opción seleccionada es incorrecta
+      this.score--;
     }
   }
 
-  selectTrueFalseAnswer(questionId: number, answer: string) {
-    const question = this.trueFalseQuestions.find(q => q.id === questionId);
-    if (question && answer != null) {
-      question.selectedAnswer = answer === 'true';
+  selectTrueFalseAnswer(questionId: number, answer: string): void {
+    const question = this.trueFalseQuestions.find((q) => q.id === questionId);
+    if (question && (answer === 'true' || answer === 'false')) {
+      const answerBool = answer === 'true';
+
+      // Si la pregunta ya fue respondida y la respuesta cambia, o si es la primera vez que se responde
+      if (question.selectedAnswer !== answerBool) {
+        question.selectedAnswer = answerBool;
+
+        // Si la respuesta es incorrecta, disminuir el puntaje
+        if (question.isCorrect !== answerBool && this.score > 0) {
+          this.score--;
+        }
+      }
     }
   }
 
   selectImageQuestionAnswer(questionId: number, event: Event): void {
-    const target = event.target as HTMLSelectElement; // Aquí haces una aserción de tipo
+    const target = event.target as HTMLSelectElement;
     const selectedOptionValue = target.value;
-    
-    if (!selectedOptionValue) {
-      console.log('No se seleccionó ninguna opción válida.');
-      return;
-    }
-    
-    const question = this.imageQuestions.find(q => q.id === questionId);
+
+    const question = this.imageQuestions.find((q) => q.id === questionId);
     if (question) {
       const isCorrect = question.correctAnswer === selectedOptionValue;
       if (!isCorrect) {
-        this.score = Math.max(0, this.score - 1); // Evita puntajes negativos
+        this.score = Math.max(0, this.score - 0.5);
+        // Mostrar algún mensaje de retroalimentación al usuario
+        console.log('Respuesta incorrecta. Inténtalo de nuevo.');
+      } else {
+        // Mensaje para respuesta correcta, opcional
+        console.log('¡Correcto!');
       }
     }
   }
-  
-  
-  
-  
-  
-  
-  
-
-  
-
 
   constructor(private fb: FormBuilder, private http: HttpClient) {
-
     this.pruebaLectoEscritura = this.fb.group({});
-
-    
   }
-  
 
   buscarCedula() {
     localStorage.setItem('cedula', this.numeroCedula.toString() ?? '');
@@ -290,8 +315,61 @@ export class PruebaInduccionSeguridadSaludEnElTrabajoComponent {
     return edad;
   }
 
-
   enviarRespuestas() {
-    console.log(this.puntaje);
+
+    if(this.numeroCedula === undefined) {
+      Swal.fire({
+        title: 'Error al enviar la prueba',
+        text: 'Por favor, ingresa tu número de cédula.',
+        icon: 'error',
+        confirmButtonText: 'Aceptar',
+      });
+      return;
+    }
+    
+    const contenedor = document.querySelector('.contenedor') as HTMLElement;
+
+    if (contenedor) {
+      html2canvas(contenedor).then((canvas) => {
+        // Here you have the canvas. You can convert it to an image, display it, or do whatever you need with it.
+        // For example, to display it in the document:
+        document.body.appendChild(canvas);
+
+        // Or to get the image as a data URL
+        const dataURL = canvas.toDataURL();
+        // You can send this URL to a server or save it directly in the browser.
+
+        // Now, let's send the score and dataURL to the database
+        const url = `${urlBack.url}/contratacion/pruebaSeguridadSalud`;
+        const data = {
+          numerodeceduladepersona: this.numeroCedula,
+          porcentajeInduccionSeguridad: this.score,
+          evidenciaInduccionSeguridad: dataURL, // Use the actual dataURL here
+        };
+
+        this.http.post(url, data).subscribe(
+          (response: any) => {
+            console.log(response);
+            Swal.fire({
+              title: 'Prueba enviada',
+              text: 'Gracis por terminar el test. Tu resultado ha sido enviado.',
+              icon: 'success',
+              confirmButtonText: 'Accept',
+            });
+          },
+          (error) => {
+            console.error(error);
+            Swal.fire({
+              title: 'Error al enviar la prueba',
+              text: 'Ocurrió un error al enviar la prueba. Por favor, inténtalo de nuevo.',
+              icon: 'error',
+              confirmButtonText: 'Accept',
+            });
+          }
+        );
+      });
+    } else {
+      console.log('The container element was not found.');
+    }
   }
 }
