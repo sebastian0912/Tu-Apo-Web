@@ -2,7 +2,6 @@
   max-width: 100%;
   box-sizing: content-box;
   -webkit-text-size-adjust: 100%;
-
 }
 
 .head {
@@ -17,9 +16,9 @@
 .datos {
   width: 100%;
   height: 100%;
-  background-color: #f2f3f5;
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
 }
 
 .numeroHijos,
@@ -85,9 +84,7 @@ h1:nth-child(2) {
 
 mat-form-field {
   width: calc(30% - 40px);
-  /* Ajusta según tus márgenes */
   margin: 10px 20px 10px 30px;
-  /* Mantén o ajusta los márgenes según sea necesario */
 }
 
 mat-datepicker-toggle {
@@ -103,11 +100,8 @@ mat-datepicker {
 
 .edad-hijo-form-field {
   width: calc(30% - 40px);
-  /* Ajusta según tus márgenes */
   margin: 10px 20px 10px 30px;
-  /* Mantén o ajusta los márgenes según sea necesario */
   min-width: 410px;
-  /* Establece un ancho mínimo para los campos */
 }
 
 .file {
@@ -127,32 +121,38 @@ mat-datepicker {
   display: flex;
   flex-wrap: wrap;
   width: 50%;
-  /* Asegura que ocupe todo el ancho disponible */
   margin-left: 20px;
 }
 
 .check2 {
   width: 50%;
-  /* Cada checkbox ocupa la mitad del contenedor para formar dos columnas */
   box-sizing: border-box;
-  /* Incluye el padding y el borde en el ancho especificado */
   padding: 2px;
-  /* Espacio entre los checkbox */
 }
 
 .input-file {
   display: none;
 }
 
+.imagenes {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  text-align: center;
+  justify-content: center;
+  align-items: center;
+  height: auto;
+  padding-left: 50px;
+}
+
 .boton {
   height: 51px;
-  width: 420px;
+  width: 27vw;
   border: none;
   margin-top: 10px;
-  margin-left: 30px;
   border-radius: 5px;
   font-family: "Open Sans";
-  color: #fff;
+  color: #0f5e15;
   font-size: 13pt;
   font-weight: bold;
   cursor: pointer;
@@ -168,6 +168,8 @@ mat-datepicker {
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  margin-top: 20px;
+  margin-bottom: 20px;
 }
 
 .botones {
@@ -200,12 +202,25 @@ mat-datepicker {
 
 .cajabusqueda .boton {
   margin-top: 0px;
-
 }
 
+.preview-img {
+  height: 200px;
+  width: 300px;
+  max-width: 100%;
+  max-height: 100%;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.previo {
+  height: 200px;
+}
+
+.previo2 {
+  height: 200px;
+}
 
 @media screen and (max-width: 600px) {
-
   .logo {
     width: 70%;
     height: auto;
@@ -233,7 +248,6 @@ mat-datepicker {
     align-items: center;
   }
 
-
   .titulo {
     font-size: 25pt;
     color: white;
@@ -246,17 +260,14 @@ mat-datepicker {
     height: auto;
     padding-bottom: 20px;
     /* ajustar porque la palabra se pega una con otra */
-
   }
 
   .title h1 {
     line-height: 1.2;
   }
 
-
   .logo {
     margin-top: 10px;
-
   }
 
   .contenedor {
@@ -316,8 +327,8 @@ mat-datepicker {
 
   .cajabusqueda {
     flex-direction: column;
-    height: 25vh;
-
+    max-height: 50vh;
+    height: auto;
   }
 
   .cajabusqueda mat-form-field {
@@ -327,19 +338,15 @@ mat-datepicker {
   .cajabusqueda .boton {
     width: 80%;
     margin-top: 10px;
-
   }
 
   .cajabusqueda .boton:nth-child(2) {
     margin-left: 37px;
-
   }
 
   .cajabusqueda .boton:nth-child(3) {
     margin-left: 0;
   }
-
-
 }
 
 @media screen and (min-width: 601px) and (max-width: 1223px) {
@@ -358,7 +365,6 @@ mat-datepicker {
   .formulario {
     width: 101%;
     height: 100%;
-
   }
 
   h3 {
@@ -378,7 +384,6 @@ mat-datepicker {
 
   .boton {
     width: 100%;
-
   }
 
   .previo {
@@ -397,17 +402,14 @@ mat-datepicker {
   .cajabusqueda .boton {
     width: 40%;
   }
-
 }
 
-@media screen and (min-width : 1224px) and (max-width : 1824px) {
+@media screen and (min-width: 1224px) and (max-width: 1824px) {
   .contenedor {
     width: 100%;
     height: 100%;
     box-sizing: content-box;
-
   }
-
 
   .cajabusqueda .boton {
     width: 40%;
@@ -416,13 +418,11 @@ mat-datepicker {
   .head {
     height: 100px;
     width: 100%;
-
   }
 
   .formulario {
     width: 101%;
     height: 100%;
-
   }
 
   h3 {
@@ -444,7 +444,6 @@ mat-datepicker {
     width: 100%;
   }
 
-
   .previo {
     margin-left: -50px;
   }
@@ -458,5 +457,4 @@ mat-datepicker {
     height: auto;
     margin-top: -5px;
   }
-
 }

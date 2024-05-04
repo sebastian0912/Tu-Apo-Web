@@ -97,7 +97,7 @@ export class PruebaLectoEscriComponent {
     const palabras = [
       'gallina',
       'murcielago',
-      'chimpance',
+      'mono',
       'mesa',
       'camisa',
       'lampara',
@@ -182,42 +182,55 @@ export class PruebaLectoEscriComponent {
     return mezcladas.slice(0, cantidad);
   }
 
-  buscarCedula() {
-    localStorage.setItem('cedula', this.numeroCedula.toString() ?? '');
-    const url = `${urlBack.url}/contratacion/buscarCandidato/${this.numeroCedula}`;
-    this.http.get(url).subscribe(
-      (response: any) => {
-        this.mostrarFormulario = true; // Mostrar el formulario
-        // Asume que response.data[0] contiene { nombre, edad, grado }
-        const data = response.data[0];
-        this.nombre =
-          data.primer_nombre +
-          ' ' +
-          data.segundo_nombre +
-          ' ' +
-          data.primer_apellido +
-          ' ' +
-          data.segundo_apellido;
-        this.edad = this.calcularEdad(data.fecha_nacimiento).toString();
-        this.grado = data.estudiosExtra;
-        console.log(response);
-      },
-      (error) => {
-        if (
-          error.error.message ===
-          'No se encontraron datos para la cédula ingresada'
-        ) {
+  async buscarCedula(): Promise<void> {
+    if (!this.numeroCedula) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Oops...',
+        text: 'Por favor ingrese un número de cédula.',
+      });
+      return;
+    }
+  
+    try {
+      const url = `${urlBack.url}/contratacion/buscarCandidato/${this.numeroCedula}`;
+  
+      const response = await fetch(url, {
+        method: 'GET'
+      });
+  
+      if (response.ok) {
+        const responseData = await response.json();
+        if (responseData && responseData.data.length > 0) {
+          const data = responseData.data[0];
+          this.mostrarFormulario = true; // Mostrar el formulario
+          this.nombre = `${data.primer_nombre} ${data.segundo_nombre} ${data.primer_apellido} ${data.segundo_apellido}`;
+          this.edad = this.calcularEdad(data.fecha_nacimiento).toString();
+          this.grado = data.estudiosExtra;
+        } else {
           Swal.fire({
             title: 'Cédula no encontrada',
-            text: 'Se procede a registrarte por favor.',
-            icon: 'success',
+            text: 'No se encontraron datos para la cédula ingresada.',
+            icon: 'error',
             confirmButtonText: 'Aceptar',
           });
           this.mostrarFormulario = true; // También mostrar el formulario en caso de error
         }
+      } else {
+        throw new Error(`Error en la petición GET: ${response.status}`);
       }
-    );
+    } catch (error) {
+      console.error('Error al realizar la petición HTTP GET');
+      console.error(error);
+      Swal.fire({
+        title: 'Error en la búsqueda',
+        text: 'Se produjo un error al buscar la cédula, por favor intenta nuevamente.',
+        icon: 'error',
+        confirmButtonText: 'Aceptar',
+      });
+    }
   }
+  
 
   // Método para calcular la edad
   calcularEdad(fechaNacimiento: string): number {
