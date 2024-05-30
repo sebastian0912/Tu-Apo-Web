@@ -42,6 +42,11 @@
             <input type="number" matInput formControlName="numeroCedula" placeholder="Ej: 10058478963">
           </mat-form-field><BR>
 
+            <mat-form-field appearance="fill">
+              <mat-label> Confirmar numero de documento </mat-label>
+              <input type="number" matInput formControlName="numeroCedula2" placeholder="Ej: 10058478963">
+            </mat-form-field><BR>
+
           <mat-form-field appearance="fill">
             <mat-label>Primer apellido</mat-label>
             <input type="text" matInput formControlName="pApellido" placeholder="Ej: Pelaez">
@@ -104,10 +109,6 @@
               </mat-option>
             </mat-select>
           </mat-form-field>
-
-
-
-
 
           <!-- Estado Civil -->
           <mat-form-field appearance="fill">
@@ -277,7 +278,7 @@
 
           <!-- Barrio del Familiar en Caso de Emergencia -->
           <mat-form-field appearance="fill">
-            <mat-label>Barrio o ciudad del Familiar en Caso de Emergencia</mat-label>
+            <mat-label>Barrio o municipio del Familiar en Caso de Emergencia</mat-label>
             <input matInput formControlName="barrioFamiliarEmergencia">
           </mat-form-field>
 
@@ -451,10 +452,10 @@
         </div>
 
 
-        <div class="title">
+        <div class="title" *ngIf="formHojaDeVida.get('estadoCivil')?.value !== 'SO'">
           <h1>Datos Conyugue </h1>
         </div>
-        <div class="datos">
+        <div class="datos" *ngIf="formHojaDeVida.get('estadoCivil')?.value !== 'SO'">
 
           <!-- Nombres del Cónyuge -->
           <mat-form-field appearance="fill">
@@ -498,7 +499,7 @@
 
           <!-- Barrio del Cónyuge -->
           <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('viveConyuge')?.value">
-            <mat-label>Barrio o ciudad</mat-label>
+            <mat-label>Barrio o municipio</mat-label>
             <input matInput formControlName="barrioConyuge">
           </mat-form-field>
 
@@ -561,7 +562,7 @@
 
           <!-- Barrio del Padre -->
           <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('elPadreVive')?.value">
-            <mat-label>Barrio o ciudad Padre</mat-label>
+            <mat-label>Barrio o municipio Padre</mat-label>
             <input matInput formControlName="barrioPadre">
           </mat-form-field>
 
@@ -608,7 +609,7 @@
 
           <!-- Barrio de la Madre, visible solo si 'madreVive' es verdadero -->
           <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('madreVive')?.value">
-            <mat-label>Barrio o ciudad Madre</mat-label>
+            <mat-label>Barrio o Municipio Madre</mat-label>
             <input matInput formControlName="barrioMadre">
           </mat-form-field>
 
@@ -752,29 +753,19 @@
           <!-- Área de experiencia -->
           <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('experienciaLaboral')?.value">
             <mat-label>Área de experiencia</mat-label>
-            <mat-select formControlName="areaExperiencia">
-              <mat-option *ngFor="let area of listaAreas" [value]="area">{{ area }}</mat-option>
-            </mat-select>
+            <input matInput formControlName="areaExperiencia" placeholder="Ejemplo: Rosas">
           </mat-form-field>
 
           <!-- Área si es cultivo o poscosecha -->
           <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('experienciaLaboral')?.value">
-            <mat-label> Cargo </mat-label>
-            <mat-select formControlName="areaCultivoPoscosecha">
-              <mat-option *ngFor="let area of listaAreas" [value]="area">{{ area }}</mat-option>
-            </mat-select>
+            <mat-label>Cargo</mat-label>
+            <input matInput formControlName="areaCultivoPoscosecha" placeholder="Ejemplo: Realice la clasificación de rosas">
           </mat-form-field>
 
           <!-- Labores realizadas -->
           <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('experienciaLaboral')?.value">
             <mat-label>Labores realizadas</mat-label>
             <input matInput formControlName="laboresRealizadas" placeholder="Ejemplo: Boncheo, Clasificación">
-          </mat-form-field>
-
-          <!-- Empresas donde ha laborado -->
-          <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('experienciaLaboral')?.value">
-            <mat-label>Empresas donde ha laborado</mat-label>
-            <input matInput formControlName="empresasLaboradas" placeholder="Ejemplo: Floristería Rosa">
           </mat-form-field>
 
           <!-- Tiempo de experiencia -->

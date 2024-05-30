@@ -35,6 +35,7 @@ import { FirmaComponent } from '../firma/firma.component';
 import { urlBack } from '../model/Usuario';
 import Swal from 'sweetalert2';
 import { PDFCheckBox, PDFDocument, PDFTextField } from 'pdf-lib';
+import { ValidationErrors, ValidatorFn } from '@angular/forms';
 
 // Importa Router
 import { Router } from '@angular/router';
@@ -63,6 +64,10 @@ import { Router } from '@angular/router';
   templateUrl: './formulario-publico.component.html',
   styleUrl: './formulario-publico.component.css',
 })
+
+
+
+
 export class FormularioPublicoComponent {
   [x: string]: any;
   //datosHoja: HojaDeVida = new HojaDeVida();
@@ -90,6 +95,8 @@ export class FormularioPublicoComponent {
 
   title = 'Formulario';
 
+
+
   constructor(
     private http: HttpClient,
     private fb: FormBuilder,
@@ -101,6 +108,7 @@ export class FormularioPublicoComponent {
 
       tipoDoc: new FormControl('', Validators.required),
       numeroCedula: new FormControl('', Validators.required),
+      numeroCedula2: new FormControl('', Validators.required),
       pApellido: new FormControl('', Validators.required),
 
 
@@ -170,7 +178,7 @@ export class FormularioPublicoComponent {
       cedulaFrontal: new FormControl('',),
       cedulaTrasera: new FormControl('',),
       firma: new FormControl('',),
-    });
+    }), { validators: this.validar };
 
     // Llamada a la función para inicializar el formulario con base en el número de hijos
 
@@ -197,9 +205,9 @@ export class FormularioPublicoComponent {
 
 
       // conyugue
-      nombresConyuge: new FormControl('', Validators.required),
-      apellidosConyuge: new FormControl('', Validators.required),
-      viveConyuge: new FormControl('', Validators.required), // Podría ser un booleano o un string dependiendo de cómo quieras manejarlo
+      nombresConyuge: new FormControl('',),
+      apellidosConyuge: new FormControl('',),
+      viveConyuge: new FormControl('',), // Podría ser un booleano o un string dependiendo de cómo quieras manejarlo
 
       documentoIdentidadConyuge: new FormControl('', [
         Validators.pattern(/^\d+$/),
@@ -272,7 +280,6 @@ export class FormularioPublicoComponent {
       areaCultivoPoscosecha: new FormControl('',),
       laboresRealizadas: new FormControl('',),
 
-      empresasLaboradas: new FormControl('',),
       tiempoExperiencia: new FormControl('',),
 
       // Experiencia Laboral 1
@@ -324,6 +331,8 @@ export class FormularioPublicoComponent {
 
     this.escucharNumeroDeHijos();
 
+
+
   }
 
   ngOnInit(): void {
@@ -342,7 +351,28 @@ export class FormularioPublicoComponent {
       .valueChanges.subscribe((numHijos) => {
         this.actualizarEdadesHijos(numHijos);
       });
+
+
+
+
+
   }
+
+  // campos numeroCedula y numeroCedula2 son los mismos
+  validar() {
+    if (this.formHojaDeVida.value.numeroCedula === this.formHojaDeVida2.value.numeroCedula2) {
+      this.formHojaDeVida.setErrors(null);
+    } else {
+      this.formHojaDeVida.setErrors({ noCoincide: true });
+    }
+  }
+
+
+
+
+
+
+
 
   imprimirInformacion2(): void {
     // recoger numero de cedula del local storage
@@ -395,8 +425,8 @@ export class FormularioPublicoComponent {
       ocupacionReferenciaPersonal1:
         this.formHojaDeVida2.value.ocupacionReferencia1, // Cambiado de "ocupacionReferencia1" a "ocupacionReferenciaPersonal1"
       tiempoConoceReferenciaPersonal1:
-        this.formHojaDeVida2.value.tiempoConoceReferenciaPersonal1 ,
-      
+        this.formHojaDeVida2.value.tiempoConoceReferenciaPersonal1,
+
       nombreReferenciaPersonal2:
         this.formHojaDeVida2.value.nombreReferenciaPersonal2,
       telefonoReferenciaPersonal2:
@@ -459,7 +489,6 @@ export class FormularioPublicoComponent {
       areaExperiencia: this.formHojaDeVida2.value.areaExperiencia ?? '',
       areaCultivoPoscosecha: this.formHojaDeVida2.value.areaCultivoPoscosecha ?? '',
       laboresRealizadas: this.formHojaDeVida2.value.laboresRealizadas ?? '',
-      empresasLaboradas: this.formHojaDeVida2.value.empresasLaboradas ?? '',
       tiempoExperiencia: this.formHojaDeVida2.value.tiempoExperiencia ?? '',
       numHijosDependientes: this.formHojaDeVida2.value.numHijosDependientes ?? '',
 
@@ -1352,7 +1381,6 @@ export class FormularioPublicoComponent {
           areaExperiencia: datosHoja.area_experiencia,
           areaCultivoPoscosecha: datosHoja.area_cultivo_poscosecha,
           laboresRealizadas: datosHoja.labores_realizadas,
-          empresasLaboradas: datosHoja.empresas_laborado,
           tiempoExperiencia: datosHoja.tiempo_experiencia,
 
           nombreEmpresa1: datosHoja.nombre_expe_laboral1_empresa,
@@ -1723,6 +1751,10 @@ export class FormularioPublicoComponent {
   }
 
 
+
+
+
+
   opcionesPromocion: string[] = [
     "Referido (amigo, familiar, conocido)",
     "Ya había trabajado con nosotros",
@@ -1739,10 +1771,7 @@ export class FormularioPublicoComponent {
   tipoDocs: any[] = [
     { abbreviation: 'CC', description: 'Cédula de Ciudadanía (CC)' },
     { abbreviation: 'PPT', description: 'Permiso de permanencia temporal (PPT)' },
-    { abbreviation: 'TI', description: 'Tarjeta de Identidad (TI)' },
-    { abbreviation: 'P', description: 'Pasaporte (P)' },
     { abbreviation: 'CE', description: 'Cédula de Extranjería (CE)' },
-    { abbreviation: 'RC', description: 'Registro Civil (CR)' },
   ];
 
   generos: any[] = ['MASCULINO', 'FEMENINO', 'NO BINARIO'];
@@ -2055,3 +2084,5 @@ export class FormularioPublicoComponent {
     'Otros',
   ];
 }
+
+
