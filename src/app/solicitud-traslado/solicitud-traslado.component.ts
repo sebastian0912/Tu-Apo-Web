@@ -121,11 +121,21 @@ export class SolicitudTrasladoComponent {
     if (this.base64String) {
       formData.append('solicitud_traslado', this.base64String);
     }
-    console.log('Datos a enviar:', formData);
+    
+    // Mostrar el contenido de FormData en la consola
+    formData.forEach((value, key) => {
+      console.log(`${key}: ${value}`);
+    });
   
+    // Corrección en la URL: quitar la comilla adicional antes de '/traslados/formulario-solicitud'
     this.http.post(`${urlBack.url}/traslados/formulario-solicitud`, formData).subscribe({
       next: (response) => {
         console.log('Respuesta del servidor:', response);
+        Swal.fire({
+          icon: 'success',
+          title: 'Solicitud enviada',
+          text: 'Su solicitud de traslado ha sido enviada correctamente.',
+        });
       },
       error: (error) => {
         Swal.fire({
@@ -136,7 +146,9 @@ export class SolicitudTrasladoComponent {
         console.error('Error al enviar los datos:', error);
       }
     });
-  }
+}
+
+  
     
   
 }
