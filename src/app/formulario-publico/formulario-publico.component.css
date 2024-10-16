@@ -4,6 +4,17 @@
   -webkit-text-size-adjust: 100%;
 }
 
+/* Aplica a todo el texto dentro del formulario */
+form.formulario2 {
+  text-transform: uppercase;
+}
+
+/* Aplica a todo el texto dentro del formulario */
+form.formulario {
+  text-transform: uppercase;
+}
+
+
 .head {
   width: 100%;
   background-color: #8dd603;

@@ -16,11 +16,9 @@
       <button type="button" class="boton" *ngIf="!mostrarFormulario" mat-raised-button color="primary"
         (click)="buscarCedula()"> Buscar </button>
 
-      <button type="button" class="boton" mat-raised-button color="primary" (click)="fillForm()"> Generar y guardar pdf
-      </button>
     </div>
 
-    <form class="formulario" [formGroup]="formHojaDeVida" id="formulario">
+    <form class="formulario" [formGroup]="formHojaDeVida" id="formulario" *ngIf="mostrarFormulario" autocomplete="off">
       <div>
 
         <div class="title">
@@ -42,10 +40,10 @@
             <input type="number" matInput formControlName="numeroCedula" placeholder="Ej: 10058478963">
           </mat-form-field><BR>
 
-            <mat-form-field appearance="fill">
-              <mat-label> Confirmar numero de documento </mat-label>
-              <input type="number" matInput formControlName="numeroCedula2" placeholder="Ej: 10058478963">
-            </mat-form-field><BR>
+          <mat-form-field appearance="fill">
+            <mat-label> Confirmar numero de documento </mat-label>
+            <input type="number" matInput formControlName="numeroCedula2" placeholder="Ej: 10058478963">
+          </mat-form-field><BR>
 
           <mat-form-field appearance="fill">
             <mat-label>Primer apellido</mat-label>
@@ -124,6 +122,12 @@
           <mat-form-field appearance="fill">
             <mat-label>Dirección de Residencia</mat-label>
             <input matInput formControlName="direccionResidencia" placeholder="Sin símbolos">
+          </mat-form-field>
+
+          <!--En que zona (barrio)-->
+          <mat-form-field appearance="fill">
+            <mat-label>En que zona (barrio) vive</mat-label>
+            <input matInput formControlName="zonaResidencia" placeholder="Ejemplo: Barrio la paz">
           </mat-form-field>
 
           <!-- Fecha de Expedición CC -->
@@ -298,65 +302,13 @@
             </mat-select>
           </mat-form-field>
 
-          <div class="imagenes">
-
-            <div class="file">
-              <input (change)="capturarFile($event)" type="file" class="input-file" id="file">
-              <button class="boton" onclick="document.getElementById('file').click()" type="button"
-                style="background-color: #8dd603;">
-                Seleccione la foto de la parte frontal de la cedula (Debe ser clara)</button>
-              <div class="preview-img" *ngIf="previsualizacion" style="margin: 0 auto; ">
-                <img class="previo" [src]="previsualizacion" alt="1">
-              </div>
-            </div>
-
-            <div class="file">
-              <input (change)="capturarFile2($event)" type="file" class="input-file" id="file2">
-              <button class="boton" onclick="document.getElementById('file2').click()" type="button"
-                style="background-color: #8dd603;">
-                Seleccione la foto de la parte trasera de la cedula (Debe ser clara)</button>
-              <div class="preview-img" *ngIf="previsualizacion2" style="margin: 0 auto; ">
-                <img class="previo2" [src]="previsualizacion2" alt="2">
-              </div>
-            </div>
-
-
-            <div class="file">
-              <input (change)="capturarFile3($event)" type="file" class="input-file" id="file3">
-              <button class="boton" onclick="document.getElementById('file3').click()" type="button"
-                style="background-color: #8dd603;">Suba una foto suya</button>
-              <div class="preview-img" style="margin: 0 auto; " *ngIf="previsualizacion3">
-                <img class="previo2" [src]="previsualizacion3" alt="3">
-              </div>
-            </div>
-
-          </div>
-
-          <div style="margin-right: 150px;"></div>
-
-          <div class="firmaCaja">
-            <!--LLAMAR COMPONENTE FIRMA y -->
-            <app-firma></app-firma>
-            <div class="botones">
-              <!-- llamar metodos que estan en el otro componente firma -->
-              <button (click)="limpiarFirma()" type="button">Limpiar Firma</button>
-              <button (click)="guardarFirma()" type="button">Guardar Firma</button>
-            </div>
-
-          </div>
-
-
-
-          <button type="button" mat-raised-button color="primary" style="width: 40%; margin: 0 auto;"
-            (click)="imprimirInformacion()" [disabled]="!formHojaDeVida.valid">
-            Guardar
-          </button>
         </div>
       </div>
     </form>
 
 
-    <form class="formulario formulario2" [formGroup]="formHojaDeVida2" id="formulario2">
+    <form class="formulario formulario2" [formGroup]="formHojaDeVida2" id="formulario2" *ngIf="mostrarFormulario"
+      autocomplete="off">
       <div>
         <div class="title">
           <h1>Datos personales parte 2</h1>
@@ -384,19 +336,19 @@
           </mat-form-field>
 
           <!-- Nombre de la Institución -->
-          <mat-form-field appearance="fill" *ngIf="formHojaDeVida.get('estudiosExtras')?.value !== 'Ninguna'">
+          <mat-form-field appearance="fill">
             <mat-label>Nombre de la Institución</mat-label>
             <input matInput formControlName="nombreInstitucion">
           </mat-form-field>
 
           <!-- Año de Finalización -->
-          <mat-form-field appearance="fill" *ngIf="formHojaDeVida.get('estudiosExtras')?.value !== 'Ninguna'">
+          <mat-form-field appearance="fill">
             <mat-label>Año de Finalización</mat-label>
             <input matInput formControlName="anoFinalizacion" type="number" min="1900" max="2099">
           </mat-form-field>
 
           <!-- Título Obtenido -->
-          <mat-form-field appearance="fill" *ngIf="formHojaDeVida.get('estudiosExtras')?.value !== 'Ninguna'">
+          <mat-form-field appearance="fill">
             <mat-label>Título Obtenido</mat-label>
             <input matInput formControlName="tituloObtenido">
           </mat-form-field>
@@ -509,17 +461,6 @@
             <input matInput formControlName="ocupacionConyuge">
           </mat-form-field>
 
-          <!-- Teléfono Laboral del Cónyuge -->
-          <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('viveConyuge')?.value">
-            <mat-label>Teléfono Laboral</mat-label>
-            <input matInput formControlName="telefonoLaboralConyuge" type="tel">
-          </mat-form-field>
-
-          <!-- Dirección Laboral del Cónyuge -->
-          <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('viveConyuge')?.value">
-            <mat-label>Dirección Laboral</mat-label>
-            <input matInput formControlName="direccionLaboralConyuge">
-          </mat-form-field>
         </div>
 
         <div class="title">
@@ -642,7 +583,7 @@
               <mat-option *ngFor="let tiempo of listaDuracion" [value]="tiempo">{{ tiempo }}</mat-option>
             </mat-select>
           </mat-form-field>
-          
+
 
           <!-- Referencia Personal 2 -->
 
@@ -742,41 +683,6 @@
             </mat-select>
           </mat-form-field>
 
-          <!-- Mas de una experiencia laboral -->
-          <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('experienciaLaboral')?.value">
-            <mat-label>¿Tiene experiencia laboral en más de una empresa?</mat-label>
-            <mat-select formControlName="experienciaLaboralCuanto">
-              <mat-option *ngFor="let opcion of opcionBinaria" [value]="opcion.value">{{ opcion.display }}</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <!-- Área de experiencia -->
-          <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('experienciaLaboral')?.value">
-            <mat-label>Área de experiencia</mat-label>
-            <input matInput formControlName="areaExperiencia" placeholder="Ejemplo: Rosas">
-          </mat-form-field>
-
-          <!-- Área si es cultivo o poscosecha -->
-          <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('experienciaLaboral')?.value">
-            <mat-label>Cargo</mat-label>
-            <input matInput formControlName="areaCultivoPoscosecha" placeholder="Ejemplo: Realice la clasificación de rosas">
-          </mat-form-field>
-
-          <!-- Labores realizadas -->
-          <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('experienciaLaboral')?.value">
-            <mat-label>Labores realizadas</mat-label>
-            <input matInput formControlName="laboresRealizadas" placeholder="Ejemplo: Boncheo, Clasificación">
-          </mat-form-field>
-
-          <!-- Tiempo de experiencia -->
-          <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('experienciaLaboral')?.value">
-            <mat-label>Tiempo de experiencia</mat-label>
-            <mat-select formControlName="tiempoExperiencia">
-              <mat-option *ngFor="let tiempo of tiempoTrabajado" [value]="tiempo">{{ tiempo }}</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-
           <!-- Experiencia Laboral 1 -->
           <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('experienciaLaboral')?.value">
             <mat-label>Nombre Empresa</mat-label>
@@ -798,9 +704,20 @@
             <input matInput formControlName="nombreJefe1">
           </mat-form-field>
 
+          <!--cargo que se desempeñaba -->
           <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('experienciaLaboral')?.value">
-            <mat-label>Cargo del Trabajador</mat-label>
-            <input matInput formControlName="cargoTrabajador1">
+            <mat-label>Cargo que se desempeñaba</mat-label>
+            <input matInput formControlName="cargoEmpresa1">
+          </mat-form-field>
+
+          <!-- Área de experiencia -->
+          <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('experienciaLaboral')?.value">
+            <mat-label>¿En qué área tiene experiencia?</mat-label>
+            <mat-select formControlName="areaExperiencia" multiple>
+              <mat-option *ngFor="let area of areasExperiencia" [value]="area">
+                {{ area }}
+              </mat-option>
+            </mat-select>
           </mat-form-field>
 
           <!-- Fecha de Retiro 1 -->
@@ -811,49 +728,61 @@
             <mat-datepicker #pickerRetiro1></mat-datepicker>
           </mat-form-field>
 
+          <!-- Tiempo de experiencia -->
+          <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('experienciaLaboral')?.value">
+            <mat-label>Tiempo de experiencia</mat-label>
+            <mat-select formControlName="tiempoExperiencia">
+              <mat-option *ngFor="let tiempo of tiempoTrabajado" [value]="tiempo">{{ tiempo }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+
           <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('experienciaLaboral')?.value">
             <mat-label>Motivo de Retiro</mat-label>
             <input matInput formControlName="motivoRetiro1">
           </mat-form-field>
 
-          <!-- Experiencia Laboral 2 -->
-          <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('experienciaLaboralCuanto')?.value">
-            <mat-label>Nombre Empresa 2</mat-label>
-            <input matInput formControlName="nombreEmpresa2">
+          <!-- Empresas de flores que ha trabajado -->
+          <mat-form-field appearance="fill">
+            <mat-label>Empresas de flores que ha trabajado (Separarlas con ,)</mat-label>
+            <input matInput formControlName="empresas_laborado">
           </mat-form-field>
 
-          <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('experienciaLaboralCuanto')?.value">
-            <mat-label>Dirección Empresa 2</mat-label>
-            <input matInput formControlName="direccionEmpresa2">
+          <!-- Describa paso a paso cómo es su labor -->
+          <mat-form-field appearance="fill">
+            <mat-label>Describa paso a paso cómo es su labor (ser lo más breve posible)</mat-label>
+            <textarea matInput formControlName="labores_realizadas" rows="3"></textarea>
           </mat-form-field>
 
-          <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('experienciaLaboralCuanto')?.value">
-            <mat-label>Teléfonos Empresa 2</mat-label>
-            <input matInput formControlName="telefonosEmpresa2" type="tel">
+          <!-- Califique su rendimiento (Opciones) -->
+          <mat-form-field appearance="fill">
+            <mat-label>Califique su rendimiento</mat-label>
+            <mat-select formControlName="rendimiento">
+              <mat-option value="bajo">Bajo</mat-option>
+              <mat-option value="medio">Medio</mat-option>
+              <mat-option value="excelente">Excelente</mat-option>
+            </mat-select>
           </mat-form-field>
 
-          <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('experienciaLaboralCuanto')?.value">
-            <mat-label>Nombre Jefe Inmediato 2</mat-label>
-            <input matInput formControlName="nombreJefe2">
+          <!-- ¿Por qué se da esta auto calificación? -->
+          <mat-form-field appearance="fill">
+            <mat-label>¿Por qué se da esta auto calificación?</mat-label>
+            <textarea matInput formControlName="porqueRendimiento" rows="3"></textarea>
           </mat-form-field>
 
-          <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('experienciaLaboralCuanto')?.value">
-            <mat-label>Cargo del Trabajador 2</mat-label>
-            <input matInput formControlName="cargoTrabajador2">
+          <!-- Según su experiencia y desempeño laboral, ¿por qué motivos lo han felicitado? -->
+          <mat-form-field appearance="fill">
+            <mat-label>¿Por qué motivos lo han felicitado?</mat-label>
+            <textarea matInput formControlName="porqueLofelicitarian" rows="3"></textarea>
           </mat-form-field>
 
-          <!-- Fecha de Retiro 2 -->
-          <mat-form-field appearance="fill" *ngIf="formHojaDeVida.get('experienciaLaboralCuanto')?.value">
-            <mat-label>Fecha de Retiro 2</mat-label>
-            <input matInput [matDatepicker]="pickerRetiro2" formControlName="fechaRetiro2">
-            <mat-datepicker-toggle matSuffix [for]="pickerRetiro2"></mat-datepicker-toggle>
-            <mat-datepicker #pickerRetiro2></mat-datepicker>
+          <!-- ¿Ha tenido algún malentendido o situación conflictiva en algún trabajo? Si sí, especifique por qué. -->
+          <mat-form-field appearance="fill">
+            <mat-label>¿Ha tenido algún malentendido o situación conflictiva en algún trabajo? Si sí, especifique por
+              qué.</mat-label>
+            <textarea matInput formControlName="malentendido" rows="3"></textarea>
           </mat-form-field>
 
-          <mat-form-field appearance="fill" *ngIf="formHojaDeVida.get('experienciaLaboralCuanto')?.value">
-            <mat-label>Motivo de Retiro 2</mat-label>
-            <input matInput formControlName="motivoRetiro2">
-          </mat-form-field>
 
         </div>
 
@@ -900,80 +829,49 @@
                 <input matInput formControlName="nombreHijo">
               </mat-form-field>
 
-              <!-- Vive con el Trabajador -->
+              <!--
+                SEXO, FECHA NACIMIENTO, DOCUMENTO DE IDENTIDAD, OCUPACION, Curso              
+              -->
+
+              <!-- Sexo del Hijo -->
               <mat-form-field appearance="fill">
-                <mat-label>¿Vive con el trabajador?</mat-label>
-                <mat-select formControlName="viveConTrabajador">
-                  <mat-option [value]="true">Sí</mat-option>
-                  <mat-option [value]="false">No</mat-option>
+                <mat-label>Sexo del Hijo</mat-label>
+                <mat-select formControlName="sexoHijo">
+                  <mat-option [value]="'Masculino'">Masculino</mat-option>
+                  <mat-option [value]="'Femenino'">Femenino</mat-option>
                 </mat-select>
               </mat-form-field>
 
-              <!-- Estudia en la Fundación -->
+
+              <!-- Fecha de Nacimiento del Hijo -->
               <mat-form-field appearance="fill">
-                <mat-label>¿Estudia en la fundación?</mat-label>
-                <mat-select formControlName="estudiaFundacion">
-                  <mat-option [value]="true">Sí</mat-option>
-                  <mat-option [value]="false">No</mat-option>
-                </mat-select>
+                <mat-label>Fecha de Nacimiento del Hijo</mat-label>
+                <input matInput [matDatepicker]="pickerFechaNacimientoHijo" formControlName="fechaNacimientoHijo">
+                <mat-datepicker-toggle matSuffix [for]="pickerFechaNacimientoHijo"></mat-datepicker-toggle>
+                <mat-datepicker #pickerFechaNacimientoHijo></mat-datepicker>
               </mat-form-field>
 
-              <!-- Posee alguna Discapacidad -->
+              <!-- Documento de Identidad del Hijo -->
               <mat-form-field appearance="fill">
-                <mat-label>¿Posee alguna discapacidad?</mat-label>
-                <mat-select formControlName="discapacidad">
-                  <mat-option [value]="true">Sí</mat-option>
-                  <mat-option [value]="false">No</mat-option>
-                </mat-select>
+                <mat-label>Documento de Identidad del Hijo</mat-label>
+                <input matInput formControlName="docIdentidadHijo">
               </mat-form-field>
 
-              <!-- Es Empleado de la Compañía -->
+              <!-- Ocupación del Hijo -->
               <mat-form-field appearance="fill">
-                <mat-label>¿Es empleado de la compañía?</mat-label>
-                <mat-select formControlName="empleadoCompania">
-                  <mat-option [value]="true">Sí</mat-option>
-                  <mat-option [value]="false">No</mat-option>
-                </mat-select>
+                <mat-label>Ocupación del Hijo</mat-label>
+                <input matInput formControlName="ocupacionHijo">
               </mat-form-field>
 
-              <!-- Nombre Padre o Madre -->
+              <!-- Curso del Hijo -->
               <mat-form-field appearance="fill">
-                <mat-label>Nombre del Otro Padre/Madre</mat-label>
-                <input matInput formControlName="nombrePadreMadre">
+                <mat-label>Curso del Hijo</mat-label>
+                <input matInput formControlName="cursoHijo">
               </mat-form-field>
 
-              <!-- Documento Identidad Otro Padre -->
-              <mat-form-field appearance="fill">
-                <mat-label>Documento de Identidad del Otro Padre/Madre</mat-label>
-                <input matInput formControlName="docIdentidadOtroPadre">
-              </mat-form-field>
 
-              <!-- Otro Padre Trabaja en la Compañía -->
-              <mat-form-field appearance="fill">
-                <mat-label>¿Otro padre trabaja en la compañía?</mat-label>
-                <mat-select formControlName="otroPadreTrabajaCompania">
-                  <mat-option [value]="true">Sí</mat-option>
-                  <mat-option [value]="false">No</mat-option>
-                </mat-select>
-              </mat-form-field>
 
-              <!-- Es Hijastro -->
-              <mat-form-field appearance="fill">
-                <mat-label>¿Es hijastro?</mat-label>
-                <mat-select formControlName="hijastro">
-                  <mat-option [value]="true">Sí</mat-option>
-                  <mat-option [value]="false">No</mat-option>
-                </mat-select>
-              </mat-form-field>
 
-              <!-- Custodia Legal -->
-              <mat-form-field appearance="fill">
-                <mat-label>¿Custodia legal?</mat-label>
-                <mat-select formControlName="custodiaLegal">
-                  <mat-option [value]="true">Sí</mat-option>
-                  <mat-option [value]="false">No</mat-option>
-                </mat-select>
-              </mat-form-field>
 
             </div>
           </div>
@@ -985,18 +883,17 @@
         </div>
         <div class="datos">
           <h1 style="line-height: 1.0; margin-left: 20pt; margin-top: 15px; margin-bottom: 10px; flex: 1 1 100%;">
-            Información de con quien
-            vive </h1>
+            Información de con quien vive </h1>
 
-          <div formArrayName="conQuienViveChecks" class="check">
-            <div *ngFor="let opcion of listaPosiblesRespuestasConquienVive; let i = index" class="check2">
-              <!-- Utiliza el operador de navegación segura y coalescencia nula para evitar errores -->
-              <mat-checkbox (change)="onCheckboxChange($event, opcion, 'conQuienViveChecks')"
-                [checked]="formHojaDeVida2.get('conQuienViveChecks')?.value?.includes(opcion) ?? false">
+          <mat-form-field appearance="fill">
+            <mat-label>¿Con quién vive?</mat-label>
+            <mat-select formControlName="conQuienViveChecks" multiple>
+              <mat-option *ngFor="let opcion of listaPosiblesRespuestasConquienVive" [value]="opcion">
                 {{ opcion }}
-              </mat-checkbox>
-            </div>
-          </div>
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
 
           <!-- Familia con un solo ingres (SI/NO) -->
           <mat-form-field appearance="fill" style="height: 80px;">
@@ -1009,6 +906,27 @@
           </mat-form-field>
         </div>
 
+        <mat-form-field appearance="fill">
+          <mat-label>Personas a cargo</mat-label>
+          <mat-select formControlName="personas_a_cargo" multiple>
+            <mat-option *ngFor="let persona of personasACargoOptions" [value]="persona">
+              {{ persona }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <!-- ¿Cómo es su relación Familiar? -->
+        <mat-form-field appearance="fill">
+          <mat-label>¿Cómo es su relación Familiar?</mat-label>
+          <mat-select formControlName="como_es_su_relacion_familiar">
+            <mat-option value="mala">Mala Relación (No Tenemos contacto)</mat-option>
+            <mat-option value="mas_o_menos">Más o menos (Hablamos de vez en cuando)</mat-option>
+            <mat-option value="buena">Buena (Hablamos Frecuentemente)</mat-option>
+            <mat-option value="excelente">Excelente (Convivimos bien actualmente)</mat-option>
+          </mat-select>
+        </mat-form-field>>
+
+
 
         <div class="title">
           <h1>Datos parte 3 </h1>
@@ -1017,14 +935,16 @@
           <h1 style="line-height: 1.0; margin-left: 20pt; margin-top: 15px; margin-bottom: 10px; flex: 1 1 100%;"> Tipo
             de
             vivienda </h1>
-          <div formArrayName="tiposViviendaChecks" class="check">
-            <div *ngFor="let tipo of tiposVivienda; let i = index" class="check2">
-              <mat-checkbox (change)="onCheckboxChange($event, tipo, 'tiposViviendaChecks')"
-                [checked]="formHojaDeVida2.get('tiposViviendaChecks')?.value?.includes(tipo) ?? false">
+
+          <mat-form-field appearance="fill">
+            <mat-label>¿Tipo de vivienda?</mat-label>
+            <mat-select formControlName="tiposViviendaChecks" multiple>
+              <mat-option *ngFor="let tipo of tiposVivienda" [value]="tipo">
                 {{ tipo }}
-              </mat-checkbox>
-            </div>
-          </div>
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
 
           <!-- Número de Habitaciones -->
           <mat-form-field appearance="fill">
@@ -1070,28 +990,30 @@
             Servicios que tiene la
             vivienda </h1>
 
-          <div formArrayName="comodidadesChecks" class="check">
-            <div *ngFor="let comodidad of comodidades; let i = index" class="check2">
-              <mat-checkbox (change)="onCheckboxChange($event, comodidad, 'comodidadesChecks')"
-                [checked]="formHojaDeVida2.get('comodidadesChecks')?.value?.includes(comodidad) ?? false">
+          <mat-form-field appearance="fill">
+            <mat-label>¿Comodidades en la vivienda?</mat-label>
+            <mat-select formControlName="comodidadesChecks" multiple>
+              <mat-option *ngFor="let comodidad of comodidades" [value]="comodidad">
                 {{ comodidad }}
-              </mat-checkbox>
-            </div>
-          </div>
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
 
           <h1 style="line-height: 1.0; margin-left: 20pt; margin-top: 15px; margin-bottom: 10px; flex: 1 1 100%;">
             Cuales
             son sus
             expectativas de vida </h1>
 
-          <div formArrayName="expectativasVidaChecks" class="check">
-            <div *ngFor="let expectativa of expectativasVida; let i = index" class="check2">
-              <mat-checkbox (change)="onCheckboxChange($event, expectativa, 'expectativasVidaChecks')"
-                [checked]="formHojaDeVida2.get('expectativasVidaChecks')?.value?.includes(expectativa) ?? false">
+          <mat-form-field appearance="fill">
+            <mat-label>¿Expectativas de vida?</mat-label>
+            <mat-select formControlName="expectativasVidaChecks" multiple>
+              <mat-option *ngFor="let expectativa of expectativasVida" [value]="expectativa">
                 {{ expectativa }}
-              </mat-checkbox>
-            </div>
-          </div>
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
 
           <!-- Cómo se enteró de la vacante formcontrol fuenteVacante, select del arreglo opcionesPromocion  -->
 
@@ -1103,18 +1025,49 @@
               </mat-option>
             </mat-select>
           </mat-form-field>
-          
-        </div>
-        <div style="align-items: center; margin: 0 auto; text-align: center; margin-top: 20px;">
 
+        </div>
+
+        <!--parte 4 -->
+        <div class="title">
+          <h1>Datos parte 4 </h1>
+        </div>
+
+        <!-- ¿Está dispuesto a realizar actividades diferentes al cargo? -->
+        <mat-form-field appearance="fill">
+          <mat-label>¿Está dispuesto a realizar actividades diferentes al cargo?</mat-label>
+          <mat-select formControlName="actividadesDi">
+            <mat-option value="si">Sí</mat-option>
+            <mat-option value="tal_vez">Tal vez</mat-option>
+            <mat-option value="no">No</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <!-- Mencione una experiencia significativa en su trabajo -->
+        <mat-form-field appearance="fill">
+          <mat-label>Mencione una experiencia significativa en su trabajo</mat-label>
+          <textarea matInput formControlName="experienciaSignificativa" rows="3"></textarea>
+        </mat-form-field>
+
+        <!-- ¿Cuál es su motivación? -->
+        <mat-form-field appearance="fill">
+          <mat-label>¿Cuál es su motivación?</mat-label>
+          <mat-select formControlName="motivacion">
+            <mat-option value="familia">Familia</mat-option>
+            <mat-option value="hijos">Hijos</mat-option>
+            <mat-option value="estudio">Estudio</mat-option>
+            <mat-option value="crecimiento_personal">Crecimiento Personal</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+
+
+        <div style="align-items: center; margin: 0 auto; text-align: center; margin-top: 20px;">
           <button type="submit" mat-raised-button color="primary" [disabled]="!formHojaDeVida2.valid"
             style="width: 40%; text-align: center; margin: 0 auto; " (click)="imprimirInformacion2()">
             Guardar </button> <br> <br>
 
 
-          <button type="button" class="boton" mat-raised-button color="primary"
-            style="width: 50%; margin: 0 auto; margin-bottom: 50px;" (click)="fillForm()"> Generar y guardar pdf
-          </button>
         </div>
 
 
