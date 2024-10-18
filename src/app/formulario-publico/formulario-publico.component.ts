@@ -71,7 +71,6 @@ import { Router } from '@angular/router';
 export class FormularioPublicoComponent implements OnInit {
   [x: string]: any;
   //datosHoja: HojaDeVida = new HojaDeVida();
-  formHojaDeVida!: FormGroup;
   formHojaDeVida2!: FormGroup;
   datos: any; // Puedes tipar esto mejor según la estructura de tu JSON
   ciudadesResidencia: string[] = [];
@@ -96,6 +95,34 @@ export class FormularioPublicoComponent implements OnInit {
   title = 'Formulario';
 
 
+  // Función que escucha los cambios de cualquier campo del formulario y guarda en localStorage
+  guardarCambiosEnLocalStorage(form: FormGroup, key: string): void {
+    form.valueChanges.subscribe((val) => {
+      const numeroCedula = this.formHojaDeVida2.get('numeroCedula')?.value;
+      if (numeroCedula) {
+        localStorage.setItem(key, JSON.stringify(val));
+        localStorage.setItem('numeroCedula', numeroCedula); // Guardar el número de cédula en localStorage
+      }
+    });
+  }
+
+  // Función para cargar datos guardados en localStorage solo si el número de cédula coincide
+  cargarDatosGuardados(): void {
+    const formHojaDeVida2Data = localStorage.getItem('formHojaDeVida2');
+    const numeroCedulaLocalStorage = localStorage.getItem('numeroCedula');
+
+    // Solo cargar los datos si el número de cédula en el formulario coincide con el almacenado
+    if (this.numeroCedula == numeroCedulaLocalStorage) {
+      if (formHojaDeVida2Data) {
+        console.log('Cargando datos de localStorage...');
+        this.formHojaDeVida2.patchValue(JSON.parse(formHojaDeVida2Data));
+      }
+    }
+    else {
+      console.log('No se encontraron datos en localStorage.');
+    }
+  }
+
 
   constructor(
     private http: HttpClient,
@@ -104,7 +131,10 @@ export class FormularioPublicoComponent implements OnInit {
     private cdRef: ChangeDetectorRef,
     private router: Router
   ) {
-    this.formHojaDeVida = new FormGroup({
+
+    // Llamada a la función para inicializar el formulario con base en el número de hijos
+
+    this.formHojaDeVida2 = new FormGroup({      // Formulario publico segunda parte
 
       tipoDoc: new FormControl('', Validators.required),
       numeroCedula: new FormControl('', Validators.required),
@@ -174,21 +204,11 @@ export class FormularioPublicoComponent implements OnInit {
 
       estudiaActualmente: new FormControl('', Validators.required),
 
-
-
-    }), { validators: this.validar };
-
-    // Llamada a la función para inicializar el formulario con base en el número de hijos
-
-    this.formHojaDeVida2 = new FormGroup({      // Formulario publico segunda parte
-
-
       escolaridad: new FormControl('', Validators.required),
       estudiosExtras: new FormControl('', Validators.required),
       nombreInstitucion: new FormControl('', Validators.required),
       anoFinalizacion: new FormControl('', [
         Validators.required,
-        Validators.pattern(/^\d{4}$/),
       ]),
 
       tituloObtenido: new FormControl('', Validators.required),
@@ -304,7 +324,7 @@ export class FormularioPublicoComponent implements OnInit {
       caracteristicasVivienda: new FormControl('', Validators.required),
 
       areaExperiencia: new FormControl([]),  // Array vacío
-      personas_a_cargo: new FormControl([]),
+      personas_a_cargo: new FormControl([], Validators.required),
 
       conQuienViveChecks: new FormControl([], Validators.required),
       tiposViviendaChecks: new FormControl([], Validators.required),
@@ -318,7 +338,7 @@ export class FormularioPublicoComponent implements OnInit {
       experienciaSignificativa: new FormControl('', Validators.required),
       motivacion: new FormControl('', Validators.required),
 
-    });
+    }), { validators: this.validar };
 
     this.escucharNumeroDeHijos();
 
@@ -326,7 +346,14 @@ export class FormularioPublicoComponent implements OnInit {
 
   }
 
-  personasACargoOptions: string[] = ['Hijos', 'Abuelos', 'Papas', 'Hermanos', 'Personas con cuidados especiales', 'Ninguno'];
+  personasACargoOptions: string[] = [
+    'HIJOS',
+    'ABUELOS',
+    'PAPÁS',
+    'HERMANOS',
+    'PERSONAS CON CUIDADOS ESPECIALES',
+    'NINGUNO',
+  ];
 
 
   async ngOnInit(): Promise<void> {
@@ -344,15 +371,20 @@ export class FormularioPublicoComponent implements OnInit {
         this.actualizarEdadesHijos(numHijos);
       });
 
+
+
+
+    this.guardarCambiosEnLocalStorage(this.formHojaDeVida2, 'formHojaDeVida2');
+
   }
 
 
   // campos numeroCedula y numeroCedula2 son los mismos
   validar() {
-    if (this.formHojaDeVida.value.numeroCedula === this.formHojaDeVida2.value.numeroCedula2) {
-      this.formHojaDeVida.setErrors(null);
+    if (this.formHojaDeVida2.value.numeroCedula === this.formHojaDeVida2.value.numeroCedula2) {
+      this.formHojaDeVida2.setErrors(null);
     } else {
-      this.formHojaDeVida.setErrors({ noCoincide: true });
+      this.formHojaDeVida2.setErrors({ noCoincide: true });
     }
   }
 
@@ -364,32 +396,81 @@ export class FormularioPublicoComponent implements OnInit {
 
 
   imprimirInformacion2(): void {
-    if (this.formHojaDeVida.invalid) {
+    let camposInvalidos: string[] = [];
+
+    // Validar formHojaDeVida2
+    if (this.formHojaDeVida2.invalid) {
       Swal.fire({
         title: '¡Formulario incompleto!',
-        text: 'Por favor, llena todos los campos obligatorios.',
+        text: 'Por favor, completa todos los campos obligatorios.',
         icon: 'warning',
         confirmButtonText: 'Aceptar',
       });
+      return;
     }
-    else {
-      this.imprimirInformacion()
-    }
-    if (this.formHojaDeVida2.invalid) {
-      Object.keys(this.formHojaDeVida2.controls).forEach(key => {
-        const control = this.formHojaDeVida2.get(key);
-        if (control?.invalid) {
-          console.log(`El campo ${key} es inválido`, control.errors);
-        }
+
+    // Si hay campos inválidos en cualquiera de los dos formularios, mostramos el Swal
+    if (camposInvalidos.length > 0) {
+      Swal.fire({
+        title: '¡Formulario incompleto!',
+        html: `<ul>${camposInvalidos.map(campo => `<li>${campo}</li>`).join('')}</ul>`,
+        icon: 'warning',
+        confirmButtonText: 'Aceptar',
       });
-    }
-    else {
+    } else {
       // recoger numero de cedula del local storage
       const cedula = localStorage.getItem('cedula');
 
       // Crear un objeto con solo los datos que quieres enviar
       const datosAEnviar = {
-        numeroCedula: cedula,
+        tipoDoc: this.formHojaDeVida2.value.tipoDoc,
+        numeroCedula: this.formHojaDeVida2.value.numeroCedula,
+        pApellido: this.formHojaDeVida2.value.pApellido,
+        sApellido: this.formHojaDeVida2.value.sApellido,
+        pNombre: this.formHojaDeVida2.value.pNombre,
+        sNombre: this.formHojaDeVida2.value.sNombre,
+        genero: this.formHojaDeVida2.value.genero,
+        correo: this.formHojaDeVida2.value.correo,
+        numCelular: this.formHojaDeVida2.value.numCelular,
+        numWha: this.formHojaDeVida2.value.numWha,
+        departamento: this.formHojaDeVida2.value.departamento,
+        ciudad: this.formHojaDeVida2.value.ciudad ?? '',
+
+        estadoCivil: this.formHojaDeVida2.value.estadoCivil,
+        direccionResidencia: this.formHojaDeVida2.value.direccionResidencia,
+        barrio: this.formHojaDeVida2.value.zonaResidencia,
+        fechaExpedicionCc: this.formHojaDeVida2.value.fechaExpedicionCC,
+        departamentoExpedicionCc:
+          this.formHojaDeVida2.value.departamentoExpedicionCC,
+        municipioExpedicionCc: this.formHojaDeVida2.value.municipioExpedicionCC,
+        lugarNacimientoDepartamento:
+          this.formHojaDeVida2.value.departamentoNacimiento,
+        lugarNacimientoMunicipio: this.formHojaDeVida2.value.municipioNacimiento,
+        rh: this.formHojaDeVida2.value.rh,
+        zurdoDiestro: this.formHojaDeVida2.value.lateralidad,
+
+        tiempoResidenciaZona: this.formHojaDeVida2.value.tiempoResidenciaZona,
+        lugarAnteriorResidencia:
+          this.formHojaDeVida2.value.lugarAnteriorResidencia,
+        razonCambioResidencia: this.formHojaDeVida2.value.razonCambioResidencia,
+        zonasConocidas: this.formHojaDeVida2.value.zonasConocidas,
+        preferenciaResidencia: this.formHojaDeVida2.value.preferenciaResidencia,
+        fechaNacimiento: this.formHojaDeVida2.value.fechaNacimiento,
+        estudiaActualmente:
+          this.formHojaDeVida2.value.estudiaActualmente.display ?? '',
+
+        familiarEmergencia: this.formHojaDeVida2.value.familiarEmergencia, // Asumiendo que falta este campo en TS, agregar si es necesario
+        parentescoFamiliarEmergencia:
+          this.formHojaDeVida2.value.parentescoFamiliarEmergencia,
+        direccionFamiliarEmergencia:
+          this.formHojaDeVida2.value.direccionFamiliarEmergencia,
+        barrioFamiliarEmergencia:
+          this.formHojaDeVida2.value.barrioFamiliarEmergencia,
+        telefonoFamiliarEmergencia:
+          this.formHojaDeVida2.value.telefonoFamiliarEmergencia,
+        ocupacionFamiliarEmergencia:
+          this.formHojaDeVida2.value.ocupacionFamiliar_Emergencia,
+
         escolaridad: this.formHojaDeVida2.value.escolaridad,
         estudiosExtra: this.formHojaDeVida2.value.estudiosExtras, // Corregido "Extras" a "Extra"
         nombreInstitucion: this.formHojaDeVida2.value.nombreInstitucion,
@@ -555,7 +636,7 @@ export class FormularioPublicoComponent implements OnInit {
 
   convertValuesToUpperCase(formValues: any): any {
     const upperCaseValues: { [key: string]: any } = {}; // Se especifica el tipo de 'upperCaseValues'
-    
+
     for (const key in formValues) {
       if (formValues.hasOwnProperty(key) && typeof formValues[key] === 'string') {
         upperCaseValues[key] = formValues[key].toUpperCase();
@@ -563,91 +644,10 @@ export class FormularioPublicoComponent implements OnInit {
         upperCaseValues[key] = formValues[key];
       }
     }
-    
+
     return upperCaseValues;
   }
-  
-  
 
-
-  imprimirInformacion(): void {
-    // Crear un objeto con solo los datos que quieres enviar
-    const datosAEnviar = {
-      tipoDoc: this.formHojaDeVida.value.tipoDoc,
-      numeroCedula: this.formHojaDeVida.value.numeroCedula,
-      pApellido: this.formHojaDeVida.value.pApellido,
-      sApellido: this.formHojaDeVida.value.sApellido,
-      pNombre: this.formHojaDeVida.value.pNombre,
-      sNombre: this.formHojaDeVida.value.sNombre,
-      genero: this.formHojaDeVida.value.genero,
-      correo: this.formHojaDeVida.value.correo,
-      numCelular: this.formHojaDeVida.value.numCelular,
-      numWha: this.formHojaDeVida.value.numWha,
-      departamento: this.formHojaDeVida.value.departamento,
-      ciudad: this.formHojaDeVida.value.ciudad ?? '',
-
-      estadoCivil: this.formHojaDeVida.value.estadoCivil,
-      direccionResidencia: this.formHojaDeVida.value.direccionResidencia,
-      barrio: this.formHojaDeVida.value.zonaResidencia,
-      fechaExpedicionCc: this.formHojaDeVida.value.fechaExpedicionCC,
-      departamentoExpedicionCc:
-        this.formHojaDeVida.value.departamentoExpedicionCC,
-      municipioExpedicionCc: this.formHojaDeVida.value.municipioExpedicionCC,
-      lugarNacimientoDepartamento:
-        this.formHojaDeVida.value.departamentoNacimiento,
-      lugarNacimientoMunicipio: this.formHojaDeVida.value.municipioNacimiento,
-      rh: this.formHojaDeVida.value.rh,
-      zurdoDiestro: this.formHojaDeVida.value.lateralidad,
-
-      tiempoResidenciaZona: this.formHojaDeVida.value.tiempoResidenciaZona,
-      lugarAnteriorResidencia:
-        this.formHojaDeVida.value.lugarAnteriorResidencia,
-      razonCambioResidencia: this.formHojaDeVida.value.razonCambioResidencia,
-      zonasConocidas: this.formHojaDeVida.value.zonasConocidas,
-      preferenciaResidencia: this.formHojaDeVida.value.preferenciaResidencia,
-      fechaNacimiento: this.formHojaDeVida.value.fechaNacimiento,
-      estudiaActualmente:
-        this.formHojaDeVida.value.estudiaActualmente.display ?? '',
-
-      familiarEmergencia: this.formHojaDeVida.value.familiarEmergencia, // Asumiendo que falta este campo en TS, agregar si es necesario
-      parentescoFamiliarEmergencia:
-        this.formHojaDeVida.value.parentescoFamiliarEmergencia,
-      direccionFamiliarEmergencia:
-        this.formHojaDeVida.value.direccionFamiliarEmergencia,
-      barrioFamiliarEmergencia:
-        this.formHojaDeVida.value.barrioFamiliarEmergencia,
-      telefonoFamiliarEmergencia:
-        this.formHojaDeVida.value.telefonoFamiliarEmergencia,
-      ocupacionFamiliarEmergencia:
-        this.formHojaDeVida.value.ocupacionFamiliar_Emergencia,
-
-
-    };
-
-    console.log(datosAEnviar);
-    const upperCaseValues = this.convertValuesToUpperCase(datosAEnviar);
-
-
-    const url = `${urlBack.url}/contratacion/subirParte1`; // Asegúrate de sustituir `elEndpointEspecifico` con el path correcto
-
-    // Realizar la petición HTTP POST
-    this.http.post(url, upperCaseValues).subscribe(
-      (response) => {
-        console.log(response);
-        /* swal y que cuando le de click a aceptar lo redireccione a la pagina de inicio */
-        Swal.fire({
-          title: '¡Datos guardados!',
-          text: 'Los datos se guardaron correctamente. Puedes continuar con la segunda parte.',
-          icon: 'success',
-          confirmButtonText: 'Aceptar',
-        })
-
-      },
-      (error) => {
-        console.error(error.error.message);
-      }
-    );
-  }
 
   buscarCedula() {
     /* Validar que el campo no esté vacío */
@@ -671,6 +671,9 @@ export class FormularioPublicoComponent implements OnInit {
       cancelButtonText: 'Cancelar',
     }).then((result) => {
       if (result.isConfirmed) {
+        // Cargar los valores guardados de localStorage si existen y coinciden con el número de cédula
+        this.cargarDatosGuardados();
+
         // Si el usuario confirma, proceder con la búsqueda
         localStorage.setItem('cedula', this.numeroCedula.toString() ?? '');
 
@@ -680,11 +683,11 @@ export class FormularioPublicoComponent implements OnInit {
             this.mostrarFormulario = true; // Mostrar el formulario
             Swal.fire({
               title: 'Cédula encontrada',
-              text: 'Procede por favor a verificar cada dato para poder actualizarlo.',
+              text: 'Actualiza tus datos',
               icon: 'success',
               confirmButtonText: 'Aceptar',
             });
-            this.llenarFormularioConDatos(response);
+            //this.llenarFormularioConDatos(response);
           },
           (error) => {
             console.error(error);
@@ -760,165 +763,149 @@ export class FormularioPublicoComponent implements OnInit {
       //this.actualizarEdadesHijos(datosHoja.num_hijos_dependen_economicamente);
 
       if (datosHoja && datosHoja.numerodeceduladepersona !== undefined) {
-        this.formHojaDeVida.patchValue({
-          tipoDoc: datosHoja.tipodedocumento,
-          numeroCedula: datosHoja.numerodeceduladepersona,
-          numeroCedula2: datosHoja.numerodeceduladepersona,
-          pApellido: datosHoja.primer_apellido,
-          sApellido: datosHoja.segundo_apellido,
-          pNombre: datosHoja.primer_nombre,
-          sNombre: datosHoja.segundo_nombre,
-          genero: datosHoja.genero,
-          correo: datosHoja.primercorreoelectronico,
-          numCelular: datosHoja.celular,
-          numWha: datosHoja.whatsapp,
-          departamento: datosHoja.departamento,
-
-          estadoCivil: datosHoja.estado_civil,
-          direccionResidencia: datosHoja.direccion_residencia,
-          zonaResidencia: datosHoja.barrio,
-          fechaExpedicionCC: datosHoja.fecha_expedicion_cc,
-          departamentoExpedicionCC: datosHoja.departamento_expedicion_cc,
-          municipioExpedicionCC: datosHoja.municipio_expedicion_cc,
-          departamentoNacimiento: datosHoja.lugar_nacimiento_departamento,
-          municipioNacimiento: datosHoja.lugar_nacimiento_municipio,
-          rh: datosHoja.rh,
-          lateralidad: datosHoja.zurdo_diestro,
-
-          ciudad: datosHoja.municipio ?? '',
-          tiempoResidenciaZona: datosHoja.hacecuantoviveenlazona,
-          lugarAnteriorResidencia: datosHoja.lugar_anterior_residencia,
-          razonCambioResidencia: datosHoja.hace_cuanto_se_vino_y_porque,
-          zonasConocidas: datosHoja.zonas_del_pais,
-          preferenciaResidencia: datosHoja.donde_le_gustaria_vivir,
-          fechaNacimiento: datosHoja.fecha_nacimiento,
-          estudiaActualmente: opcionSeleccionada, // Asigna el objeto encontrado
-
-          familiarEmergencia: datosHoja.familiar_emergencia,
-          parentescoFamiliarEmergencia:
-            datosHoja.parentesco_familiar_emergencia,
-          direccionFamiliarEmergencia: datosHoja.direccion_familiar_emergencia,
-          barrioFamiliarEmergencia: datosHoja.barrio_familiar_emergencia,
-          telefonoFamiliarEmergencia: datosHoja.telefono_familiar_emergencia,
-          ocupacionFamiliar_Emergencia: datosHoja.ocupacion_familiar_emergencia,
-
-
-
-
-          //fotocedulafrontal: this.getImageUrl(datosHoja.fotocedulafrontal),
-          //fotocedulatrasera: this.getImageUrl(datosHoja.fotocedulatrasera),
-          //fotoPersonal: this.getImageUrl(datosHoja.fotoPersonal),
-        });
 
         this.formHojaDeVida2.patchValue({
+          tipoDoc: datosHoja.tipodedocumento !== '-' ? datosHoja.tipodedocumento : '',
+          numeroCedula: datosHoja.numerodeceduladepersona !== '-' ? datosHoja.numerodeceduladepersona : '',
+          numeroCedula2: datosHoja.numerodeceduladepersona !== '-' ? datosHoja.numerodeceduladepersona : '',
+          pApellido: datosHoja.primer_apellido !== '-' ? datosHoja.primer_apellido : '',
+          sApellido: datosHoja.segundo_apellido !== '-' ? datosHoja.segundo_apellido : '',
+          pNombre: datosHoja.primer_nombre !== '-' ? datosHoja.primer_nombre : '',
+          sNombre: datosHoja.segundo_nombre !== '-' ? datosHoja.segundo_nombre : '',
+          genero: datosHoja.genero !== '-' ? datosHoja.genero : '',
+          correo: datosHoja.primercorreoelectronico !== '-' ? datosHoja.primercorreoelectronico : '',
+          numCelular: datosHoja.celular !== '-' ? datosHoja.celular : '',
+          numWha: datosHoja.whatsapp !== '-' ? datosHoja.whatsapp : '',
+          departamento: datosHoja.departamento !== '-' ? datosHoja.departamento : '',
+
+          estadoCivil: datosHoja.estado_civil !== '-' ? datosHoja.estado_civil : '',
+          direccionResidencia: datosHoja.direccion_residencia !== '-' ? datosHoja.direccion_residencia : '',
+          zonaResidencia: datosHoja.barrio !== '-' ? datosHoja.barrio : '',
+          fechaExpedicionCC: datosHoja.fecha_expedicion_cc !== '-' ? datosHoja.fecha_expedicion_cc : '',
+          departamentoExpedicionCC: datosHoja.departamento_expedicion_cc !== '-' ? datosHoja.departamento_expedicion_cc : '',
+          municipioExpedicionCC: datosHoja.municipio_expedicion_cc !== '-' ? datosHoja.municipio_expedicion_cc : '',
+          departamentoNacimiento: datosHoja.lugar_nacimiento_departamento !== '-' ? datosHoja.lugar_nacimiento_departamento : '',
+          municipioNacimiento: datosHoja.lugar_nacimiento_municipio !== '-' ? datosHoja.lugar_nacimiento_municipio : '',
+          rh: datosHoja.rh !== '-' ? datosHoja.rh : '',
+          lateralidad: datosHoja.zurdo_diestro !== '-' ? datosHoja.zurdo_diestro : '',
+
+          ciudad: datosHoja.municipio !== '-' ? datosHoja.municipio : '',
+          tiempoResidenciaZona: datosHoja.hacecuantoviveenlazona !== '-' ? datosHoja.hacecuantoviveenlazona : '',
+          lugarAnteriorResidencia: datosHoja.lugar_anterior_residencia !== '-' ? datosHoja.lugar_anterior_residencia : '',
+          razonCambioResidencia: datosHoja.hace_cuanto_se_vino_y_porque !== '-' ? datosHoja.hace_cuanto_se_vino_y_porque : '',
+          zonasConocidas: datosHoja.zonas_del_pais !== '-' ? datosHoja.zonas_del_pais : '',
+          preferenciaResidencia: datosHoja.donde_le_gustaria_vivir !== '-' ? datosHoja.donde_le_gustaria_vivir : '',
+          fechaNacimiento: datosHoja.fecha_nacimiento !== '-' ? datosHoja.fecha_nacimiento : '',
+          estudiaActualmente: opcionSeleccionada, // Asigna el objeto encontrado
+
+          familiarEmergencia: datosHoja.familiar_emergencia !== '-' ? datosHoja.familiar_emergencia : '',
+          parentescoFamiliarEmergencia: datosHoja.parentesco_familiar_emergencia !== '-' ? datosHoja.parentesco_familiar_emergencia : '',
+          direccionFamiliarEmergencia: datosHoja.direccion_familiar_emergencia !== '-' ? datosHoja.direccion_familiar_emergencia : '',
+          barrioFamiliarEmergencia: datosHoja.barrio_familiar_emergencia !== '-' ? datosHoja.barrio_familiar_emergencia : '',
+          telefonoFamiliarEmergencia: datosHoja.telefono_familiar_emergencia !== '-' ? datosHoja.telefono_familiar_emergencia : '',
+          ocupacionFamiliar_Emergencia: datosHoja.ocupacion_familiar_emergencia !== '-' ? datosHoja.ocupacion_familiar_emergencia : '',
+
           // Formulario publico segunda parte
-          escolaridad: datosHoja.escolaridad,
-          estudiosExtras: datosHoja.estudiosExtra,
-          nombreInstitucion: datosHoja.nombre_institucion,
-          anoFinalizacion: datosHoja.ano_finalizacion,
-          tituloObtenido: datosHoja.titulo_obtenido,
-          tallaChaqueta: datosHoja.chaqueta,
-          tallaPantalon: datosHoja.pantalon,
-          tallaCamisa: datosHoja.camisa,
-          tallaCalzado: datosHoja.calzado,
+          escolaridad: datosHoja.escolaridad !== '-' ? datosHoja.escolaridad : '',
+          estudiosExtras: datosHoja.estudiosExtra !== '-' ? datosHoja.estudiosExtra : '',
+          nombreInstitucion: datosHoja.nombre_institucion !== '-' ? datosHoja.nombre_institucion : '',
+          anoFinalizacion: datosHoja.ano_finalizacion !== '-' ? datosHoja.ano_finalizacion : '',
+          tituloObtenido: datosHoja.titulo_obtenido !== '-' ? datosHoja.titulo_obtenido : '',
+          tallaChaqueta: datosHoja.chaqueta !== '-' ? datosHoja.chaqueta : '',
+          tallaPantalon: datosHoja.pantalon !== '-' ? datosHoja.pantalon : '',
+          tallaCamisa: datosHoja.camisa !== '-' ? datosHoja.camisa : '',
+          tallaCalzado: datosHoja.calzado !== '-' ? datosHoja.calzado : '',
+
+          nombresConyuge: datosHoja.nombre_conyugue !== '-' ? datosHoja.nombre_conyugue : '',
+          apellidosConyuge: datosHoja.apellido_conyugue !== '-' ? datosHoja.apellido_conyugue : '',
+          documentoIdentidadConyuge: datosHoja.num_doc_identidad_conyugue !== '-' ? datosHoja.num_doc_identidad_conyugue : '',
+          viveConyuge: datosHoja.vive_con_el_conyugue !== '-' ? this.stringToBoolean(datosHoja.vive_con_el_conyugue) : '',
+          direccionConyuge: datosHoja.direccion_conyugue !== '-' ? datosHoja.direccion_conyugue : '',
+          telefonoConyuge: datosHoja.telefono_conyugue !== '-' ? datosHoja.telefono_conyugue : '',
+          barrioConyuge: datosHoja.barrio_municipio_conyugue !== '-' ? datosHoja.barrio_municipio_conyugue : '',
+          ocupacionConyuge: datosHoja.ocupacion_conyugue !== '-' ? datosHoja.ocupacion_conyugue : '',
+          telefonoLaboralConyuge: datosHoja.telefono_laboral_conyugue !== '-' ? datosHoja.telefono_laboral_conyugue : '',
+          direccionLaboralConyuge: datosHoja.direccion_laboral_conyugue !== '-' ? datosHoja.direccion_laboral_conyugue : '',
+
+          nombrePadre: datosHoja.nombre_padre !== '-' ? datosHoja.nombre_padre : '',
+          elPadreVive: datosHoja.vive_padre !== '-' ? this.stringToBoolean(datosHoja.vive_padre) : '',
+          ocupacionPadre: datosHoja.ocupacion_padre !== '-' ? datosHoja.ocupacion_padre : '',
+          direccionPadre: datosHoja.direccion_padre !== '-' ? datosHoja.direccion_padre : '',
+          telefonoPadre: datosHoja.telefono_padre !== '-' ? datosHoja.telefono_padre : '',
+          barrioPadre: datosHoja.barrio_padre !== '-' ? datosHoja.barrio_padre : '',
+          nombreMadre: datosHoja.nombre_madre !== '-' ? datosHoja.nombre_madre : '',
+
+          madreVive: datosHoja.vive_madre !== '-' ? this.stringToBoolean(datosHoja.vive_madre) : '',
+          ocupacionMadre: datosHoja.ocupacion_madre !== '-' ? datosHoja.ocupacion_madre : '',
+          direccionMadre: datosHoja.direccion_madre !== '-' ? datosHoja.direccion_madre : '',
+          telefonoMadre: datosHoja.telefono_madre !== '-' ? datosHoja.telefono_madre : '',
+          barrioMadre: datosHoja.barrio_madre !== '-' ? datosHoja.barrio_madre : '',
 
 
-          nombresConyuge: datosHoja.nombre_conyugue,
-          apellidosConyuge: datosHoja.apellido_conyugue,
-          documentoIdentidadConyuge: datosHoja.num_doc_identidad_conyugue,
-          viveConyuge:
-            this.stringToBoolean(datosHoja.vive_con_el_conyugue) ?? '',
-          direccionConyuge: datosHoja.direccion_conyugue,
-          telefonoConyuge: datosHoja.telefono_conyugue,
-          barrioConyuge: datosHoja.barrio_municipio_conyugue,
-          ocupacionConyuge: datosHoja.ocupacion_conyugue,
-          telefonoLaboralConyuge: datosHoja.telefono_laboral_conyugue,
-          direccionLaboralConyuge: datosHoja.direccion_laboral_conyugue,
+          nombreReferenciaPersonal1: datosHoja.nombre_referencia_personal1 !== '-' ? datosHoja.nombre_referencia_personal1 : '',
+          telefonoReferencia1: datosHoja.telefono_referencia_personal1 !== '-' ? datosHoja.telefono_referencia_personal1 : '',
+          ocupacionReferencia1: datosHoja.ocupacion_referencia_personal1 !== '-' ? datosHoja.ocupacion_referencia_personal1 : '',
+          tiempoConoceReferenciaPersonal1: datosHoja.tiempo_conoce_referencia_personal1 !== '-' ? datosHoja.tiempo_conoce_referencia_personal1 : '',
 
-          nombrePadre: datosHoja.nombre_padre,
-          elPadreVive: this.stringToBoolean(datosHoja.vive_padre) ?? '',
-          ocupacionPadre: datosHoja.ocupacion_padre,
-          direccionPadre: datosHoja.direccion_padre,
-          telefonoPadre: datosHoja.telefono_padre,
-          barrioPadre: datosHoja.barrio_padre,
-          nombreMadre: datosHoja.nombre_madre,
+          nombreReferenciaPersonal2: datosHoja.nombre_referencia_personal2 !== '-' ? datosHoja.nombre_referencia_personal2 : '',
+          telefonoReferencia2: datosHoja.telefono_referencia_personal2 !== '-' ? datosHoja.telefono_referencia_personal2 : '',
+          ocupacionReferencia2: datosHoja.ocupacion_referencia_personal2 !== '-' ? datosHoja.ocupacion_referencia_personal2 : '',
+          tiempoConoceReferenciaPersonal2: datosHoja.tiempo_conoce_referencia_personal2 !== '-' ? datosHoja.tiempo_conoce_referencia_personal2 : '',
 
-          madreVive: this.stringToBoolean(datosHoja.vive_madre) ?? '',
-          ocupacionMadre: datosHoja.ocupacion_madre,
-          direccionMadre: datosHoja.direccion_madre,
-          telefonoMadre: datosHoja.telefono_madre,
-          barrioMadre: datosHoja.barrio_madre,
+          nombreReferenciaFamiliar1: datosHoja.nombre_referencia_familiar1 !== '-' ? datosHoja.nombre_referencia_familiar1 : '',
+          telefonoReferenciaFamiliar1: datosHoja.telefono_referencia_familiar1 !== '-' ? datosHoja.telefono_referencia_familiar1 : '',
+          ocupacionReferenciaFamiliar1: datosHoja.ocupacion_referencia_familiar1 !== '-' ? datosHoja.ocupacion_referencia_familiar1 : '',
+          parentescoReferenciaFamiliar1: datosHoja.parentesco_referencia_familiar1 !== '-' ? datosHoja.parentesco_referencia_familiar1 : '',
 
-          nombreReferenciaPersonal1: datosHoja.nombre_referencia_personal1,
-          telefonoReferencia1: datosHoja.telefono_referencia_personal1,
-          ocupacionReferencia1: datosHoja.ocupacion_referencia_personal1,
-          tiempoConoceReferenciaPersonal1: datosHoja.tiempo_conoce_referencia_personal1,
+          nombreReferenciaFamiliar2: datosHoja.nombre_referencia_familiar2 !== '-' ? datosHoja.nombre_referencia_familiar2 : '',
+          telefonoReferenciaFamiliar2: datosHoja.telefono_referencia_familiar2 !== '-' ? datosHoja.telefono_referencia_familiar2 : '',
+          ocupacionReferenciaFamiliar2: datosHoja.ocupacion_referencia_familiar2 !== '-' ? datosHoja.ocupacion_referencia_familiar2 : '',
+          parentescoReferenciaFamiliar2: datosHoja.parentesco_referencia_familiar2 !== '-' ? datosHoja.parentesco_referencia_familiar2 : '',
 
-          nombreReferenciaPersonal2: datosHoja.nombre_referencia_personal2,
-          telefonoReferencia2: datosHoja.telefono_referencia_personal2,
-          ocupacionReferencia2: datosHoja.ocupacion_referencia_personal2,
-          tiempoConoceReferenciaPersonal2: datosHoja.tiempo_conoce_referencia_personal2,
+          experienciaLaboral: this.stringToBoolean(datosHoja.tiene_experiencia_laboral !== '-' ? datosHoja.tiene_experiencia_laboral : ''),
 
-          nombreReferenciaFamiliar1: datosHoja.nombre_referencia_familiar1,
-          telefonoReferenciaFamiliar1: datosHoja.telefono_referencia_familiar1,
-          ocupacionReferenciaFamiliar1:
-            datosHoja.ocupacion_referencia_familiar1,
-          parentescoReferenciaFamiliar1:
-            datosHoja.parentesco_referencia_familiar1,
-
-          nombreReferenciaFamiliar2: datosHoja.nombre_referencia_familiar2,
-          telefonoReferenciaFamiliar2: datosHoja.telefono_referencia_familiar2,
-          ocupacionReferenciaFamiliar2:
-            datosHoja.ocupacion_referencia_familiar2,
-          parentescoReferenciaFamiliar2: datosHoja.parentesco_referencia_familiar2,
+          areaCultivoPoscosecha: datosHoja.area_cultivo_poscosecha !== '-' ? datosHoja.area_cultivo_poscosecha : '',
+          laboresRealizadas: datosHoja.labores_realizadas !== '-' ? datosHoja.labores_realizadas : '',
+          tiempoExperiencia: datosHoja.tiempo_experiencia !== '-' ? datosHoja.tiempo_experiencia : '',
 
 
-          // expericiencia laboral tiene un False pero para que lo caja es false en minuscula
-          experienciaLaboral: this.stringToBoolean(
-            datosHoja.tiene_experiencia_laboral ?? ''
-          ),
+          nombreEmpresa1: datosHoja.nombre_expe_laboral1_empresa !== '-' ? datosHoja.nombre_expe_laboral1_empresa : '',
+          direccionEmpresa1: datosHoja.direccion_empresa1 !== '-' ? datosHoja.direccion_empresa1 : '',
+          telefonosEmpresa1: datosHoja.telefonos_empresa1 !== '-' ? datosHoja.telefonos_empresa1 : '',
+          nombreJefe1: datosHoja.nombre_jefe_empresa1 !== '-' ? datosHoja.nombre_jefe_empresa1 : '',
+          cargoTrabajador1: datosHoja.cargo_empresa1 !== '-' ? datosHoja.cargo_empresa1 : '',
+          fechaRetiro1: datosHoja.fecha_retiro_empresa1 !== '-' ? datosHoja.fecha_retiro_empresa1 : '',
+          motivoRetiro1: datosHoja.motivo_retiro_empresa1 !== '-' ? datosHoja.motivo_retiro_empresa1 : '',
+          cargoEmpresa1: datosHoja.cargoEmpresa1 !== '-' ? datosHoja.cargoEmpresa1 : '',
+          empresas_laborado: datosHoja.empresas_laborado !== '-' ? datosHoja.empresas_laborado : '',
+          labores_realizadas: datosHoja.labores_realizadas !== '-' ? datosHoja.labores_realizadas : '',
+          rendimiento: datosHoja.rendimiento !== '-' ? datosHoja.rendimiento : '',
+          porqueRendimiento: datosHoja.porqueRendimiento !== '-' ? datosHoja.porqueRendimiento : '',
 
-          areaCultivoPoscosecha: datosHoja.area_cultivo_poscosecha,
-          laboresRealizadas: datosHoja.labores_realizadas,
-          tiempoExperiencia: datosHoja.tiempo_experiencia,
+          nombreEmpresa2: datosHoja.nombre_expe_laboral2_empresa !== '-' ? datosHoja.nombre_expe_laboral2_empresa : '',
+          direccionEmpresa2: datosHoja.direccion_empresa2 !== '-' ? datosHoja.direccion_empresa2 : '',
+          telefonosEmpresa2: datosHoja.telefonos_empresa2 !== '-' ? datosHoja.telefonos_empresa2 : '',
+          nombreJefe2: datosHoja.nombre_jefe_empresa2 !== '-' ? datosHoja.nombre_jefe_empresa2 : '',
+          cargoTrabajador2: datosHoja.cargo_empresa2 !== '-' ? datosHoja.cargo_empresa2 : '',
+          fechaRetiro2: datosHoja.fecha_retiro_empresa2 !== '-' ? datosHoja.fecha_retiro_empresa2 : '',
+          motivoRetiro2: datosHoja.motivo_retiro_empresa2 !== '-' ? datosHoja.motivo_retiro_empresa2 : '',
 
-          nombreEmpresa1: datosHoja.nombre_expe_laboral1_empresa,
-          direccionEmpresa1: datosHoja.direccion_empresa1,
-          telefonosEmpresa1: datosHoja.telefonos_empresa1,
-          nombreJefe1: datosHoja.nombre_jefe_empresa1,
-          cargoTrabajador1: datosHoja.cargo_empresa1,
-          fechaRetiro1: datosHoja.fecha_retiro_empresa1,
-          motivoRetiro1: datosHoja.motivo_retiro_empresa1,
-          cargoEmpresa1: datosHoja.cargoEmpresa1,
-          empresas_laborado: datosHoja.empresas_laborado,
-          labores_realizadas: datosHoja.labores_realizadas,
-          rendimiento: datosHoja.rendimiento,
-          porqueRendimiento: datosHoja.porqueRendimiento,
+          numHijosDependientes: datosHoja.num_hijos_dependen_economicamente !== '-' ? datosHoja.num_hijos_dependen_economicamente : '',
+          edadHijo1: datosHoja.edad_hijo1 !== '-' ? datosHoja.edad_hijo1 : '',
+          edadHijo2: datosHoja.edad_hijo2 !== '-' ? datosHoja.edad_hijo2 : '',
+          edadHijo3: datosHoja.edad_hijo3 !== '-' ? datosHoja.edad_hijo3 : '',
+          edadHijo4: datosHoja.edad_hijo4 !== '-' ? datosHoja.edad_hijo4 : '',
+          edadHijo5: datosHoja.edad_hijo5 !== '-' ? datosHoja.edad_hijo5 : '',
 
-          nombreEmpresa2: datosHoja.nombre_expe_laboral2_empresa,
-          direccionEmpresa2: datosHoja.direccion_empresa2,
-          telefonosEmpresa2: datosHoja.telefonos_empresa2,
-          nombreJefe2: datosHoja.nombre_jefe_empresa2,
-          cargoTrabajador2: datosHoja.cargo_empresa2,
-          fechaRetiro2: datosHoja.fecha_retiro_empresa2,
-          motivoRetiro2: datosHoja.motivo_retiro_empresa2,
+          cuidadorHijos: datosHoja.quien_los_cuida !== '-' ? datosHoja.quien_los_cuida : '',
 
-          numHijosDependientes: datosHoja.num_hijos_dependen_economicamente,
-          edadHijo1: datosHoja.edad_hijo1 ?? '',
-          edadHijo2: datosHoja.edad_hijo2 ?? '',
-          edadHijo3: datosHoja.edad_hijo3 ?? '',
-          edadHijo4: datosHoja.edad_hijo4 ?? '',
-          edadHijo5: datosHoja.edad_hijo5 ?? '',
+          familiaSolo: this.stringToBoolean(datosHoja.familia_con_un_solo_ingreso !== '-' ? datosHoja.familia_con_un_solo_ingreso : ''),
+          numeroHabitaciones: datosHoja.num_habitaciones !== '-' ? datosHoja.num_habitaciones : '',
+          personasPorHabitacion: datosHoja.num_personas_por_habitacion !== '-' ? datosHoja.num_personas_por_habitacion : '',
+          tipoVivienda2: datosHoja.tipo_vivienda_2p !== '-' ? datosHoja.tipo_vivienda_2p : '',
+          caracteristicasVivienda: datosHoja.caractteristicas_vivienda !== '-' ? datosHoja.caractteristicas_vivienda : '',
+          fuenteVacante: datosHoja.como_se_entero !== '-' ? datosHoja.como_se_entero : '',
 
-          cuidadorHijos: datosHoja.quien_los_cuida,
-
-          familiaSolo:
-            this.stringToBoolean(datosHoja.familia_con_un_solo_ingreso) ?? '',
-          numeroHabitaciones: datosHoja.num_habitaciones,
-          personasPorHabitacion: datosHoja.num_personas_por_habitacion,
-          tipoVivienda2: datosHoja.tipo_vivienda_2p,
-          caracteristicasVivienda: datosHoja.caractteristicas_vivienda,
-          fuenteVacante: datosHoja.como_se_entero,
 
           areaExperiencia: datosHoja.area_experiencia ? datosHoja.area_experiencia.split(',').map((item: string) => item.trim()) : [],
           conQuienViveChecks: datosHoja.personas_con_quien_convive ? datosHoja.personas_con_quien_convive.split(',').map((item: string) => item.trim()) : [],
@@ -928,12 +915,13 @@ export class FormularioPublicoComponent implements OnInit {
           personas_a_cargo: datosHoja.personas_a_cargo ? datosHoja.personas_a_cargo.split(',').map((item: string) => item.trim()) : [],
 
 
-          como_es_su_relacion_familiar: datosHoja.como_es_su_relacion_familiar,
-          porqueLofelicitarian: datosHoja.porqueLofelicitarian,
-          malentendido: datosHoja.malentendido,
-          actividadesDi: datosHoja.actividadesDi,
-          experienciaSignificativa: datosHoja.experienciaSignificativa,
-          motivacion: datosHoja.motivacion,
+          como_es_su_relacion_familiar: datosHoja.como_es_su_relacion_familiar !== '-' ? datosHoja.como_es_su_relacion_familiar : '',
+          porqueLofelicitarian: datosHoja.porqueLofelicitarian !== '-' ? datosHoja.porqueLofelicitarian : '',
+          malentendido: datosHoja.malentendido !== '-' ? datosHoja.malentendido : '',
+          actividadesDi: datosHoja.actividadesDi !== '-' ? datosHoja.actividadesDi : '',
+          experienciaSignificativa: datosHoja.experienciaSignificativa !== '-' ? datosHoja.experienciaSignificativa : '',
+          motivacion: datosHoja.motivacion !== '-' ? datosHoja.motivacion : '',
+
 
         });
 
@@ -977,7 +965,7 @@ export class FormularioPublicoComponent implements OnInit {
   }
 
   inicializarFormularioHijos() {
-    this.formHojaDeVida
+    this.formHojaDeVida2
       .get('numHijosDependientes')!
       .valueChanges.subscribe((numHijos) => {
         this.actualizarFormularioHijos(numHijos);
@@ -986,7 +974,7 @@ export class FormularioPublicoComponent implements OnInit {
 
 
   actualizarFormularioHijos(numHijos: number) {
-    const hijosArray = this.formHojaDeVida.get('hijos') as FormArray;
+    const hijosArray = this.formHojaDeVida2.get('hijos') as FormArray;
 
     // Eliminar todos los FormGroup existentes
     while (hijosArray.length) {
@@ -1054,31 +1042,31 @@ export class FormularioPublicoComponent implements OnInit {
   }
 
   escucharCambiosEnDepartamento(): void {
-    this.formHojaDeVida
+    this.formHojaDeVida2
       .get('departamento')!
       .valueChanges.subscribe((departamentoSeleccionado) => {
         this.ciudadesResidencia = this.actualizarMunicipios(
           departamentoSeleccionado
         );
-        this.formHojaDeVida.get('ciudad')!.enable();
+        this.formHojaDeVida2.get('ciudad')!.enable();
       });
 
-    this.formHojaDeVida
+    this.formHojaDeVida2
       .get('departamentoExpedicionCC')!
       .valueChanges.subscribe((departamentoSeleccionado) => {
         this.ciudadesExpedicionCC = this.actualizarMunicipios(
           departamentoSeleccionado
         );
-        this.formHojaDeVida.get('municipioExpedicionCC')!.enable();
+        this.formHojaDeVida2.get('municipioExpedicionCC')!.enable();
       });
 
-    this.formHojaDeVida
+    this.formHojaDeVida2
       .get('departamentoNacimiento')!
       .valueChanges.subscribe((departamentoSeleccionado) => {
         this.ciudadesNacimiento = this.actualizarMunicipios(
           departamentoSeleccionado
         );
-        this.formHojaDeVida.get('municipioNacimiento')!.enable();
+        this.formHojaDeVida2.get('municipioNacimiento')!.enable();
       });
   }
 
@@ -1106,16 +1094,17 @@ export class FormularioPublicoComponent implements OnInit {
 
 
   opcionesPromocion: string[] = [
-    "Referido (amigo, familiar, conocido)",
-    "Ya había trabajado con nosotros",
-    "Perifoneo (carro, moto)",
-    "Volantes (a pie)",
-    "Red social WhatsApp",
-    "Red social Facebook",
-    "Red social Instagram",
-    "Punto físico directo (pregunto en la oficina temporal)",
-    "Convocatoria externa (municipio, localidad, barrio)"
+    "REFERIDO (AMIGO, FAMILIAR, CONOCIDO)",
+    "YA HABÍA TRABAJADO CON NOSOTROS",
+    "PERIFONEO (CARRO, MOTO)",
+    "VOLANTES (A PIE)",
+    "RED SOCIAL WHATSAPP",
+    "RED SOCIAL FACEBOOK",
+    "RED SOCIAL INSTAGRAM",
+    "PUNTO FÍSICO DIRECTO (PREGUNTÓ EN LA OFICINA TEMPORAL)",
+    "CONVOCATORIA EXTERNA (MUNICIPIO, LOCALIDAD, BARRIO)"
   ];
+
 
   // Arreglo para el tipo de cedula
   tipoDocs: any[] = [
@@ -1127,10 +1116,10 @@ export class FormularioPublicoComponent implements OnInit {
   generos: any[] = ['M', 'F'];
 
   haceCuantoViveEnlaZona: any[] = [
-    'Menos de un mes',
-    'Un mes',
-    'Mas de 2 mes',
-    'Mas de 6 meses',
+    'MENOS DE UN MES',
+    'UN MES',
+    'MÁS DE 2 MESES',
+    'MÁS DE 6 MESES',
   ];
 
   //  Lista estado civil
@@ -1158,16 +1147,17 @@ export class FormularioPublicoComponent implements OnInit {
   ];
 
   listadoDeNacionalidades: any[] = [
-    'Colombiana',
-    'Venezolana',
-    'Estadounidense',
-    'Ecuatoriana',
-    'Peruana',
-    'Española',
-    'Cubana',
-    'Argentina',
-    'Mexicana',
+    'COLOMBIANA',
+    'VENEZOLANA',
+    'ESTADOUNIDENSE',
+    'ECUATORIANA',
+    'PERUANA',
+    'ESPAÑOLA',
+    'CUBANA',
+    'ARGENTINA',
+    'MEXICANA',
   ];
+
 
   listatiposdesangre: any[] = [
     'AB+',
@@ -1181,54 +1171,59 @@ export class FormularioPublicoComponent implements OnInit {
   ];
 
   opcionBinaria: any[] = [
-    { value: true, display: 'Sí' },
-    { value: false, display: 'No' },
+    { value: true, display: 'SÍ' },
+    { value: false, display: 'NO' },
   ];
 
   listamanos: any[] = [
     {
-      mano: 'Zurdo',
-      descripcion: 'Zurdo (Escribe con la mano izquierda)',
+      mano: 'ZURDO',
+      descripcion: 'ZURDO (ESCRIBE CON LA MANO IZQUIERDA)',
     },
     {
-      mano: 'Diestro',
-      descripcion: 'Diestro (Escribe con la mano derecha)',
+      mano: 'DIESTRO',
+      descripcion: 'DIESTRO (ESCRIBE CON LA MANO DERECHA)',
     },
     {
-      mano: 'Ambidiestro',
-      descripcion: 'Ambidiestro (Escribe con ambas manos)',
+      mano: 'AMBIDIESTRO',
+      descripcion: 'AMBIDIESTRO (ESCRIBE CON AMBAS MANOS)',
     },
   ];
 
-  tiposVivienda = ['Casa', 'Apartamento', 'Finca', 'Habitación'];
+
+  tiposVivienda = ['CASA', 'APARTAMENTO', 'FINCA', 'HABITACIÓN'];
+
   tiposVivienda2: string[] = [
-    'Propia Totalmente Paga',
-    'Propia la están pagando',
-    'Arriendo',
-    'Familiar',
+    'PROPIA TOTALMENTE PAGA',
+    'PROPIA LA ESTÁN PAGANDO',
+    'ARRIENDO',
+    'FAMILIAR',
   ];
 
-  caracteristicasVivienda: string[] = ['Obra Negra', 'Obra Gris', 'Terminada'];
+
+  caracteristicasVivienda: string[] = ['OBRA NEGRA', 'OBRA GRIS', 'TERMINADA'];
 
   comodidades: string[] = [
-    'Gas Natural',
-    'Teléfono Fijo',
-    'Internet',
-    'Lavadero',
-    'Patio',
-    'Luz',
-    'Agua',
-    'Televisión',
+    'GAS NATURAL',
+    'TELÉFONO FIJO',
+    'INTERNET',
+    'LAVADERO',
+    'PATIO',
+    'LUZ',
+    'AGUA',
+    'TELEVISIÓN',
   ];
 
+
   expectativasVida: string[] = [
-    'Educación Propia',
-    'Educación de los hijos',
-    'Compra de Vivienda',
-    'Compra de Automóvil',
-    'Viajar',
-    'Otro',
+    'EDUCACIÓN PROPIA',
+    'EDUCACIÓN DE LOS HIJOS',
+    'COMPRA DE VIVIENDA',
+    'COMPRA DE AUTOMÓVIL',
+    'VIAJAR',
+    'OTRO',
   ];
+
 
   listaEscolaridad: any[] = [
     '1',
@@ -1242,29 +1237,30 @@ export class FormularioPublicoComponent implements OnInit {
     '9',
     '10',
     '11',
-    'Sin Estudios',
-    'Otro',
+    'SIN ESTUDIOS',
+    'OTROS',
   ];
 
   listaEscoText: any[] = [
     {
-      esco: 'Educación básica primaria',
-      descripcion: 'Educación básica primaria - 1 a 5 Grado',
+      esco: 'EDUCACIÓN BÁSICA PRIMARIA',
+      descripcion: 'EDUCACIÓN BÁSICA PRIMARIA - 1 A 5 GRADO',
     },
     {
-      esco: 'Educación básica secundaria',
-      descripcion: 'Educación básica secundaria - 6 a 9 Grado',
+      esco: 'EDUCACIÓN BÁSICA SECUNDARIA',
+      descripcion: 'EDUCACIÓN BÁSICA SECUNDARIA - 6 A 9 GRADO',
     },
     {
-      esco: 'Educación media académica',
-      descripcion: 'Educación básica secundaria - 10 a 11 Grado',
+      esco: 'EDUCACIÓN MEDIA ACADÉMICA',
+      descripcion: 'EDUCACIÓN MEDIA ACADÉMICA - 10 A 11 GRADO',
     },
     {
-      esco: 'Otro',
+      esco: 'OTRO',
       descripcion:
-        'Otro (Escribir primero titulo luego nombre) Ej: Técnico Electricista',
+        'OTRO (ESCRIBIR PRIMERO TÍTULO LUEGO NOMBRE) EJ: TÉCNICO ELECTRICISTA',
     },
   ];
+
 
   tallas: any[] = [
     '4',
@@ -1285,167 +1281,167 @@ export class FormularioPublicoComponent implements OnInit {
   tallasCalzado: any[] = ['35', '36', '37', '39', '40', '41', '42', '44'];
 
   listaParentescosFamiliares: any[] = [
-    'Padre',
-    'Madre',
-    'Abuelo/Abuela',
-    'Bisabuelo/Bisabuela',
-    'Tío/Tía',
-    'Primo/Prima',
-    'Sobrino/Sobrina',
-    'Hermano/Hermana',
-    'Cuñado/Cuñada',
-    'Esposo/Esposa',
-    'Hijo/Hija',
-    'Nieto/Nieta',
-    'Bisnieto/Bisnieta',
-    'Suegro/Suegra',
-    'Yerno/Nuera',
-    'Hermanastro/Hermanastra',
-    'Medio hermano/Media hermana',
-    'Padre adoptivo',
-    'Madre adoptiva',
-    'Hijo adoptivo',
-    'Hija adoptiva',
-    'Abuelo adoptivo',
-    'Abuela adoptiva',
-    'Padre biológico',
-    'Madre biológica',
-    'Hijo biológico',
-    'Hija biológica',
-    'Padre de crianza',
-    'Madre de crianza',
-    'Hijo de crianza',
-    'Hija de crianza',
-    'Tutor legal',
-    'Curador legal',
-    'Padrino/Madrina',
-    'Compadre/Comadre',
-    'Concubino/Concubina',
-    'Ex-esposo/Ex-esposa',
-    'Amigo/Amiga',
-    'Ninguno',
+    'PADRE',
+    'MADRE',
+    'ABUELO/ABUEL@',
+    'BISABUELO/BISABUEL@',
+    'TÍ@',
+    'PRIM@',
+    'SOBRIN@',
+    'HERMAN@',
+    'CUÑAD@',
+    'ESPOS@',
+    'HIJ@',
+    'NIET@',
+    'BISNIET@',
+    'SUEGR@',
+    'YERN@',
+    'HERMANASTR@',
+    'MEDI@ HERMAN@',
+    'PADRE ADOPTIVO',
+    'MADRE ADOPTIVA',
+    'HIJ@ ADOPTIV@',
+    'ABUEL@ ADOPTIV@',
+    'PADRE BIOLÓGICO',
+    'MADRE BIOLÓGICA',
+    'HIJ@ BIOLÓGIC@',
+    'PADRE DE CRIANZA',
+    'MADRE DE CRIANZA',
+    'HIJ@ DE CRIANZA',
+    'TUTOR LEGAL',
+    'CURADOR LEGAL',
+    'PADRIN@',
+    'COMPADR@',
+    'CONCUBIN@',
+    'EX-ESPOS@',
+    'AMIG@',
+    'NINGUNO',
   ];
 
+
   Ocupacion: any[] = [
-    'Empleado',
-    'Independiente',
-    'Hogar (Am@ de casa)',
-    'Desempleado',
-    'Otro',
+    'EMPLEADO',
+    'INDEPENDIENTE',
+    'HOGAR (AM@ DE CASA)',
+    'DESEMPLEADO',
+    'OTRO',
   ];
 
   listaMotivosRetiro: any[] = [
-    'Renuncia voluntaria',
-    'Despido',
-    'Reducción de personal',
-    'Cierre de la empresa',
-    'Fin de contrato temporal',
-    'Abandono de cargo',
+    'RENUNCIA VOLUNTARIA',
+    'DESPIDO',
+    'REDUCCIÓN DE PERSONAL',
+    'CIERRE DE LA EMPRESA',
+    'FIN DE CONTRATO TEMPORAL',
+    'ABANDONO DE CARGO',
   ];
 
-  listaAreas: any[] = ['Cultivo', 'Poscosecha', 'Ambas', 'Otro'];
 
-  listaCalificaciones: any[] = ['Bajo', 'Medio', 'Excelente'];
+  listaAreas: any[] = ['CULTIVO', 'POSCOSECHA', 'AMBAS', 'OTRO'];
+
+  listaCalificaciones: any[] = ['BAJO', 'MEDIO', 'EXCELENTE'];
 
   listaDuracion: any[] = [
-    'Menos de un mes',
-    '3 meses',
-    '6 meses',
-    '1 año',
-    '2 años',
-    'Mas de 2 años',
-    'Toda la vida',
+    'MENOS DE UN MES',
+    '3 MESES',
+    '6 MESES',
+    '1 AÑO',
+    '2 AÑOS',
+    'MÁS DE 2 AÑOS',
+    'TODA LA VIDA',
   ];
 
   listatiposVivienda: any[] = [
-    'Casa',
-    'Apartamento',
-    'Casa-lote',
-    'Finca',
-    'Habitación',
+    'CASA',
+    'APARTAMENTO',
+    'CASA-LOTE',
+    'FINCA',
+    'HABITACIÓN',
   ];
 
+
   listaPosiblesRespuestasConquienVive: any[] = [
-    'Amigos',
-    'Abuelo',
-    'Abuela',
-    'Pareja',
-    'Papa',
-    'Mama',
-    'Hermano',
-    'Hermana',
-    'Tio',
-    'Tia',
-    'Primo',
-    'Prima',
-    'Sobrino',
-    'Sobrina',
+    'AMIGOS',
+    'ABUELO',
+    'ABUELA',
+    'PAREJA',
+    'PAPÁ',
+    'MAMÁ',
+    'HERMANO',
+    'HERMANA',
+    'TÍO',
+    'TÍA',
+    'PRIMO',
+    'PRIMA',
+    'SOBRINO',
+    'SOBRINA',
+    'SOLO'
   ];
 
   listaPersonasQueCuidan: any[] = [
-    'Yo',
-    'Pareja o esposa',
-    'Amigos',
-    'Jardín',
-    'Son independientes',
-    'Familiar',
-    'Colegio',
-    'Universidad',
-    'Amig@s',
-    'Niñera',
-    'Dueña apartamento',
+    'YO',
+    'PAREJA O ESPOSA',
+    'AMIGOS',
+    'JARDÍN',
+    'SON INDEPENDIENTES',
+    'FAMILIAR',
+    'COLEGIO',
+    'UNIVERSIDAD',
+    'AMIG@S',
+    'NIÑERA',
+    'DUEÑA APARTAMENTO',
   ];
 
   listaPosiblesRespuestasPersonasACargo: any[] = [
-    'Hijos',
-    'Abuelos',
-    'Papas',
-    'Hermanos',
-    'Personas con cuidados especialas',
-    'Otro',
-    'Tios',
+    'HIJOS',
+    'ABUELOS',
+    'PAPÁS',
+    'HERMANOS',
+    'PERSONAS CON CUIDADOS ESPECIALES',
+    'OTRO',
+    'TÍOS',
   ];
 
+
   opcionesDeExperiencia: any[] = [
-    'Sector Floricultor (Poscosecha- Clasificación, Boncheo, Empaque, Cuarto frío)',
-    'Sector Floricultor (Calidad- Mipe)',
-    'Sector Floricultor (área de mantenimiento- Ornatos, Trabajo en alturas, Mecánicos, Jefaturas y supervisión)',
-    'Sector Comercial (Ventas)',
-    'Sector Industrial (Alimentos- Textil- Transporte)',
-    'Sector Financiero',
-    'Sector Administrativo y Contable',
-    'Sin experiencia',
+    'SECTOR FLORICULTOR (POSCOSECHA- CLASIFICACIÓN, BONCHEO, EMPAQUE, CUARTO FRÍO)',
+    'SECTOR FLORICULTOR (CALIDAD- MIPE)',
+    'SECTOR FLORICULTOR (ÁREA DE MANTENIMIENTO- ORNATOS, TRABAJO EN ALTURAS, MECÁNICOS, JEFATURAS Y SUPERVISIÓN)',
+    'SECTOR COMERCIAL (VENTAS)',
+    'SECTOR INDUSTRIAL (ALIMENTOS- TEXTIL- TRANSPORTE)',
+    'SECTOR FINANCIERO',
+    'SECTOR ADMINISTRATIVO Y CONTABLE',
+    'SIN EXPERIENCIA',
   ];
 
   tiempoTrabajado: any[] = [
-    'De 15 días a 1 mes (Una temporada)',
-    'De 2 a 6 meses',
-    'Más de 6 meses',
-    'Un año o más',
+    'DE 15 DÍAS A 1 MES (UNA TEMPORADA)',
+    'DE 2 A 6 MESES',
+    'MÁS DE 6 MESES',
+    'UN AÑO O MÁS',
   ];
 
   cursosDespuesColegio: any[] = [
-    'Técnico',
-    'Tecnólogo',
-    'Universidad',
-    'Especialización',
-    'Ninguna',
-    'Otros',
+    'TÉCNICO',
+    'TECNÓLOGO',
+    'UNIVERSIDAD',
+    'ESPECIALIZACIÓN',
+    'NINGUNA',
+    'OTROS',
   ];
-
-
 
   areasExperiencia: string[] = [
-    'Sector Floricultor (Poscosecha- Clasificación, Boncheo, Empaque, Cuarto frío)',
-    'Sector Floricultor (Calidad- Mipe)',
-    'Sector Floricultor (área de mantenimiento- Ornatos, Trabajo en alturas, Mecánicos, electricistas)',
-    'Jefaturas y supervisión',
-    'Sector Comercial (Ventas)',
-    'Sector Industrial (Alimentos- Textil- Transporte)',
-    'Sector Financiero',
-    'Sector Administrativo y Contable',
-    'Sin experiencia'
+    'SECTOR FLORICULTOR (POSCOSECHA- CLASIFICACIÓN, BONCHEO, EMPAQUE, CUARTO FRÍO)',
+    'SECTOR FLORICULTOR (CALIDAD- MIPE)',
+    'SECTOR FLORICULTOR (ÁREA DE MANTENIMIENTO- ORNATOS, TRABAJO EN ALTURAS, MECÁNICOS, ELECTRICISTAS)',
+    'JEFATURAS Y SUPERVISIÓN',
+    'SECTOR COMERCIAL (VENTAS)',
+    'SECTOR INDUSTRIAL (ALIMENTOS- TEXTIL- TRANSPORTE)',
+    'SECTOR FINANCIERO',
+    'SECTOR ADMINISTRATIVO Y CONTABLE',
+    'SIN EXPERIENCIA',
   ];
+
 
 }
 

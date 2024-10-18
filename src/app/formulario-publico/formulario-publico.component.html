@@ -18,7 +18,7 @@
 
     </div>
 
-    <form class="formulario" [formGroup]="formHojaDeVida" id="formulario" *ngIf="mostrarFormulario" autocomplete="off">
+    <form class="formulario formulario2" [formGroup]="formHojaDeVida2" id="formulario" *ngIf="mostrarFormulario" autocomplete="off">
       <div>
 
         <div class="title">
@@ -133,10 +133,12 @@
           <!-- Fecha de Expedición CC -->
           <mat-form-field appearance="fill">
             <mat-label>Fecha de Expedición CC</mat-label>
-            <input matInput [matDatepicker]="expedicionCCPicker" formControlName="fechaExpedicionCC">
+            <input matInput [matDatepicker]="expedicionCCPicker" formControlName="fechaExpedicionCC"
+              (focus)="expedicionCCPicker.open()">
             <mat-datepicker-toggle matSuffix [for]="expedicionCCPicker"></mat-datepicker-toggle>
             <mat-datepicker #expedicionCCPicker></mat-datepicker>
           </mat-form-field>
+
 
           <!-- Departamento de Expedición CC -->
           <mat-form-field appearance="fill">
@@ -225,7 +227,7 @@
           <!-- Hace cuánto se vino y por qué -->
           <mat-form-field appearance="fill">
             <mat-label>¿Por qué cambió de ciudad de residencia?</mat-label>
-            <input matInput formControlName="razonCambioResidencia" placeholder="Ejemplo: Hace 1 año, por trabajo">
+            <input matInput formControlName="razonCambioResidencia" placeholder="Ejemplo: Por razones personales">
           </mat-form-field>
 
           <!-- Qué zonas del país conoce -->
@@ -243,10 +245,12 @@
           <!-- Fecha de Nacimiento -->
           <mat-form-field appearance="fill">
             <mat-label>Fecha de Nacimiento</mat-label>
-            <input matInput [matDatepicker]="pickerNacimiento" formControlName="fechaNacimiento">
+            <input matInput [matDatepicker]="pickerNacimiento" formControlName="fechaNacimiento"
+              (focus)="pickerNacimiento.open()">
             <mat-datepicker-toggle matSuffix [for]="pickerNacimiento"></mat-datepicker-toggle>
             <mat-datepicker #pickerNacimiento></mat-datepicker>
           </mat-form-field>
+
 
           <!-- Estudia actualmente -->
           <mat-form-field appearance="fill">
@@ -304,11 +308,9 @@
 
         </div>
       </div>
-    </form>
 
 
-    <form class="formulario formulario2" [formGroup]="formHojaDeVida2" id="formulario2" *ngIf="mostrarFormulario"
-      autocomplete="off">
+
       <div>
         <div class="title">
           <h1>Datos personales parte 2</h1>
@@ -344,8 +346,15 @@
           <!-- Año de Finalización -->
           <mat-form-field appearance="fill">
             <mat-label>Año de Finalización</mat-label>
-            <input matInput formControlName="anoFinalizacion" type="number" min="1900" max="2099">
+            <input matInput [matDatepicker]="anoFinalizacionPicker" formControlName="anoFinalizacion"
+              (focus)="anoFinalizacionPicker.open()">
+            <mat-datepicker-toggle matSuffix [for]="anoFinalizacionPicker"></mat-datepicker-toggle>
+            <mat-datepicker #anoFinalizacionPicker startView="multi-year" panelClass="example-year-picker"
+              (focus)="anoFinalizacionPicker.open()">
+            </mat-datepicker>
           </mat-form-field>
+
+
 
           <!-- Título Obtenido -->
           <mat-form-field appearance="fill">
@@ -404,10 +413,10 @@
         </div>
 
 
-        <div class="title" *ngIf="formHojaDeVida.get('estadoCivil')?.value !== 'SO'">
+        <div class="title" *ngIf="formHojaDeVida2.get('estadoCivil')?.value !== 'SO'">
           <h1>Datos Conyugue </h1>
         </div>
-        <div class="datos" *ngIf="formHojaDeVida.get('estadoCivil')?.value !== 'SO'">
+        <div class="datos" *ngIf="formHojaDeVida2.get('estadoCivil')?.value !== 'SO'">
 
           <!-- Nombres del Cónyuge -->
           <mat-form-field appearance="fill">
@@ -723,10 +732,12 @@
           <!-- Fecha de Retiro 1 -->
           <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('experienciaLaboral')?.value">
             <mat-label>Fecha de Retiro 1</mat-label>
-            <input matInput [matDatepicker]="pickerRetiro1" formControlName="fechaRetiro1">
+            <input matInput [matDatepicker]="pickerRetiro1" formControlName="fechaRetiro1"
+              (focus)="pickerRetiro1.open()">
             <mat-datepicker-toggle matSuffix [for]="pickerRetiro1"></mat-datepicker-toggle>
             <mat-datepicker #pickerRetiro1></mat-datepicker>
           </mat-form-field>
+
 
           <!-- Tiempo de experiencia -->
           <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('experienciaLaboral')?.value">
@@ -758,11 +769,12 @@
           <mat-form-field appearance="fill">
             <mat-label>Califique su rendimiento</mat-label>
             <mat-select formControlName="rendimiento">
-              <mat-option value="bajo">Bajo</mat-option>
-              <mat-option value="medio">Medio</mat-option>
-              <mat-option value="excelente">Excelente</mat-option>
+              <mat-option value="BAJO">BAJO</mat-option>
+              <mat-option value="MEDIO">MEDIO</mat-option>
+              <mat-option value="EXCELENTE">EXCELENTE</mat-option>
             </mat-select>
           </mat-form-field>
+
 
           <!-- ¿Por qué se da esta auto calificación? -->
           <mat-form-field appearance="fill">
@@ -837,8 +849,8 @@
               <mat-form-field appearance="fill">
                 <mat-label>Sexo del Hijo</mat-label>
                 <mat-select formControlName="sexoHijo">
-                  <mat-option [value]="'Masculino'">Masculino</mat-option>
-                  <mat-option [value]="'Femenino'">Femenino</mat-option>
+                  <mat-option [value]="'M'">M</mat-option>
+                  <mat-option [value]="'F'">F</mat-option>
                 </mat-select>
               </mat-form-field>
 
@@ -846,10 +858,12 @@
               <!-- Fecha de Nacimiento del Hijo -->
               <mat-form-field appearance="fill">
                 <mat-label>Fecha de Nacimiento del Hijo</mat-label>
-                <input matInput [matDatepicker]="pickerFechaNacimientoHijo" formControlName="fechaNacimientoHijo">
+                <input matInput [matDatepicker]="pickerFechaNacimientoHijo" formControlName="fechaNacimientoHijo"
+                  (focus)="pickerFechaNacimientoHijo.open()">
                 <mat-datepicker-toggle matSuffix [for]="pickerFechaNacimientoHijo"></mat-datepicker-toggle>
                 <mat-datepicker #pickerFechaNacimientoHijo></mat-datepicker>
               </mat-form-field>
+
 
               <!-- Documento de Identidad del Hijo -->
               <mat-form-field appearance="fill">
@@ -919,14 +933,12 @@
         <mat-form-field appearance="fill">
           <mat-label>¿Cómo es su relación Familiar?</mat-label>
           <mat-select formControlName="como_es_su_relacion_familiar">
-            <mat-option value="mala">Mala Relación (No Tenemos contacto)</mat-option>
-            <mat-option value="mas_o_menos">Más o menos (Hablamos de vez en cuando)</mat-option>
-            <mat-option value="buena">Buena (Hablamos Frecuentemente)</mat-option>
-            <mat-option value="excelente">Excelente (Convivimos bien actualmente)</mat-option>
+            <mat-option value="MALA">MALA RELACIÓN (NO TENEMOS CONTACTO)</mat-option>
+            <mat-option value="MAS_O_MENOS">MÁS O MENOS (HABLAMOS DE VEZ EN CUANDO)</mat-option>
+            <mat-option value="BUENA">BUENA (HABLAMOS FRECUENTEMENTE)</mat-option>
+            <mat-option value="EXCELENTE">EXCELENTE (CONVIVIMOS BIEN ACTUALMENTE)</mat-option>
           </mat-select>
-        </mat-form-field>>
-
-
+        </mat-form-field>
 
         <div class="title">
           <h1>Datos parte 3 </h1>
@@ -1037,9 +1049,9 @@
         <mat-form-field appearance="fill">
           <mat-label>¿Está dispuesto a realizar actividades diferentes al cargo?</mat-label>
           <mat-select formControlName="actividadesDi">
-            <mat-option value="si">Sí</mat-option>
-            <mat-option value="tal_vez">Tal vez</mat-option>
-            <mat-option value="no">No</mat-option>
+            <mat-option value="SI">SÍ</mat-option>
+            <mat-option value="TAL VEZ">TAL VEZ</mat-option>
+            <mat-option value="NO">NO</mat-option>
           </mat-select>
         </mat-form-field>
 
@@ -1053,20 +1065,19 @@
         <mat-form-field appearance="fill">
           <mat-label>¿Cuál es su motivación?</mat-label>
           <mat-select formControlName="motivacion">
-            <mat-option value="familia">Familia</mat-option>
-            <mat-option value="hijos">Hijos</mat-option>
-            <mat-option value="estudio">Estudio</mat-option>
-            <mat-option value="crecimiento_personal">Crecimiento Personal</mat-option>
+            <mat-option value="FAMILIA">FAMILIA</mat-option>
+            <mat-option value="HIJOS">HIJOS</mat-option>
+            <mat-option value="ESTUDIO">ESTUDIO</mat-option>
+            <mat-option value="CRECIMIENTO PERSONAL">CRECIMIENTO PERSONAL</mat-option>
           </mat-select>
         </mat-form-field>
 
 
 
         <div style="align-items: center; margin: 0 auto; text-align: center; margin-top: 20px;">
-          <button type="submit" mat-raised-button color="primary" [disabled]="!formHojaDeVida2.valid"
+          <button type="submit" mat-raised-button color="primary" 
             style="width: 40%; text-align: center; margin: 0 auto; " (click)="imprimirInformacion2()">
             Guardar </button> <br> <br>
-
 
         </div>
 
