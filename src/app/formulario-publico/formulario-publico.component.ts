@@ -1,5 +1,6 @@
 import { ChangeDetectorRef, Component, OnInit, ViewChild } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { RouterOutlet, Router, RouterModule } from '@angular/router';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 
 import {
   FormsModule,
@@ -9,9 +10,11 @@ import {
   Validators,
   FormArray,
   FormBuilder,
+  ValidationErrors,
+  ValidatorFn,
 } from '@angular/forms';
 
-import { CommonModule } from '@angular/common'; // Importa CommonModule
+import { CommonModule } from '@angular/common';
 import {
   HttpClient,
   HttpClientModule,
@@ -20,31 +23,23 @@ import {
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
-import {
-  MatCheckboxChange,
-  MatCheckboxModule,
-} from '@angular/material/checkbox';
+import { MatCheckboxChange, MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSelectModule } from '@angular/material/select';
-import { MatOptionModule } from '@angular/material/core'; // Importa MatOptionModule
+import { MatOptionModule } from '@angular/material/core';
 import { MatInputModule } from '@angular/material/input';
 import { DomSanitizer } from '@angular/platform-browser';
 import { FirmaComponent } from '../firma/firma.component';
 import { urlBack } from '../model/Usuario';
 import Swal from 'sweetalert2';
 import { PDFCheckBox, PDFDocument, PDFTextField } from 'pdf-lib';
-import { ValidationErrors, ValidatorFn } from '@angular/forms';
-
-// Importa Router
-import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-formulario-publico',
   standalone: true,
   imports: [
-    RouterOutlet,
     FormsModule,
     ReactiveFormsModule,
     MatInputModule,
@@ -59,13 +54,11 @@ import { Router } from '@angular/router';
     MatButtonModule,
     MatDividerModule,
     MatIconModule,
-    FirmaComponent,
+    //FirmaComponent,
   ],
   templateUrl: './formulario-publico.component.html',
   styleUrl: './formulario-publico.component.css',
 })
-
-
 
 
 export class FormularioPublicoComponent implements OnInit {
@@ -129,7 +122,8 @@ export class FormularioPublicoComponent implements OnInit {
     private fb: FormBuilder,
     private sanitizer: DomSanitizer,
     private cdRef: ChangeDetectorRef,
-    private router: Router
+    private router: Router,
+    private dialog: MatDialog
   ) {
 
     // Llamada a la función para inicializar el formulario con base en el número de hijos
@@ -200,7 +194,7 @@ export class FormularioPublicoComponent implements OnInit {
         Validators.pattern(/^\d+$/),
       ]),
       ocupacionFamiliar_Emergencia: new FormControl('', Validators.required),
-
+      oficina: new FormControl('', Validators.required),
 
       estudiaActualmente: new FormControl('', Validators.required),
 
@@ -355,8 +349,21 @@ export class FormularioPublicoComponent implements OnInit {
     'NINGUNO',
   ];
 
+  // Función para extraer el contenido del otro html
+  openDialog(): void {
+    const dialogRef = this.dialog.open(DialogContentExampleDialog, {
+      disableClose: true // Esto evita que el modal se cierre al hacer clic fuera de él
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      console.log(`Dialog result: ${result}`);
+    });
+  }
+
+
 
   async ngOnInit(): Promise<void> {
+    this.openDialog();
     this.cargarDatosJSON();
 
     try {
@@ -470,6 +477,7 @@ export class FormularioPublicoComponent implements OnInit {
           this.formHojaDeVida2.value.telefonoFamiliarEmergencia,
         ocupacionFamiliarEmergencia:
           this.formHojaDeVida2.value.ocupacionFamiliar_Emergencia,
+        oficina: this.formHojaDeVida2.value.oficina,
 
         escolaridad: this.formHojaDeVida2.value.escolaridad,
         estudiosExtra: this.formHojaDeVida2.value.estudiosExtras, // Corregido "Extras" a "Extra"
@@ -597,6 +605,10 @@ export class FormularioPublicoComponent implements OnInit {
 
       console.log(datosAEnviar);
       const upperCaseValues = this.convertValuesToUpperCase(datosAEnviar);
+      // parte de hijos tambien en mayuscula
+      const hijos = this.formHojaDeVida2.value.hijos;
+      const upperCaseHijos = hijos.map((hijo: any) => this.convertValuesToUpperCase(hijo));
+      upperCaseValues.hijos = upperCaseHijos;
 
 
       const url = `${urlBack.url}/contratacion/subirParte2`; // Asegúrate de sustituir `elEndpointEspecifico` con el path correcto
@@ -635,18 +647,40 @@ export class FormularioPublicoComponent implements OnInit {
   }
 
   convertValuesToUpperCase(formValues: any): any {
-    const upperCaseValues: { [key: string]: any } = {}; // Se especifica el tipo de 'upperCaseValues'
-
+    const upperCaseValues: { [key: string]: any } = {}; // Objeto para almacenar los valores formateados
+  
     for (const key in formValues) {
-      if (formValues.hasOwnProperty(key) && typeof formValues[key] === 'string') {
-        upperCaseValues[key] = formValues[key].toUpperCase();
-      } else {
-        upperCaseValues[key] = formValues[key];
+      if (formValues.hasOwnProperty(key)) {
+        const value = formValues[key];
+  
+        if (typeof value === 'string') {
+          // Normalizar texto: eliminar caracteres decorativos y convertir a mayúsculas
+          upperCaseValues[key] = this.normalizeString(value.trim().toUpperCase());
+        } else if (Array.isArray(value)) {
+          // Si es un arreglo, normalizar cada elemento
+          upperCaseValues[key] = value.map(item =>
+            typeof item === 'string'
+              ? this.normalizeString(item.trim().toUpperCase())
+              : item
+          );
+        } else {
+          // Dejar el valor tal como está si no es una cadena o arreglo
+          upperCaseValues[key] = value;
+        }
       }
     }
-
+  
     return upperCaseValues;
   }
+  
+  normalizeString(value: string): string {
+    return value
+      .normalize('NFKD') // Normalización para separar caracteres combinados
+      .replace(/[\u{1D400}-\u{1D7FF}]/gu, char => String.fromCharCode(char.codePointAt(0)! - 0x1D400 + 65)); // Rango matemático
+  }
+  
+  
+  
 
 
   buscarCedula() {
@@ -1359,6 +1393,12 @@ export class FormularioPublicoComponent implements OnInit {
     'HABITACIÓN',
   ];
 
+  oficinas: string[] = [
+    'ANDES', 'BOSA', 'CARTAGENITA', 'FACA_PRIMERA', 'FACA_PRINCIPAL', 'FONTIBÓN',
+    'FORANEOS', 'FUNZA', 'MADRID', 'MONTE_VERDE', 'ROSAL', 'SOACHA', 'SUBA',
+    'TOCANCIPÁ', 'USME'
+  ];
+
 
   listaPosiblesRespuestasConquienVive: any[] = [
     'AMIGOS',
@@ -1446,3 +1486,22 @@ export class FormularioPublicoComponent implements OnInit {
 }
 
 
+@Component({
+  selector: 'dialog-content-example-dialog',
+  standalone: true,
+  imports: [
+    CommonModule,
+    MatButtonModule,
+    MatDialogModule, // Importa MatDialogModule para los diálogos
+    RouterModule,
+  ],
+  templateUrl: 'dialog-content-example-dialog.html',
+})
+export class DialogContentExampleDialog {
+  constructor(private _router: Router, private dialog: MatDialog) { }
+
+  Noacepto() {
+    // recargar la pagina
+    window.location.reload();
+  }
+}

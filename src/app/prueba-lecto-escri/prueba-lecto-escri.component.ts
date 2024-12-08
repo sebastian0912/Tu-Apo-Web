@@ -21,6 +21,7 @@ import {
 import Swal from 'sweetalert2';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
+import { CandidatoService } from '../shared/service/candidato/candidato.service';
 
 type RespuestaClave = 'a' | 'b' | 'c' | 'd' | 'e';
 
@@ -28,7 +29,6 @@ type RespuestaClave = 'a' | 'b' | 'c' | 'd' | 'e';
   selector: 'app-prueba-lecto-escri',
   standalone: true,
   imports: [
-    RouterOutlet,
     HttpClientModule,
     FormsModule,
     ReactiveFormsModule,
@@ -45,9 +45,7 @@ export class PruebaLectoEscriComponent {
   numeroCedula!: number;
 
   nombre: string = '';
-  edad: string = '';
-  grado: string = '';
-
+  CodigoContrato: string = '';
   palabrasConEstados: any[] = [];
   puntaje = 100;
 
@@ -93,7 +91,11 @@ export class PruebaLectoEscriComponent {
     respuestaSeleccionada: null,
   };
 
-  constructor(private fb: FormBuilder, private http: HttpClient) {
+  constructor(
+    private fb: FormBuilder, 
+    private http: HttpClient,
+    private candidatoService: CandidatoService
+  ) {
     const palabras = [
       'gallina',
       'murcielago',
@@ -191,22 +193,14 @@ export class PruebaLectoEscriComponent {
       });
       return;
     }
-  
-    try {
-      const url = `${urlBack.url}/contratacion/buscarCandidato/${this.numeroCedula}`;
-  
-      const response = await fetch(url, {
-        method: 'GET'
-      });
-  
-      if (response.ok) {
-        const responseData = await response.json();
-        if (responseData && responseData.data.length > 0) {
-          const data = responseData.data[0];
+    console.log('Buscando cédula:', this.numeroCedula);
+    this.candidatoService.buscarEncontratacion(this.numeroCedula).subscribe(
+      (response: any) => {
+        console.log('Respuesta de la búsqueda:', response);
+        if (response) {          
           this.mostrarFormulario = true; // Mostrar el formulario
-          this.nombre = `${data.primer_nombre} ${data.segundo_nombre} ${data.primer_apellido} ${data.segundo_apellido}`;
-          this.edad = this.calcularEdad(data.fecha_nacimiento).toString();
-          this.grado = data.estudiosExtra;
+          this.nombre = response.nombre_completo;
+          this.CodigoContrato = response.codigo_contrato;
         } else {
           Swal.fire({
             title: 'Cédula no encontrada',
@@ -216,19 +210,18 @@ export class PruebaLectoEscriComponent {
           });
           this.mostrarFormulario = true; // También mostrar el formulario en caso de error
         }
-      } else {
-        throw new Error(`Error en la petición GET: ${response.status}`);
+      },
+      (error) => {
+        console.error('Error al realizar la petición HTTP GET');
+        console.error(error);
+        Swal.fire({
+          title: 'Error en la búsqueda',
+          text: 'Se produjo un error al buscar la cédula, por favor intenta nuevamente.',
+          icon: 'error',
+          confirmButtonText: 'Aceptar',
+        });
       }
-    } catch (error) {
-      console.error('Error al realizar la petición HTTP GET');
-      console.error(error);
-      Swal.fire({
-        title: 'Error en la búsqueda',
-        text: 'Se produjo un error al buscar la cédula, por favor intenta nuevamente.',
-        icon: 'error',
-        confirmButtonText: 'Aceptar',
-      });
-    }
+    ); 
   }
   
 

@@ -18,7 +18,8 @@
 
     </div>
 
-    <form class="formulario formulario2" [formGroup]="formHojaDeVida2" id="formulario" *ngIf="mostrarFormulario" autocomplete="off">
+    <form class="formulario formulario2" [formGroup]="formHojaDeVida2" id="formulario" *ngIf="mostrarFormulario"
+      autocomplete="off">
       <div>
 
         <div class="title">
@@ -305,6 +306,17 @@
               </mat-option>
             </mat-select>
           </mat-form-field>
+
+          <!-- Selección de Oficina -->
+          <mat-form-field appearance="fill">
+            <mat-label>Seleccione la oficina donde esta</mat-label>
+            <mat-select formControlName="oficina">
+              <mat-option *ngFor="let oficina of oficinas" [value]="oficina">
+                {{ oficina }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
 
         </div>
       </div>
@@ -1075,7 +1087,7 @@
 
 
         <div style="align-items: center; margin: 0 auto; text-align: center; margin-top: 20px;">
-          <button type="submit" mat-raised-button color="primary" 
+          <button type="submit" mat-raised-button color="primary"
             style="width: 40%; text-align: center; margin: 0 auto; " (click)="imprimirInformacion2()">
             Guardar </button> <br> <br>
 
