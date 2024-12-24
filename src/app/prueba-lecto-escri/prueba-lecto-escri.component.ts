@@ -1,8 +1,8 @@
 import { ChangeDetectorRef, Component, ViewChild } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { urlBack } from '../model/Usuario';
+import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-
 import {
   FormsModule,
   ReactiveFormsModule,
@@ -22,6 +22,7 @@ import Swal from 'sweetalert2';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { CandidatoService } from '../shared/service/candidato/candidato.service';
+import { PruebasService } from '../shared/service/pruebas/pruebas.service';
 
 type RespuestaClave = 'a' | 'b' | 'c' | 'd' | 'e';
 
@@ -42,12 +43,18 @@ type RespuestaClave = 'a' | 'b' | 'c' | 'd' | 'e';
 export class PruebaLectoEscriComponent {
   pruebaLectoEscritura: FormGroup;
   mostrarFormulario: boolean = false;
-  numeroCedula!: number;
+  numeroCedula!: any;
 
   nombre: string = '';
   CodigoContrato: string = '';
   palabrasConEstados: any[] = [];
   puntaje = 100;
+  typeMap: { [key: string]: number } = {
+    pruebaLecto: 20, 
+    pruebaSst: 22, 
+  };
+  uploadedFiles: { [key: string]: { file: File, fileName: string } } = {}; // Almacenar tanto el archivo como el nombre
+  
 
   respuestas: Record<RespuestaClave, number | null> = {
     a: null,
@@ -94,7 +101,8 @@ export class PruebaLectoEscriComponent {
   constructor(
     private fb: FormBuilder, 
     private http: HttpClient,
-    private candidatoService: CandidatoService
+    private candidatoService: CandidatoService,
+    private pruebasService: PruebasService
   ) {
     const palabras = [
       'gallina',
@@ -165,13 +173,13 @@ export class PruebaLectoEscriComponent {
       event.target.value.toUpperCase() ===
       this.palabrasConEstados[palabraIndex].letras[letraIndex].toUpperCase()
     ) {
-      estado.habilitado = false; // Correcto: Marca la letra como deshabilitada pero ya está visible
+      //estado.habilitado = false; // Correcto: Marca la letra como deshabilitada pero ya está visible
       event.target.value =
         this.palabrasConEstados[palabraIndex].letras[letraIndex]; // Muestra la letra
     } else {
       this.puntaje -= 0.5; // Incorrecto: Resta puntos
     }
-    event.target.disabled = true; // Deshabilita el input
+    //event.target.disabled = true; // Deshabilita el input
   }
 
   seleccionarPalabrasAleatorias(
@@ -212,8 +220,6 @@ export class PruebaLectoEscriComponent {
         }
       },
       (error) => {
-        console.error('Error al realizar la petición HTTP GET');
-        console.error(error);
         Swal.fire({
           title: 'Error en la búsqueda',
           text: 'Se produjo un error al buscar la cédula, por favor intenta nuevamente.',
@@ -272,9 +278,40 @@ export class PruebaLectoEscriComponent {
     // Aquí podrías manejar la lógica para cuando las respuestas son verificadas
   }
 
-  enviarRespuestas() {
+  subirPruebaLecto(): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      console.log('Subiendo archivo de pruebaLecto...', this.uploadedFiles);
+  
+      // Verificar si existe el archivo de pruebaLecto
+      const pruebaLectoFile = this.uploadedFiles['pruebaLecto'];
+      if (!pruebaLectoFile) {
+        reject('No se ha encontrado el archivo de pruebaLecto');
+        return;
+      }
+  
+      const { file, fileName } = pruebaLectoFile; // Obtén el archivo y su nombre
+      const title = fileName; // Título del archivo (nombre del archivo PDF)
+      const type = this.typeMap['pruebaLecto'] || 20; // Tipo definido en el mapa para pruebaLecto (en este caso, 20)
+  
+      // Llamar al servicio para guardar el archivo
+      this.pruebasService.guardarPrueba(title, this.numeroCedula, type, file, this.CodigoContrato)
+        .subscribe(
+          (response) => {
+            console.log('Archivo de pruebaLecto subido exitosamente:', response);
+            resolve(true);
+          },
+          (error) => {
+            console.error('Error al subir el archivo de pruebaLecto:', error);
+            reject('Error al subir el archivo de pruebaLecto');
+          }
+        );
+    });
+  }  
 
-    if(this.numeroCedula === undefined) {
+  
+  enviarRespuestas() {
+    // Verificación de cédula
+    if (this.numeroCedula === undefined) {
       Swal.fire({
         title: 'Error al enviar la prueba',
         text: 'Por favor, ingresa tu número de cédula.',
@@ -282,63 +319,83 @@ export class PruebaLectoEscriComponent {
         confirmButtonText: 'Aceptar',
       });
       return;
+    }  
+  
+    // Verifica que todas las respuestas hayan sido respondidas
+    if (Object.values(this.respuestas).some((valor) => valor === null)) {
+      Swal.fire({
+        title: 'Error al enviar la prueba',
+        text: 'Por favor, responde todas las preguntas antes de enviar la prueba.',
+        icon: 'error',
+        confirmButtonText: 'Aceptar',
+      });
+      return;
     }
-
+  
+    // Mostrar SweetAlert de "cargando"
+    const loadingSwal = Swal.fire({
+      title: 'Enviando...',
+      text: 'Por favor, espere mientras procesamos tu prueba.',
+      icon: 'info',
+      allowOutsideClick: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading(); // Mostrar el "cargando" animado
+      }
+    });
+  
+    // Resto del código para enviar la prueba
     const contenedor = document.querySelector('.contenedor') as HTMLElement;
-
     if (contenedor) {
       html2canvas(contenedor).then((canvas) => {
-        // Here you have the canvas. You can convert it to an image, display it, or do whatever you need with it.
-        // For example, to display it in the document:
-        document.body.appendChild(canvas);
-
-        // Or to get the image as a data URL
-        const dataURL = canvas.toDataURL();
-        console.log(dataURL);
-        // You can send this URL to a server or save it directly in the browser.
-
-        // Now, let's send the score and dataURL to the database
-        const url = `${urlBack.url}/contratacion/pruebaLectoEscritura`;
-        const data = {
-          numerodeceduladepersona: this.numeroCedula,
-          porcentajelectoescritura: this.puntaje,
-          evidencia_lectoescritura: dataURL, // Use the actual dataURL here
-        };
-
-        this.http.post(url, data).subscribe(
-          (response: any) => {
-            console.log(response);
-            Swal.fire({
-              title: 'Prueba enviada',
-              text: 'Gracias por terminar el test. Tu resultado ha sido enviado.',
-              icon: 'success',
-              confirmButtonText: 'Aceptar',
-            }).then((result) => {
-              if (result.isConfirmed) {
-                window.location.reload(); // Recarga la página
-              }
-            });
-          },
-          (error) => {
-            console.error(error);
-            Swal.fire({
-              title: 'Error al enviar la prueba',
-              text: 'Ocurrió un error al enviar la prueba. Por favor, inténtalo de nuevo.',
-              icon: 'error',
-              confirmButtonText: 'Aceptar',
-            }).then((result) => {
-              if (result.isConfirmed) {
-                window.location.reload(); // Recarga la página
-              }
-            });
+        const imgData = canvas.toDataURL('image/png');
+        const doc = new jsPDF();
+        const pdfWidth = 180;
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        let trozosImagen = Math.ceil(pdfHeight / 297);
+  
+        for (let i = 0; i < trozosImagen; i++) {
+          doc.addImage(imgData, 'PNG', 15, 15 + (i * -297), pdfWidth, pdfHeight);
+          if (i < trozosImagen - 1) {
+            doc.addPage();
           }
-        );
-        
+        }
+  
+        this.uploadedFiles['pruebaLecto'] = {
+          file: new File([doc.output('blob')], 'pruebaLecto.pdf', { type: 'application/pdf' }),
+          fileName: 'pruebaLecto.pdf'
+        };
+  
+        // Llamada a la función para subir la prueba
+        this.subirPruebaLecto().then(() => {
+          Swal.close(); // Cerrar el Swal de "cargando"
+          Swal.fire({
+            title: 'Prueba enviada',
+            text: 'Tu prueba ha sido enviada exitosamente.',
+            icon: 'success',
+            confirmButtonText: 'Aceptar',
+          });
+        }).catch(() => {
+          Swal.close(); // Cerrar el Swal de "cargando"
+          Swal.fire({
+            title: 'Error al enviar la prueba',
+            text: 'Se produjo un error al enviar la prueba, por favor intenta nuevamente.',
+            icon: 'error',
+            confirmButtonText: 'Aceptar',
+          });
+        });
       });
-    } else {
-      console.log('The container element was not found.');
     }
   }
+  
 
-
-}
+  
+  
+  
+  
+  
+  
+  
+  
+  
+}  

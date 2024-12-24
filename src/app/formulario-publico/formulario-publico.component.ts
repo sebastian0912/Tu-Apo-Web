@@ -678,9 +678,6 @@ export class FormularioPublicoComponent implements OnInit {
       .normalize('NFKD') // Normalización para separar caracteres combinados
       .replace(/[\u{1D400}-\u{1D7FF}]/gu, char => String.fromCharCode(char.codePointAt(0)! - 0x1D400 + 65)); // Rango matemático
   }
-  
-  
-  
 
 
   buscarCedula() {

@@ -2,7 +2,7 @@ import { ChangeDetectorRef, Component, ViewChild } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { urlBack } from '../model/Usuario';
 import html2canvas from 'html2canvas';
-
+import { jsPDF } from 'jspdf';
 import {
   FormsModule,
   ReactiveFormsModule,
@@ -21,6 +21,8 @@ import {
 import Swal from 'sweetalert2';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
+import { PruebasService } from '../shared/service/pruebas/pruebas.service';
+import { CandidatoService } from '../shared/service/candidato/candidato.service';
 
 interface Option {
   text: string;
@@ -50,11 +52,11 @@ interface ImageQuestion {
   correctAnswer: string; // La respuesta correcta
 }
 
+
 @Component({
   selector: 'app-prueba-induccion-seguridad-salud-en-el-trabajo',
   standalone: true,
   imports: [
-    RouterOutlet,
     HttpClientModule,
     FormsModule,
     ReactiveFormsModule,
@@ -69,11 +71,17 @@ interface ImageQuestion {
 export class PruebaInduccionSeguridadSaludEnElTrabajoComponent {
   pruebaLectoEscritura: FormGroup;
   mostrarFormulario: boolean = false;
-  numeroCedula!: number;
+  numeroCedula!: any;
+  CodigoContrato: string = '';
 
   nombre: string = '';
   edad: string = '';
   grado: string = '';
+  typeMap: { [key: string]: number } = {
+    pruebaLecto: 20,
+    pruebaSst: 24,
+  };
+  uploadedFiles: { [key: string]: { file: File, fileName: string } } = {}; // Almacenar tanto el archivo como el nombre
 
   questions: Question[] = [
     {
@@ -257,7 +265,12 @@ export class PruebaInduccionSeguridadSaludEnElTrabajoComponent {
     }
   }
 
-  constructor(private fb: FormBuilder, private http: HttpClient) {
+  constructor(
+    private fb: FormBuilder,
+    private http: HttpClient,
+    private pruebasService: PruebasService,
+    private candidatoService: CandidatoService
+  ) {
     this.pruebaLectoEscritura = this.fb.group({});
   }
 
@@ -270,22 +283,14 @@ export class PruebaInduccionSeguridadSaludEnElTrabajoComponent {
       });
       return;
     }
-  
-    try {
-      const url = `${urlBack.url}/contratacion/buscarCandidato/${this.numeroCedula}`;
-  
-      const response = await fetch(url, {
-        method: 'GET'
-      });
-  
-      if (response.ok) {
-        const responseData = await response.json();
-        if (responseData && responseData.data.length > 0) {
-          const data = responseData.data[0];
+    console.log('Buscando cédula:', this.numeroCedula);
+    this.candidatoService.buscarEncontratacion(this.numeroCedula).subscribe(
+      (response: any) => {
+        console.log('Respuesta de la búsqueda:', response);
+        if (response) {
           this.mostrarFormulario = true; // Mostrar el formulario
-          this.nombre = `${data.primer_nombre} ${data.segundo_nombre} ${data.primer_apellido} ${data.segundo_apellido}`;
-          this.edad = this.calcularEdad(data.fecha_nacimiento).toString();
-          this.grado = data.estudiosExtra;
+          this.nombre = response.nombre_completo;
+          this.CodigoContrato = response.codigo_contrato;
         } else {
           Swal.fire({
             title: 'Cédula no encontrada',
@@ -295,21 +300,18 @@ export class PruebaInduccionSeguridadSaludEnElTrabajoComponent {
           });
           this.mostrarFormulario = true; // También mostrar el formulario en caso de error
         }
-      } else {
-        throw new Error(`Error en la petición GET: ${response.status}`);
+      },
+      (error) => {
+        Swal.fire({
+          title: 'Error en la búsqueda',
+          text: 'Se produjo un error al buscar la cédula, por favor intenta nuevamente.',
+          icon: 'error',
+          confirmButtonText: 'Aceptar',
+        });
       }
-    } catch (error) {
-      console.error('Error al realizar la petición HTTP GET');
-      console.error(error);
-      Swal.fire({
-        title: 'Error en la búsqueda',
-        text: 'Se produjo un error al buscar la cédula, por favor intenta nuevamente.',
-        icon: 'error',
-        confirmButtonText: 'Aceptar',
-      });
-    }
+    );
   }
-  
+
 
   // Método para calcular la edad
   calcularEdad(fechaNacimiento: string): number {
@@ -318,19 +320,15 @@ export class PruebaInduccionSeguridadSaludEnElTrabajoComponent {
     let edad = hoy.getFullYear() - nacimiento.getFullYear();
     const m = hoy.getMonth() - nacimiento.getMonth();
 
-    // Si el mes actual es menor que el mes de nacimiento,
-    // o es el mismo mes pero el día actual es menor que el día de nacimiento,
-    // entonces aún no ha cumplido años este año.
     if (m < 0 || (m === 0 && hoy.getDate() < nacimiento.getDate())) {
       edad--;
     }
-
     return edad;
   }
 
   enviarRespuestas() {
-
-    if(this.numeroCedula === undefined) {
+    // Verificación de cédula
+    if (this.numeroCedula === undefined) {
       Swal.fire({
         title: 'Error al enviar la prueba',
         text: 'Por favor, ingresa tu número de cédula.',
@@ -339,50 +337,109 @@ export class PruebaInduccionSeguridadSaludEnElTrabajoComponent {
       });
       return;
     }
-    
-    const contenedor = document.querySelector('.contenedor') as HTMLElement;
 
+    // Mostrar SweetAlert de "cargando"
+    Swal.fire({
+      title: 'Enviando...',
+      text: 'Por favor, espere mientras procesamos tu prueba.',
+      icon: 'info',
+      allowOutsideClick: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading(); // Mostrar el "cargando" animado
+      }
+    });
+
+    // Selección del contenedor
+    const contenedor = document.querySelector('.contenedor') as HTMLElement;
     if (contenedor) {
       html2canvas(contenedor).then((canvas) => {
-        // Here you have the canvas. You can convert it to an image, display it, or do whatever you need with it.
-        // For example, to display it in the document:
-        document.body.appendChild(canvas);
+        const imgData = canvas.toDataURL('image/png');
+        const doc = new jsPDF();
+        const pdfWidth = 180;
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        let trozosImagen = Math.ceil(pdfHeight / 297);
+  
+        for (let i = 0; i < trozosImagen; i++) {
+          doc.addImage(imgData, 'PNG', 15, 15 + (i * -297), pdfWidth, pdfHeight);
+          if (i < trozosImagen - 1) {
+            doc.addPage();
+          }
+        }
 
-        // Or to get the image as a data URL
-        const dataURL = canvas.toDataURL();
-        // You can send this URL to a server or save it directly in the browser.
-
-        // Now, let's send the score and dataURL to the database
-        const url = `${urlBack.url}/contratacion/pruebaSeguridadSalud`;
-        const data = {
-          numerodeceduladepersona: this.numeroCedula,
-          porcentajeInduccionSeguridad: this.score,
-          evidenciaInduccionSeguridad: dataURL, // Use the actual dataURL here
+        // Crear un archivo PDF y almacenarlo en una propiedad del componente
+        this.uploadedFiles['pruebaSst'] = {
+          file: new File([doc.output('blob')], 'pruebaSst.pdf', { type: 'application/pdf' }),
+          fileName: 'pruebaSst.pdf'
         };
 
-        this.http.post(url, data).subscribe(
-          (response: any) => {
-            console.log(response);
-            Swal.fire({
-              title: 'Prueba enviada',
-              text: 'Gracis por terminar el test. Tu resultado ha sido enviado.',
-              icon: 'success',
-              confirmButtonText: 'Accept',
-            });
-          },
-          (error) => {
-            console.error(error);
-            Swal.fire({
-              title: 'Error al enviar la prueba',
-              text: 'Ocurrió un error al enviar la prueba. Por favor, inténtalo de nuevo.',
-              icon: 'error',
-              confirmButtonText: 'Accept',
-            });
-          }
-        );
+        // Llamada a la función para subir la prueba
+        this.subirSST().then(() => {
+          Swal.close(); // Cerrar el Swal de "cargando"
+          Swal.fire({
+            title: 'Prueba enviada',
+            text: 'Tu prueba ha sido enviada exitosamente.',
+            icon: 'success',
+            confirmButtonText: 'Aceptar',
+          });
+        }).catch(() => {
+          Swal.close(); // Cerrar el Swal de "cargando"
+          Swal.fire({
+            title: 'Error al enviar la prueba',
+            text: 'Se produjo un error al enviar la prueba, por favor intenta nuevamente.',
+            icon: 'error',
+            confirmButtonText: 'Aceptar',
+          });
+        });
+      }).catch((error) => {
+        Swal.close(); // Cerrar el Swal de "cargando"
+        Swal.fire({
+          title: 'Error al procesar la prueba',
+          text: 'Se produjo un error al generar la evidencia de tu prueba.',
+          icon: 'error',
+          confirmButtonText: 'Aceptar',
+        });
+        console.error('Error al generar la evidencia:', error);
       });
     } else {
-      console.log('The container element was not found.');
+      Swal.fire({
+        title: 'Error',
+        text: 'No se encontró el contenedor para generar la evidencia.',
+        icon: 'error',
+        confirmButtonText: 'Aceptar',
+      });
     }
   }
+
+  subirSST(): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      console.log('Subiendo archivo de pruebaSst...', this.uploadedFiles);
+
+      // Verificar si existe el archivo de pruebaSst
+      const pruebaSst = this.uploadedFiles['pruebaSst'];
+      if (!pruebaSst) {
+        reject('No se ha encontrado el archivo de pruebaSst');
+        return;
+      }
+
+      const { file, fileName } = pruebaSst; // Obtén el archivo y su nombre
+      const title = fileName; // Título del archivo (nombre del archivo PDF)
+      const type = this.typeMap['pruebaSst'] || 20; // Tipo definido en el mapa para pruebaSst (en este caso, 20)
+
+      // Llamar al servicio para guardar el archivo
+      this.pruebasService.guardarPrueba(title, this.numeroCedula, type, file, this.CodigoContrato)
+        .subscribe(
+          (response) => {
+            console.log('Archivo de pruebaSst subido exitosamente:', response);
+            resolve(true);
+          },
+          (error) => {
+            console.error('Error al subir el archivo de pruebaSst:', error);
+            reject('Error al subir el archivo de pruebaSst');
+          }
+        );
+    });
+  }
+
+
 }

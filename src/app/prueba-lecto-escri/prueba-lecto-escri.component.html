@@ -18,8 +18,6 @@
             <h2 *ngIf="mostrarFormulario">Nombre: <span>{{nombre}}</span></h2>
             <h2 *ngIf="mostrarFormulario">Codigo de contrato: <span>{{CodigoContrato}}</span></h2>
         </div>
-
-
     </div>
 
     <form class="formulario" id="formulario" *ngIf="mostrarFormulario">
@@ -94,7 +92,8 @@
 
 
 
-        <button type="button" class="boton" (click)="enviarRespuestas()" mat-raised-button color="primary"> Calificar </button>
+        <button type="button" class="boton" (click)="enviarRespuestas()" mat-raised-button color="primary"> Calificar
+        </button>
 
 
 

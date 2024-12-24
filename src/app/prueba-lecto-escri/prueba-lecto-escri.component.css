@@ -306,14 +306,14 @@ mat-datepicker {
         margin: 0 auto;
     }
 
-    .cajabusqueda {        
+    .cajabusqueda {
         flex-direction: column;
         width: 80%;
         height: auto;
         margin: 0 auto;
     }
 
-    .cajabusqueda .cedulaAux{
+    .cajabusqueda .cedulaAux {
         margin-top: -20px;
         width: 100%;
     }
@@ -346,49 +346,49 @@ mat-datepicker {
         margin-bottom: 0px;
     }
 
-    .cajaPrueba{
+    .cajaPrueba {
         width: 100%;
         margin-bottom: 20px;
     }
 
-    .formulario h2{
+    .formulario h2 {
         margin-left: -1px;
     }
 
 
 
 
-    .operacion{
+    .operacion {
         width: 100%;
-        margin-bottom: 20px;    
+        margin-bottom: 20px;
     }
 
 
 
-    .pregunta-ramos{
+    .pregunta-ramos {
         width: 100%;
         text-align: center;
     }
 
-    .opcion{
+    .opcion {
         width: 45%;
         margin-bottom: 20px;
     }
 
 
 
-    .comparaciones{
+    .comparaciones {
         width: 100%;
         margin-bottom: 20px;
         text-align: center;
     }
 
-    .comparaciones div{
+    .comparaciones div {
         width: 100%;
         margin-bottom: 20px;
     }
 
-    .comparaciones .comparar span{
+    .comparaciones .comparar span {
         margin-right: 10px;
         font-size: 15pt;
     }
@@ -431,14 +431,14 @@ mat-datepicker {
         margin: 0 auto;
     }
 
-    .cajabusqueda {        
+    .cajabusqueda {
         flex-direction: column;
         width: 80%;
         height: auto;
         margin: 0 auto;
     }
 
-    .cajabusqueda .cedulaAux{
+    .cajabusqueda .cedulaAux {
         margin-top: -20px;
         width: 100%;
     }
@@ -471,49 +471,49 @@ mat-datepicker {
         margin-bottom: 0px;
     }
 
-    .cajaPrueba{
+    .cajaPrueba {
         width: 40%;
         margin-bottom: 20px;
     }
 
-    .formulario h2{
+    .formulario h2 {
         margin-left: -1px;
     }
 
 
-    .operaciones-matematicas{
+    .operaciones-matematicas {
         text-align: center;
     }
 
-    .operacion{
+    .operacion {
         width: 40%;
-        margin-bottom: 20px;    
+        margin-bottom: 20px;
     }
 
-    .pregunta-ramos{
+    .pregunta-ramos {
         width: 100%;
         text-align: center;
     }
 
-    .opcion{
+    .opcion {
         width: 45%;
         margin-bottom: 20px;
     }
 
 
 
-    .comparaciones{
+    .comparaciones {
         width: 100%;
         margin-bottom: 20px;
         text-align: center;
     }
 
-    .comparaciones div{
+    .comparaciones div {
         width: 100%;
         margin-bottom: 20px;
     }
 
-    .comparaciones .comparar span{
+    .comparaciones .comparar span {
         margin-right: 10px;
         font-size: 15pt;
     }
@@ -523,4 +523,22 @@ mat-datepicker {
         margin-top: 10px;
         margin-left: 0;
     }
+}
+
+
+/* Estilo personalizado para el popup */
+.swal-popup {
+    background-color: red;
+    min-width: 80vw !important; /* Ancho del modal */
+    max-height: 80vh; /* Alto máximo del modal */
+    overflow-y: auto; /* Permitimos scroll vertical si el contenido es más grande que el contenedor */
+    overflow-x: hidden; /* Sin scroll horizontal */
+}
+
+/* Estilo para la imagen dentro del modal */
+.swal-popup img {
+    max-width: 100%; /* La imagen ocupará todo el ancho disponible del contenedor */
+    height: auto; /* Mantener la proporción de la imagen */
+    display: block;
+    margin: 0 auto; /* Centrar la imagen dentro del modal */
 }
