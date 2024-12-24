@@ -88,6 +88,418 @@ export class FormularioPublicoComponent implements OnInit {
   title = 'Formulario';
 
 
+  async listFormFields() {
+    // Asume que tienes un PDF en la carpeta de activos; ajusta la ruta según sea necesario
+    const pdfUrl = '../../assets/Archivos/minerva2.pdf';
+    const arrayBuffer = await fetch(pdfUrl).then((res) => res.arrayBuffer());
+    const pdfDoc = await PDFDocument.load(arrayBuffer);
+
+    const form = pdfDoc.getForm();
+    const fields = form.getFields();
+    let fieldDetails = fields
+      .map((field) => {
+        const type = field.constructor.name;
+        const name = field.getName();
+        let additionalDetails = '';
+
+        if (field instanceof PDFTextField) {
+          additionalDetails = ` - Value: ${field.getText()}`;
+        } else if (field instanceof PDFCheckBox) {
+          additionalDetails = ` - Is Checked: ${field.isChecked()}`;
+        } // Puedes añadir más condiciones para otros tipos de campos como PDFDropdown, etc.
+
+        return `Field name: ${name}, Field type: ${type}${additionalDetails}`;
+      })
+      .join('\n');
+
+    // Crear un Blob con los detalles de los campos
+    const blob = new Blob([fieldDetails], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+
+    // Crear un enlace para descargar el Blob como un archivo
+    const downloadLink = document.createElement('a');
+    downloadLink.href = url;
+    downloadLink.download = 'pdfFieldsDetails.txt';
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    URL.revokeObjectURL(url);
+  }
+
+  async fillForm() {
+
+    if (this.guardarObjeti3 === undefined) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Oops...',
+        text: 'Debes subir una foto para continuar',
+      });
+      return;
+    }
+
+    console.log(this.formHojaDeVida2.value);
+    console.log(this.formHojaDeVida2.value);
+
+    const pdfUrl = '../../assets/Archivos/minerva.pdf';
+    const arrayBuffer = await fetch(pdfUrl).then((res) => res.arrayBuffer());
+    const pdfDoc = await PDFDocument.load(arrayBuffer);
+
+    const form = pdfDoc.getForm();
+    let date: Date = new Date();
+    // campotexto 0: dia, 1: mes, 2: año del dia
+    form
+      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[0]')
+      .setText(date.getDate().toString());
+    form
+      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[1]')
+      .setText((date.getMonth() + 1).toString());
+    form
+      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[2]')
+      .setText(date.getFullYear().toString());
+    // Ejemplo de cómo actualizar campos específicos
+    form
+      .getTextField('topmostSubform[0].Page1[0].CampoTexto1[0]')
+      .setText('HOJA DE VIDA');
+    form
+      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[5]')
+      .setText(
+        this.formHojaDeVida2.value.pApellido +
+        ' ' +
+        this.formHojaDeVida2.value.sApellido
+      );
+    form
+      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[6]')
+      .setText(
+        this.formHojaDeVida2.value.pNombre +
+        ' ' +
+        this.formHojaDeVida2.value.sNombre
+      );
+    if (this.formHojaDeVida2.value.departamento === 'Venezuela') {
+      form
+        .getTextField('topmostSubform[0].Page1[0].CampoTexto2[12]')
+        .setText('Venezolana');
+    }
+    else {
+      form
+        .getTextField('topmostSubform[0].Page1[0].CampoTexto2[12]')
+        .setText('Colombiana');
+    }
+
+
+    form
+      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[7]')
+      .setText(this.formHojaDeVida2.value.direccionResidencia);
+
+    form
+      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[8]')
+      .setText(this.formHojaDeVida2.value.ciudad);
+    form
+      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[9]')
+      .setText(this.formHojaDeVida2.value.numCelular);
+    form
+      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[10]')
+      .setText(this.formHojaDeVida2.value.numCelular);
+    form
+      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[11]')
+      .setText(this.formHojaDeVida2.value.correo);
+    form
+      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[16]')
+      .setText(this.formHojaDeVida2.value.numeroCedula);
+    if (this.formHojaDeVida2.value.tipoDoc === 'CC') {
+      form
+        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[2]')
+        .check();
+    }
+    if (this.formHojaDeVida2.value.tipoDoc === 'CE') {
+      form
+        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[3]')
+        .check();
+    }
+
+    form
+      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[17]')
+      .setText(this.formHojaDeVida2.value.municipioExpedicionCC);
+    form
+      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[14]')
+      .setText(this.formHojaDeVida2.value.estadoCivil);
+
+    form
+      .getTextField('topmostSubform[0].Page2[0].CampoTexto2[0]')
+      .setText(
+        this.formHojaDeVida2.value.nombresConyuge +
+        ' ' +
+        this.formHojaDeVida2.value.apellidosConyuge
+      );
+    form
+      .getTextField('topmostSubform[0].Page2[0].CampoTexto2[1]')
+      .setText(this.formHojaDeVida2.value.ocupacionConyuge);
+    form
+      .getTextField('topmostSubform[0].Page2[0].CampoTexto2[4]')
+      .setText(this.formHojaDeVida2.value.direccionLaboralConyuge);
+    form
+      .getTextField('topmostSubform[0].Page2[0].CampoTexto2[5]')
+      .setText(this.formHojaDeVida2.value.telefonoConyuge);
+
+    // foto
+/*
+    const base64Image = this.guardarObjeti3;
+    const imageBytes = this.base64ToUint8Array(base64Image);
+    const format = this.getImageFormat(base64Image);
+
+    const x = 175 * 2.83465;
+    let y = (297 - 51.9 - 40) * 2.83465;
+    const width = 30 * 2.83465;
+    const height = 41 * 2.83465;
+    y -= 51; // Mover la imagen 30 puntos más abajo como ejemplo
+
+    let image!: any;
+    if (format === 'jpeg') {
+      image = await pdfDoc.embedJpg(imageBytes);
+    } else if (format === 'png') {
+      image = await pdfDoc.embedPng(imageBytes);
+    }
+
+    const page = pdfDoc.getPage(0);
+    page.drawImage(image, { x, y, width, height });
+*/
+    // info padre
+    form
+      .getTextField('topmostSubform[0].Page2[0].CampoTexto2[10]')
+      .setText(this.formHojaDeVida2.value.nombrePadre);
+    form
+      .getTextField('topmostSubform[0].Page2[0].CampoTexto2[11]')
+      .setText(this.formHojaDeVida2.value.ocupacionPadre);
+    form
+      .getTextField('topmostSubform[0].Page2[0].CampoTexto2[12]')
+      .setText(this.formHojaDeVida2.value.telefonoPadre);
+
+    // info madre
+    form
+      .getTextField('topmostSubform[0].Page2[0].CampoTexto2[16]')
+      .setText(this.formHojaDeVida2.value.nombreMadre);
+    form
+      .getTextField('topmostSubform[0].Page2[0].CampoTexto2[17]')
+      .setText(this.formHojaDeVida2.value.ocupacionMadre);
+    form
+      .getTextField('topmostSubform[0].Page2[0].CampoTexto2[13]')
+      .setText(this.formHojaDeVida2.value.telefonoMadre);
+
+    // si this.formHojaDeVida2.value.tipoVivienda2 contiene la palabra propia
+    if (this.formHojaDeVida2.value.tipoVivienda2.includes('Propia')) {
+      form
+        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[26]')
+        .check();
+    }
+    // si this.formHojaDeVida2.value.tipoVivienda2 contiene la palabra arrendada
+    if (this.formHojaDeVida2.value.tipoVivienda2.includes('Arriendo')) {
+      form
+        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[25]')
+        .check();
+    }
+    // si this.formHojaDeVida2.value.tipoVivienda2 contiene la palabra familiar
+    if (this.formHojaDeVida2.value.tipoVivienda2.includes('Familiar')) {
+      form
+        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[24]')
+        .check();
+    }
+
+    // si estudios extra contiene la palabra tecnico
+    if (this.formHojaDeVida2.value.estudiosExtras.includes('Técnico')) {
+      form
+        .getCheckBox('topmostSubform[0].Page2[0].CasillaVerificación1[5]')
+        .check();
+      form
+        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[52]')
+        .setText(this.formHojaDeVida2.value.anoFinalizacion);
+      form
+        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[50]')
+        .setText(this.formHojaDeVida2.value.tituloObtenido);
+      form
+        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[49]')
+        .setText(this.formHojaDeVida2.value.nombreInstitucion);
+    }
+    // si estudios extra contiene la palabra tecnologo
+    if (this.formHojaDeVida2.value.estudiosExtras.includes('Tecnólogo')) {
+      form
+        .getCheckBox('topmostSubform[0].Page2[0].CasillaVerificación1[6]')
+        .check();
+      form
+        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[34]')
+        .setText(this.formHojaDeVida2.value.anoFinalizacion);
+      form
+        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[46]')
+        .setText(this.formHojaDeVida2.value.tituloObtenido);
+      form
+        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[47]')
+        .setText(this.formHojaDeVida2.value.nombreInstitucion);
+    }
+    // si estudios extra contiene la palabra profesional
+    if (this.formHojaDeVida2.value.estudiosExtras.includes('Profesional')) {
+      form
+        .getCheckBox('topmostSubform[0].Page2[0].CasillaVerificación1[7]')
+        .check();
+      form
+        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[44]')
+        .setText(this.formHojaDeVida2.value.anoFinalizacion);
+      form
+        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[42]')
+        .setText(this.formHojaDeVida2.value.tituloObtenido);
+      form
+        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[41]')
+        .setText(this.formHojaDeVida2.value.nombreInstitucion);
+    }
+    // si estudios extra contiene la palabra especializacion o maestria o doctorado
+    if (
+      this.formHojaDeVida2.value.estudiosExtras.includes('Especialización') ||
+      this.formHojaDeVida2.value.estudiosExtras.includes('Maestría') ||
+      this.formHojaDeVida2.value.estudiosExtras.includes('Doctorado')
+    ) {
+      form
+        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[36]')
+        .setText(this.formHojaDeVida2.value.anoFinalizacion);
+      form
+        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[38]')
+        .setText(this.formHojaDeVida2.value.tituloObtenido);
+      form
+        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[39]')
+        .setText(this.formHojaDeVida2.value.nombreInstitucion);
+    }
+
+    // informacion empresa
+    form
+      .getTextField('topmostSubform[0].Page3[0].CampoTexto2[0]')
+      .setText(this.formHojaDeVida2.value.nombreEmpresa1);
+    form
+      .getTextField('topmostSubform[0].Page3[0].CampoTexto2[1]')
+      .setText(this.formHojaDeVida2.value.direccionEmpresa1);
+    form
+      .getTextField('topmostSubform[0].Page3[0].CampoTexto2[2]')
+      .setText(this.formHojaDeVida2.value.telefonosEmpresa1);
+    form
+      .getTextField('topmostSubform[0].Page3[0].CampoTexto2[3]')
+      .setText(this.formHojaDeVida2.value.cargoTrabajador1);
+    form
+      .getTextField('topmostSubform[0].Page3[0].CampoTexto2[4]')
+      .setText(this.formHojaDeVida2.value.nombreJefe1);
+    // fecha asi 2024-03-12T05:00:00.000Z se debe cambiar a 12/03/2024 para separar por / y poder usar
+    // si contiene - se debe cambiar a / para poder usar
+    if (this.formHojaDeVida2.value.fechaRetiro1.includes('-')) {
+      let fecha = this.formHojaDeVida2.value.fechaRetiro1;
+      let fechaArray = fecha.split('-');
+      let fechaRetiro = fechaArray[2].split('T');
+      let fechaRetiroFinal =
+        fechaRetiro[0] + '/' + fechaArray[1] + '/' + fechaArray[0];
+      // dia en topmostSubform[0].Page3[0].CampoTexto2[8]
+      form
+        .getTextField('topmostSubform[0].Page3[0].CampoTexto2[8]')
+        .setText(fechaRetiro[0]);
+      // mes en topmostSubform[0].Page3[0].CampoTexto2[9]
+      form
+        .getTextField('topmostSubform[0].Page3[0].CampoTexto2[9]')
+        .setText(fechaArray[1]);
+      // año en topmostSubform[0].Page3[0].CampoTexto2[10]
+      form
+        .getTextField('topmostSubform[0].Page3[0].CampoTexto2[10]')
+        .setText(fechaArray[0]);
+
+      form
+        .getTextField('topmostSubform[0].Page3[0].CampoTexto2[19]')
+        .setText(this.formHojaDeVida2.value.motivoRetiro1);
+    }
+
+    // informacion empresa
+    form
+      .getTextField('topmostSubform[0].Page3[0].CampoTexto2[21]')
+      .setText(this.formHojaDeVida2.value.nombreEmpresa2);
+    form
+      .getTextField('topmostSubform[0].Page3[0].CampoTexto2[41]')
+      .setText(this.formHojaDeVida2.value.direccionEmpresa2);
+    form
+      .getTextField('topmostSubform[0].Page3[0].CampoTexto2[40]')
+      .setText(this.formHojaDeVida2.value.telefonosEmpresa2);
+    form
+      .getTextField('topmostSubform[0].Page3[0].CampoTexto2[38]')
+      .setText(this.formHojaDeVida2.value.cargoTrabajador2);
+    form
+      .getTextField('topmostSubform[0].Page3[0].CampoTexto2[39]')
+      .setText(this.formHojaDeVida2.value.nombreJefe2);
+    // fecha asi 2024-03-12T05:00:00.000Z se debe cambiar a 12/03/2024 para separar por / y poder usar
+    // si contiene - se debe cambiar a / para poder usar
+    if (this.formHojaDeVida2.value.fechaRetiro2.includes('-')) {
+      let fecha2 = this.formHojaDeVida2.value.fechaRetiro2;
+      let fechaArray2 = fecha2.split('-');
+      let fechaRetiro2 = fechaArray2[2].split('T');
+      let fechaRetiroFinal2 =
+        fechaRetiro2[0] + '/' + fechaArray2[1] + '/' + fechaArray2[0];
+      // dia en topmostSubform[0].Page3[0].CampoTexto2[8]
+      form
+        .getTextField('topmostSubform[0].Page3[0].CampoTexto2[33]')
+        .setText(fechaRetiro2[0]);
+      // mes en topmostSubform[0].Page3[0].CampoTexto2[9]
+      form
+        .getTextField('topmostSubform[0].Page3[0].CampoTexto2[34]')
+        .setText(fechaArray2[1]);
+      // año en topmostSubform[0].Page3[0].CampoTexto2[10]
+      form
+        .getTextField('topmostSubform[0].Page3[0].CampoTexto2[35]')
+        .setText(fechaArray2[0]);
+    }
+    form
+      .getTextField('topmostSubform[0].Page3[0].CampoTexto2[23]')
+      .setText(this.formHojaDeVida2.value.motivoRetiro2);
+
+    // refencias personales
+    form
+      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[0]')
+      .setText(this.formHojaDeVida2.value.nombreReferenciaPersonal1);
+    form
+      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[9]')
+      .setText(this.formHojaDeVida2.value.telefonoReferencia1);
+    form
+      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[4]')
+      .setText(this.formHojaDeVida2.value.ocupacionReferencia1);
+
+    form
+      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[1]')
+      .setText(this.formHojaDeVida2.value.nombreReferenciaPersonal2);
+    form
+      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[10]')
+      .setText(this.formHojaDeVida2.value.telefonoReferencia2);
+    form
+      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[3]')
+      .setText(this.formHojaDeVida2.value.ocupacionReferencia2);
+
+    // refencias familiares
+    form
+      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[2]')
+      .setText(this.formHojaDeVida2.value.nombreReferenciaFamiliar1);
+    form
+      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[11]')
+      .setText(this.formHojaDeVida2.value.telefonoReferenciaFamiliar1);
+    form
+      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[5]')
+      .setText(this.formHojaDeVida2.value.ocupacionReferenciaFamiliar1);
+
+    // Bloquear todos los campos del formulario
+    const fields = form.getFields();
+    fields.forEach((field) => {
+      field.enableReadOnly(); // Habilita el modo de solo lectura para el campo
+    });
+
+    const pdfBytes = await pdfDoc.save();
+
+    this.imprimirInformacion2();
+
+    // Descargar el PDF en el cliente
+    this.downloadPDF(
+      pdfBytes,
+      `Minerva-${this.formHojaDeVida2.value.pApellido}-${this.formHojaDeVida2.value.sApellido}${this.formHojaDeVida2.value.sNombre}.pdf`
+    );
+
+
+  }
+
+
   // Función que escucha los cambios de cualquier campo del formulario y guarda en localStorage
   guardarCambiosEnLocalStorage(form: FormGroup, key: string): void {
     form.valueChanges.subscribe((val) => {
