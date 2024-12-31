@@ -13,11 +13,15 @@
         </mat-form-field>
 
         <button type="button" class="boton" *ngIf="!mostrarFormulario" mat-raised-button color="primary"
-            (click)="buscarCedula()"> Buscar </button>
+            (click)="buscarCedula()"> Buscar
+        </button>
+
         <div class="info">
             <h2 *ngIf="mostrarFormulario">Nombre: <span>{{nombre}}</span></h2>
             <h2 *ngIf="mostrarFormulario">Codigo de contrato: <span>{{CodigoContrato}}</span></h2>
         </div>
+
+
 
 
     </div>

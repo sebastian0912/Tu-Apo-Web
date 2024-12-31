@@ -14,12 +14,19 @@
       </mat-form-field>
 
       <button type="button" class="boton" *ngIf="!mostrarFormulario" mat-raised-button color="primary"
-        (click)="buscarCedula()"> Buscar </button>
+        (click)="buscarCedula()"> Buscar
+      </button>
+
+      <!--boton generar hoja de vida -->
+      <button type="button" class="boton" mat-raised-button color="primary" (click)="fillForm()"> Generar hoja de vida
+      </button>
 
     </div>
+    <!--
+      <form class="formulario formulario2" [formGroup]="formHojaDeVida2" id="formulario" *ngIf="mostrarFormulario" autocomplete="off">
+    -->
+    <form class="formulario formulario2" [formGroup]="formHojaDeVida2" id="formulario" autocomplete="off">
 
-    <form class="formulario formulario2" [formGroup]="formHojaDeVida2" id="formulario" *ngIf="mostrarFormulario"
-      autocomplete="off">
       <div>
 
         <div class="title">
@@ -320,8 +327,6 @@
 
         </div>
       </div>
-
-
 
       <div>
         <div class="title">
@@ -1084,19 +1089,165 @@
           </mat-select>
         </mat-form-field>
 
-
-
         <div style="align-items: center; margin: 0 auto; text-align: center; margin-top: 20px;">
           <button type="submit" mat-raised-button color="primary"
             style="width: 40%; text-align: center; margin: 0 auto; " (click)="imprimirInformacion2()">
             Guardar </button> <br> <br>
+        </div>
+      </div>
+    </form>
 
+    <form class="formulario formulario2" [formGroup]="formHojaVidaCompleta" id="formulario" autocomplete="off">
+
+      <div class="form-container">
+        <!-- Selección para generar hoja de vida -->
+        <mat-form-field appearance="fill">
+          <mat-label>¿Desea generar su hoja de vida?</mat-label>
+          <mat-select formControlName="deseaGenerar" (selectionChange)="onSelectionChange()">
+            <mat-option [value]="true">Sí</mat-option>
+            <mat-option [value]="false">No</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <!-- Tiene vehículo -->
+        <mat-form-field appearance="fill">
+          <mat-label>¿Tiene vehículo?</mat-label>
+          <mat-select formControlName="tieneVehiculo" (selectionChange)="onTieneVehiculoChange()">
+            <mat-option value="SI">SÍ</mat-option>
+            <mat-option value="NO">NO</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <!-- Licencia de conducción -->
+        <mat-form-field *ngIf="mostrarCamposVehiculo" appearance="fill">
+          <mat-label>Licencia de conducción Nº</mat-label>
+          <input matInput formControlName="licenciaConduccion" />
+        </mat-form-field>
+
+        <!-- Categoría de la licencia -->
+        <mat-form-field *ngIf="mostrarCamposVehiculo" appearance="fill">
+          <mat-label>Categoría</mat-label>
+          <mat-select formControlName="categoriaLicencia" multiple>
+            <mat-option *ngFor="let categoria of categoriasLicencia" [value]="categoria">{{ categoria }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <!-- Está trabajando actualmente -->
+        <mat-form-field appearance="fill">
+          <mat-label>¿Está trabajando actualmente?</mat-label>
+          <mat-select formControlName="estaTrabajando" (selectionChange)="onEstaTrabajandoChange()">
+            <mat-option value="SI">SÍ</mat-option>
+            <mat-option value="NO">NO</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <!-- Empresa -->
+        <mat-form-field *ngIf="mostrarCamposTrabajo" appearance="fill">
+          <mat-label>Empresa</mat-label>
+          <input matInput formControlName="empresaActual" />
+        </mat-form-field>
+
+        <!-- Empleado o independiente -->
+        <mat-form-field *ngIf="mostrarCamposTrabajo" appearance="fill">
+          <mat-label>¿Empleado o independiente?</mat-label>
+          <mat-select formControlName="tipoTrabajo">
+            <mat-option value="Empleado">Empleado</mat-option>
+            <mat-option value="Independiente">Independiente</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <!-- Tipo de contrato -->
+        <mat-form-field *ngIf="mostrarCamposTrabajo" appearance="fill">
+          <mat-label>Tipo de contrato</mat-label>
+          <mat-select formControlName="tipoContrato">
+            <mat-option *ngFor="let tipo of tiposContrato" [value]="tipo">{{ tipo }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <!-- Trabajó antes en esta empresa -->
+        <mat-form-field appearance="fill">
+          <mat-label>¿Trabajó antes en esta empresa?</mat-label>
+          <mat-select formControlName="trabajoAntes">
+            <mat-option value="SI">SÍ</mat-option>
+            <mat-option value="NO">NO</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <!-- Solicitó empleo antes -->
+        <mat-form-field appearance="fill">
+          <mat-label>¿Solicitó empleo antes en esta empresa?</mat-label>
+          <mat-select formControlName="solicitoAntes">
+            <mat-option value="SI">SÍ</mat-option>
+            <mat-option value="NO">NO</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+
+        <!-- Tiene hermanos -->
+        <!-- La pregunta "¿Tiene hermanos?" -->
+        <mat-form-field appearance="fill">
+          <mat-label>¿Tiene hermanos?</mat-label>
+          <mat-select formControlName="tieneHermanos" (selectionChange)="onTieneHermanosChange()">
+            <mat-option [value]="'SI'">Sí</mat-option>
+            <mat-option [value]="'NO'">No</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <!-- Campo para "¿Cuántos hermanos?" usando mat-select -->
+        <mat-form-field appearance="fill" *ngIf="mostrarCamposHermanos">
+          <mat-label>¿Cuántos hermanos?</mat-label>
+          <mat-select formControlName="numeroHermanos" (selectionChange)="onNumeroHermanosChange()">
+            <mat-option [value]="1">1</mat-option>
+            <mat-option [value]="2">2</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+
+
+        <!-- Información de los hermanos -->
+        <!-- Aquí va el FormArray de hermanos -->
+        <div formArrayName="hermanos" *ngIf="hermanosArray?.length && hermanosArray.length > 0">
+          <!-- Recorremos cada "hermano" en el array -->
+          <div *ngFor="let hermano of hermanosArray.controls; let i = index" [formGroupName]="i"
+            class="hermano-container">
+            <h2>Hermano {{ i + 1 }}</h2>
+
+            <!-- Campo para el nombre -->
+            <mat-form-field appearance="fill">
+              <mat-label>Nombre</mat-label>
+              <input matInput formControlName="nombre" />
+              <mat-error *ngIf="hermano.get('nombre')?.invalid && hermano.get('nombre')?.touched">
+                ¡El nombre es requerido!
+              </mat-error>
+            </mat-form-field>
+
+            <!-- Campo para la profesión -->
+            <mat-form-field appearance="fill">
+              <mat-label>Profesión/ocupación/oficio</mat-label>
+              <input matInput formControlName="profesion" />
+              <mat-error *ngIf="hermano.get('profesion')?.invalid && hermano.get('profesion')?.touched">
+                ¡La profesión es requerida!
+              </mat-error>
+            </mat-form-field>
+
+            <!-- Campo para el teléfono -->
+            <mat-form-field appearance="fill">
+              <mat-label>Teléfono</mat-label>
+              <input matInput formControlName="telefono" />
+              <mat-error *ngIf="hermano.get('telefono')?.errors?.['required'] && hermano.get('telefono')?.touched">
+                ¡El teléfono es requerido!
+              </mat-error>
+              <mat-error *ngIf="hermano.get('telefono')?.errors?.['pattern'] && hermano.get('telefono')?.touched">
+                Solo se admiten dígitos.
+              </mat-error>
+            </mat-form-field>
+          </div>
         </div>
 
 
       </div>
-
     </form>
+
 
   </div>
 

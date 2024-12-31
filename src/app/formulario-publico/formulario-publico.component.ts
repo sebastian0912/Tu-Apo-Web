@@ -65,6 +65,7 @@ export class FormularioPublicoComponent implements OnInit {
   [x: string]: any;
   //datosHoja: HojaDeVida = new HojaDeVida();
   formHojaDeVida2!: FormGroup;
+  formHojaVidaCompleta!: FormGroup;
   datos: any; // Puedes tipar esto mejor según la estructura de tu JSON
   ciudadesResidencia: string[] = [];
   ciudadesExpedicionCC: string[] = [];
@@ -84,8 +85,18 @@ export class FormularioPublicoComponent implements OnInit {
   numeroCedula!: any;
 
   archivos: any = [];
+  mostrarCamposAdicionales: boolean = false; // Controla la visibilidad de los campos adicionales
 
   title = 'Formulario';
+  mostrarSubirHojaVida = false;
+  mostrarCamposVehiculo = false;
+  mostrarCamposTrabajo = false;
+  mostrarParientes = false;
+  mostrarDeportes = false;
+  mostrarCamposHermanos: boolean = false; // Controla si se muestran los campos de hermanos
+
+  categoriasLicencia = ['A1', 'A2', 'B1', 'B2', 'B3', 'C1', 'C2', 'C3'];
+  tiposContrato = ['Fijo', 'Indefinido', 'Prestación de servicios', 'Obra o labor'];
 
 
   async listFormFields() {
@@ -128,16 +139,6 @@ export class FormularioPublicoComponent implements OnInit {
 
   async fillForm() {
 
-    if (this.guardarObjeti3 === undefined) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Oops...',
-        text: 'Debes subir una foto para continuar',
-      });
-      return;
-    }
-
-    console.log(this.formHojaDeVida2.value);
     console.log(this.formHojaDeVida2.value);
 
     const pdfUrl = '../../assets/Archivos/minerva.pdf';
@@ -146,6 +147,8 @@ export class FormularioPublicoComponent implements OnInit {
 
     const form = pdfDoc.getForm();
     let date: Date = new Date();
+
+
     // campotexto 0: dia, 1: mes, 2: año del dia
     form
       .getTextField('topmostSubform[0].Page1[0].CampoTexto2[0]')
@@ -204,7 +207,7 @@ export class FormularioPublicoComponent implements OnInit {
       .setText(this.formHojaDeVida2.value.correo);
     form
       .getTextField('topmostSubform[0].Page1[0].CampoTexto2[16]')
-      .setText(this.formHojaDeVida2.value.numeroCedula);
+      .setText(String(this.formHojaDeVida2.value.numeroCedula));
     if (this.formHojaDeVida2.value.tipoDoc === 'CC') {
       form
         .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[2]')
@@ -215,6 +218,96 @@ export class FormularioPublicoComponent implements OnInit {
         .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[3]')
         .check();
     }
+    if (this.formHojaVidaCompleta.value.tieneVehiculo == "SI") {
+      form
+        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[4]')
+        .check();
+
+      form
+        .getTextField('topmostSubform[0].Page1[0].CampoTexto2[21]')
+        .setText(String(this.formHojaVidaCompleta.value.licenciaConduccion));
+
+      form
+        .getTextField('topmostSubform[0].Page1[0].CampoTexto2[22]')
+        .setText(String(this.formHojaVidaCompleta.value.categoriaLicencia));
+    }
+    else {
+      form
+        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[5]')
+        .check();
+    }
+
+    if (this.formHojaVidaCompleta.value.estaTrabajando == "SI") {
+      form
+        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[6]')
+        .check();
+      form
+        .getTextField('topmostSubform[0].Page1[0].CampoTexto2[23]')
+        .setText(this.formHojaVidaCompleta.value.empresaActual);
+
+      if (this.formHojaVidaCompleta.value.tipoTrabajo == "Empleado") {
+        form
+          .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[8]')
+          .check();
+
+        form
+          .getTextField('topmostSubform[0].Page1[0].CampoTexto2[24]')
+          .setText(this.formHojaVidaCompleta.value.tipoContrato);
+      }
+      else {
+        form
+          .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[9]')
+          .check();
+      }
+    }
+    else {
+      form
+        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[7]')
+        .check();
+    }
+
+    if (this.formHojaVidaCompleta.value.trabajoAntes == "SI") {
+      form
+        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[10]')
+        .check();
+    }
+    else {
+      form
+        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[11]')
+        .check();
+    }
+
+    if (this.formHojaVidaCompleta.value.solicitoAntes == "SI") {
+      form
+        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[12]')
+        .check();
+    }
+    else {
+      form
+        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[13]')
+        .check();
+    }
+
+
+    if (this.formHojaDeVida2.value.tipoVivienda2.startsWith("ARRIENDO")) {
+      form
+        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[25]')
+        .check();
+    }
+    // Propia
+    else if (this.formHojaDeVida2.value.tipoVivienda2.startsWith("PROPIA")) {
+      form
+        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[26]')
+        .check();
+    }
+    else {
+      form
+        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[24]')
+        .check();
+    }
+
+
+
 
     form
       .getTextField('topmostSubform[0].Page1[0].CampoTexto2[17]')
@@ -222,6 +315,25 @@ export class FormularioPublicoComponent implements OnInit {
     form
       .getTextField('topmostSubform[0].Page1[0].CampoTexto2[14]')
       .setText(this.formHojaDeVida2.value.estadoCivil);
+
+
+    // Como conoce la vacante
+    // Si fuenteVacante comienza con REFERIDO se debe marcar la casilla topmostSubform[0].Page1[0].CasillaVerificación1[18]
+    console.log()
+    console.log(this.formHojaDeVida2.value.fuenteVacante)
+    if (this.formHojaDeVida2.value.fuenteVacante == 'REFERIDO (AMIGO, FAMILIAR, CONOCIDO)') {
+      form
+        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[20]')
+        .check();
+    }
+    else {
+      form
+        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[18]')
+        .check();
+    }
+
+
+
 
     form
       .getTextField('topmostSubform[0].Page2[0].CampoTexto2[0]')
@@ -235,33 +347,33 @@ export class FormularioPublicoComponent implements OnInit {
       .setText(this.formHojaDeVida2.value.ocupacionConyuge);
     form
       .getTextField('topmostSubform[0].Page2[0].CampoTexto2[4]')
-      .setText(this.formHojaDeVida2.value.direccionLaboralConyuge);
+      .setText(this.formHojaDeVida2.value.direccionConyuge);
     form
       .getTextField('topmostSubform[0].Page2[0].CampoTexto2[5]')
       .setText(this.formHojaDeVida2.value.telefonoConyuge);
 
     // foto
-/*
-    const base64Image = this.guardarObjeti3;
-    const imageBytes = this.base64ToUint8Array(base64Image);
-    const format = this.getImageFormat(base64Image);
-
-    const x = 175 * 2.83465;
-    let y = (297 - 51.9 - 40) * 2.83465;
-    const width = 30 * 2.83465;
-    const height = 41 * 2.83465;
-    y -= 51; // Mover la imagen 30 puntos más abajo como ejemplo
-
-    let image!: any;
-    if (format === 'jpeg') {
-      image = await pdfDoc.embedJpg(imageBytes);
-    } else if (format === 'png') {
-      image = await pdfDoc.embedPng(imageBytes);
-    }
-
-    const page = pdfDoc.getPage(0);
-    page.drawImage(image, { x, y, width, height });
-*/
+    /*
+        const base64Image = this.guardarObjeti3;
+        const imageBytes = this.base64ToUint8Array(base64Image);
+        const format = this.getImageFormat(base64Image);
+    
+        const x = 175 * 2.83465;
+        let y = (297 - 51.9 - 40) * 2.83465;
+        const width = 30 * 2.83465;
+        const height = 41 * 2.83465;
+        y -= 51; // Mover la imagen 30 puntos más abajo como ejemplo
+    
+        let image!: any;
+        if (format === 'jpeg') {
+          image = await pdfDoc.embedJpg(imageBytes);
+        } else if (format === 'png') {
+          image = await pdfDoc.embedPng(imageBytes);
+        }
+    
+        const page = pdfDoc.getPage(0);
+        page.drawImage(image, { x, y, width, height });
+    */
     // info padre
     form
       .getTextField('topmostSubform[0].Page2[0].CampoTexto2[10]')
@@ -283,6 +395,44 @@ export class FormularioPublicoComponent implements OnInit {
     form
       .getTextField('topmostSubform[0].Page2[0].CampoTexto2[13]')
       .setText(this.formHojaDeVida2.value.telefonoMadre);
+
+      if (this.formHojaVidaCompleta.value.tieneHermanos === 'SI') {
+        const hermanos = this.formHojaVidaCompleta.get('hermanos')?.value;
+      
+        // Iterar sobre cada hermano del FormArray
+        hermanos.forEach((hermano: any, index: number) => {
+          let nombreIndex = 18; // Base para el nombre
+          let profesionIndex = 20; // Base para la profesión
+          let telefonoIndex = 14; // Base para el teléfono
+      
+          // Ajustar los índices según el hermano (index)
+          if (index === 1) {
+            nombreIndex = 21; // Índice del nombre para el hermano 2
+            profesionIndex = 19; // Índice de la profesión para el hermano 2
+            telefonoIndex = 15; // Índice del teléfono para el hermano 2
+          }
+      
+          // Imprimir las posiciones para depuración
+          console.log(`Nombre -> ${nombreIndex}`);
+          console.log(`Profesión -> ${profesionIndex}`);
+          console.log(`Teléfono -> ${telefonoIndex}`);
+      
+          // Llenar los campos en el PDF
+          form
+            .getTextField(`topmostSubform[0].Page2[0].CampoTexto2[${nombreIndex}]`)
+            .setText(hermano.nombre || '');
+          form
+            .getTextField(`topmostSubform[0].Page2[0].CampoTexto2[${profesionIndex}]`)
+            .setText(hermano.profesion || '');
+          form
+            .getTextField(`topmostSubform[0].Page2[0].CampoTexto2[${telefonoIndex}]`)
+            .setText(hermano.telefono || '');
+        });
+      }
+      
+
+
+
 
     // si this.formHojaDeVida2.value.tipoVivienda2 contiene la palabra propia
     if (this.formHojaDeVida2.value.tipoVivienda2.includes('Propia')) {
@@ -377,7 +527,7 @@ export class FormularioPublicoComponent implements OnInit {
       .setText(this.formHojaDeVida2.value.telefonosEmpresa1);
     form
       .getTextField('topmostSubform[0].Page3[0].CampoTexto2[3]')
-      .setText(this.formHojaDeVida2.value.cargoTrabajador1);
+      .setText(this.formHojaDeVida2.value.cargoEmpresa1);
     form
       .getTextField('topmostSubform[0].Page3[0].CampoTexto2[4]')
       .setText(this.formHojaDeVida2.value.nombreJefe1);
@@ -406,48 +556,48 @@ export class FormularioPublicoComponent implements OnInit {
         .getTextField('topmostSubform[0].Page3[0].CampoTexto2[19]')
         .setText(this.formHojaDeVida2.value.motivoRetiro1);
     }
-
-    // informacion empresa
-    form
-      .getTextField('topmostSubform[0].Page3[0].CampoTexto2[21]')
-      .setText(this.formHojaDeVida2.value.nombreEmpresa2);
-    form
-      .getTextField('topmostSubform[0].Page3[0].CampoTexto2[41]')
-      .setText(this.formHojaDeVida2.value.direccionEmpresa2);
-    form
-      .getTextField('topmostSubform[0].Page3[0].CampoTexto2[40]')
-      .setText(this.formHojaDeVida2.value.telefonosEmpresa2);
-    form
-      .getTextField('topmostSubform[0].Page3[0].CampoTexto2[38]')
-      .setText(this.formHojaDeVida2.value.cargoTrabajador2);
-    form
-      .getTextField('topmostSubform[0].Page3[0].CampoTexto2[39]')
-      .setText(this.formHojaDeVida2.value.nombreJefe2);
-    // fecha asi 2024-03-12T05:00:00.000Z se debe cambiar a 12/03/2024 para separar por / y poder usar
-    // si contiene - se debe cambiar a / para poder usar
-    if (this.formHojaDeVida2.value.fechaRetiro2.includes('-')) {
-      let fecha2 = this.formHojaDeVida2.value.fechaRetiro2;
-      let fechaArray2 = fecha2.split('-');
-      let fechaRetiro2 = fechaArray2[2].split('T');
-      let fechaRetiroFinal2 =
-        fechaRetiro2[0] + '/' + fechaArray2[1] + '/' + fechaArray2[0];
-      // dia en topmostSubform[0].Page3[0].CampoTexto2[8]
-      form
-        .getTextField('topmostSubform[0].Page3[0].CampoTexto2[33]')
-        .setText(fechaRetiro2[0]);
-      // mes en topmostSubform[0].Page3[0].CampoTexto2[9]
-      form
-        .getTextField('topmostSubform[0].Page3[0].CampoTexto2[34]')
-        .setText(fechaArray2[1]);
-      // año en topmostSubform[0].Page3[0].CampoTexto2[10]
-      form
-        .getTextField('topmostSubform[0].Page3[0].CampoTexto2[35]')
-        .setText(fechaArray2[0]);
-    }
-    form
-      .getTextField('topmostSubform[0].Page3[0].CampoTexto2[23]')
-      .setText(this.formHojaDeVida2.value.motivoRetiro2);
-
+    /*
+        // informacion empresa
+        form
+          .getTextField('topmostSubform[0].Page3[0].CampoTexto2[21]')
+          .setText(this.formHojaDeVida2.value.nombreEmpresa2);
+        form
+          .getTextField('topmostSubform[0].Page3[0].CampoTexto2[41]')
+          .setText(this.formHojaDeVida2.value.direccionEmpresa2);
+        form
+          .getTextField('topmostSubform[0].Page3[0].CampoTexto2[40]')
+          .setText(this.formHojaDeVida2.value.telefonosEmpresa2);
+        form
+          .getTextField('topmostSubform[0].Page3[0].CampoTexto2[38]')
+          .setText(this.formHojaDeVida2.value.cargoTrabajador2);
+        form
+          .getTextField('topmostSubform[0].Page3[0].CampoTexto2[39]')
+          .setText(this.formHojaDeVida2.value.nombreJefe2);
+        // fecha asi 2024-03-12T05:00:00.000Z se debe cambiar a 12/03/2024 para separar por / y poder usar
+        // si contiene - se debe cambiar a / para poder usar
+        if (this.formHojaDeVida2.value.fechaRetiro2.includes('-')) {
+          let fecha2 = this.formHojaDeVida2.value.fechaRetiro2;
+          let fechaArray2 = fecha2.split('-');
+          let fechaRetiro2 = fechaArray2[2].split('T');
+          let fechaRetiroFinal2 =
+            fechaRetiro2[0] + '/' + fechaArray2[1] + '/' + fechaArray2[0];
+          // dia en topmostSubform[0].Page3[0].CampoTexto2[8]
+          form
+            .getTextField('topmostSubform[0].Page3[0].CampoTexto2[33]')
+            .setText(fechaRetiro2[0]);
+          // mes en topmostSubform[0].Page3[0].CampoTexto2[9]
+          form
+            .getTextField('topmostSubform[0].Page3[0].CampoTexto2[34]')
+            .setText(fechaArray2[1]);
+          // año en topmostSubform[0].Page3[0].CampoTexto2[10]
+          form
+            .getTextField('topmostSubform[0].Page3[0].CampoTexto2[35]')
+            .setText(fechaArray2[0]);
+        }
+        form
+          .getTextField('topmostSubform[0].Page3[0].CampoTexto2[23]')
+          .setText(this.formHojaDeVida2.value.motivoRetiro2);
+    */
     // refencias personales
     form
       .getTextField('topmostSubform[0].Page4[0].CampoTexto2[0]')
@@ -495,8 +645,19 @@ export class FormularioPublicoComponent implements OnInit {
       pdfBytes,
       `Minerva-${this.formHojaDeVida2.value.pApellido}-${this.formHojaDeVida2.value.sApellido}${this.formHojaDeVida2.value.sNombre}.pdf`
     );
+  }
 
 
+  downloadPDF(pdfBytes: Uint8Array, filename: string) {
+    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const downloadLink = document.createElement('a');
+    downloadLink.href = url;
+    downloadLink.download = filename;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    window.URL.revokeObjectURL(url);
   }
 
 
@@ -515,16 +676,15 @@ export class FormularioPublicoComponent implements OnInit {
   cargarDatosGuardados(): void {
     const formHojaDeVida2Data = localStorage.getItem('formHojaDeVida2');
     const numeroCedulaLocalStorage = localStorage.getItem('numeroCedula');
-
+    const formHojaVidaCompleta = localStorage.getItem('formHojaVidaCompleta');
     // Solo cargar los datos si el número de cédula en el formulario coincide con el almacenado
     if (this.numeroCedula == numeroCedulaLocalStorage) {
       if (formHojaDeVida2Data) {
-        console.log('Cargando datos de localStorage...');
         this.formHojaDeVida2.patchValue(JSON.parse(formHojaDeVida2Data));
       }
-    }
-    else {
-      console.log('No se encontraron datos en localStorage.');
+      if (formHojaVidaCompleta) {
+        this.formHojaVidaCompleta.patchValue(JSON.parse(formHojaVidaCompleta));
+      }
     }
   }
 
@@ -744,13 +904,97 @@ export class FormularioPublicoComponent implements OnInit {
       experienciaSignificativa: new FormControl('', Validators.required),
       motivacion: new FormControl('', Validators.required),
 
+
     }), { validators: this.validar };
 
     this.escucharNumeroDeHijos();
 
+    this.formHojaVidaCompleta = new FormGroup({
+      deseaGenerar: new FormControl('', Validators.required),
+      tieneVehiculo: new FormControl(''),
+      licenciaConduccion: new FormControl(''),
+      categoriaLicencia: new FormControl([]),
+      estaTrabajando: new FormControl(''),
+      empresaActual: new FormControl(''),
+      tipoTrabajo: new FormControl(''),
+      tipoContrato: new FormControl(''),
+      trabajoAntes: new FormControl(''),
+      solicitoAntes: new FormControl(''),
+
+      tieneParientes: new FormControl(''),
+      nombrePariente: new FormControl(''),
+
+      aficiones: new FormControl(''),
+      practicaDeportes: new FormControl(''),
+      cualDeporte: new FormControl(''),
+
+      tieneHermanos: new FormControl(''),
+      numeroHermanos: new FormControl(''),
+      hermanos: this.fb.array([]) // Array para almacenar la información de los hermanos
+
+    });
 
 
   }
+
+
+  // Getter para obtener el array de hermanos
+  get hermanosArray(): FormArray {
+    // "!" le indica a TypeScript que confías en que esto NUNCA es null/undefined
+    return this.formHojaVidaCompleta.get('hermanos')! as FormArray;
+  }
+
+
+
+
+  // Manejo del cambio en "¿Tiene hermanos?"
+  onTieneHermanosChange() {
+    const tieneHermanos = this.formHojaVidaCompleta.get('tieneHermanos')?.value;
+
+    if (tieneHermanos === 'SI') {
+      this.mostrarCamposHermanos = true;
+    } else {
+      this.mostrarCamposHermanos = false;
+      this.limpiarCamposHermanos(); // Limpia el array de hermanos si selecciona "No"
+    }
+  }
+
+  // Manejo del cambio en "¿Cuántos hermanos?"
+  // Actualiza el método
+  onNumeroHermanosChange(): void {
+    const numeroHermanos = +this.formHojaVidaCompleta.get('numeroHermanos')?.value || 0;
+
+    // Limpia el FormArray antes de añadir nuevos controles
+    this.hermanosArray.clear();
+
+    // Añade un FormGroup para cada hermano
+    for (let i = 0; i < numeroHermanos; i++) {
+      this.hermanosArray.push(
+        this.fb.group({
+          nombre: ['', Validators.required],
+          profesion: ['', Validators.required],
+          telefono: ['', [Validators.required, Validators.pattern(/^\d+$/)]]
+        })
+      );
+    }
+
+    // Fuerza la detección de cambios
+    this.cdRef.detectChanges();
+
+    console.log(this.hermanosArray.value);
+  }
+
+
+
+
+  // Limpia los campos de hermanos
+  limpiarCamposHermanos() {
+    this.formHojaVidaCompleta.patchValue({
+      numeroHermanos: '',
+    });
+    this.hermanosArray.clear();
+  }
+
 
   personasACargoOptions: string[] = [
     'HIJOS',
@@ -794,6 +1038,7 @@ export class FormularioPublicoComponent implements OnInit {
 
 
     this.guardarCambiosEnLocalStorage(this.formHojaDeVida2, 'formHojaDeVida2');
+    this.guardarCambiosEnLocalStorage(this.formHojaVidaCompleta, 'formHojaVidaCompleta');
 
   }
 
@@ -1013,6 +1258,8 @@ export class FormularioPublicoComponent implements OnInit {
         personas_a_cargo: Array.isArray(this.formHojaDeVida2.value.personas_a_cargo) ?
           this.formHojaDeVida2.value.personas_a_cargo.join(', ') : '',
 
+
+
       };
 
       console.log(datosAEnviar);
@@ -1038,7 +1285,7 @@ export class FormularioPublicoComponent implements OnInit {
               confirmButtonText: 'Aceptar',
             })
               .then(() => {
-                window.location.reload();
+                //window.location.reload();
               })
               .catch((error) => {
                 console.error('Error al redirigir:', error);
@@ -1060,11 +1307,11 @@ export class FormularioPublicoComponent implements OnInit {
 
   convertValuesToUpperCase(formValues: any): any {
     const upperCaseValues: { [key: string]: any } = {}; // Objeto para almacenar los valores formateados
-  
+
     for (const key in formValues) {
       if (formValues.hasOwnProperty(key)) {
         const value = formValues[key];
-  
+
         if (typeof value === 'string') {
           // Normalizar texto: eliminar caracteres decorativos y convertir a mayúsculas
           upperCaseValues[key] = this.normalizeString(value.trim().toUpperCase());
@@ -1081,10 +1328,10 @@ export class FormularioPublicoComponent implements OnInit {
         }
       }
     }
-  
+
     return upperCaseValues;
   }
-  
+
   normalizeString(value: string): string {
     return value
       .normalize('NFKD') // Normalización para separar caracteres combinados
@@ -1530,6 +1777,74 @@ export class FormularioPublicoComponent implements OnInit {
       }
     );
   }
+
+  // Manejo del cambio de selección en el select
+  onSelectionChange() {
+    const deseaGenerar = this.formHojaVidaCompleta.get('deseaGenerar')?.value;
+    this.mostrarSubirHojaVida = deseaGenerar === false;
+    this.mostrarCamposAdicionales = deseaGenerar === true;
+  }
+
+  onTieneVehiculoChange() {
+    this.mostrarCamposVehiculo = this.formHojaVidaCompleta.get('tieneVehiculo')?.value === 'SI';
+  }
+
+  onEstaTrabajandoChange() {
+    this.mostrarCamposTrabajo = this.formHojaVidaCompleta.get('estaTrabajando')?.value === 'SI';
+  }
+
+  onTieneParientesChange() {
+    this.mostrarParientes = this.formHojaVidaCompleta.get('tieneParientes')?.value === 'SI';
+  }
+
+  onPracticaDeportesChange() {
+    this.mostrarDeportes = this.formHojaVidaCompleta.get('practicaDeportes')?.value === 'SI';
+  }
+
+  onArchivoSeleccionado(event: any) {
+    const archivo = event.target.files[0]; // Obtiene el primer archivo seleccionado
+
+    if (archivo) {
+      // Verificar si el tamaño del archivo es válido (ejemplo: máximo 5 MB)
+      const maxSize = 5 * 1024 * 1024; // 5 MB
+      if (archivo.size > maxSize) {
+        Swal.fire({
+          title: 'Archivo demasiado grande',
+          text: 'El archivo no debe exceder 5 MB.',
+          icon: 'error',
+          confirmButtonText: 'Ok'
+        });
+        return; // Terminar si el archivo excede el tamaño máximo
+      }
+
+      // Verificar si el tipo de archivo es válido (solo PDF, Word, etc.)
+      const extensionesValidas = ['application/pdf', 'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      if (!extensionesValidas.includes(archivo.type)) {
+        Swal.fire({
+          title: 'Formato no permitido',
+          text: 'Solo se permiten archivos PDF o Word.',
+          icon: 'error',
+          confirmButtonText: 'Ok'
+        });
+        return; // Terminar si el formato no es válido
+      }
+
+      // Si el archivo es válido, almacenarlo en una variable
+      this.formHojaVidaCompleta.patchValue({
+        archivoHojaDeVida: archivo
+      });
+
+      console.log('Archivo seleccionado:', archivo);
+      Swal.fire({
+        title: 'Archivo cargado',
+        text: `El archivo "${archivo.name}" se cargó correctamente.`,
+        icon: 'success',
+        confirmButtonText: 'Ok'
+      });
+    }
+  }
+
 
 
 
