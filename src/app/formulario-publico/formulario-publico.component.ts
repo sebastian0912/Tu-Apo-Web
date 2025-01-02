@@ -1,7 +1,6 @@
 import { ChangeDetectorRef, Component, OnInit, ViewChild } from '@angular/core';
 import { RouterOutlet, Router, RouterModule } from '@angular/router';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-
+import { MatDialog, MatDialogModule } from '@angular/material/dialog'
 import {
   FormsModule,
   ReactiveFormsModule,
@@ -35,6 +34,7 @@ import { FirmaComponent } from '../firma/firma.component';
 import { urlBack } from '../model/Usuario';
 import Swal from 'sweetalert2';
 import { PDFCheckBox, PDFDocument, PDFTextField } from 'pdf-lib';
+// IMPORTAR FO
 
 @Component({
   selector: 'app-formulario-publico',
@@ -65,7 +65,6 @@ export class FormularioPublicoComponent implements OnInit {
   [x: string]: any;
   //datosHoja: HojaDeVida = new HojaDeVida();
   formHojaDeVida2!: FormGroup;
-  formHojaVidaCompleta!: FormGroup;
   datos: any; // Puedes tipar esto mejor según la estructura de tu JSON
   ciudadesResidencia: string[] = [];
   ciudadesExpedicionCC: string[] = [];
@@ -218,18 +217,18 @@ export class FormularioPublicoComponent implements OnInit {
         .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[3]')
         .check();
     }
-    if (this.formHojaVidaCompleta.value.tieneVehiculo == "SI") {
+    if (this.formHojaDeVida2.value.tieneVehiculo == "SI") {
       form
         .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[4]')
         .check();
 
       form
         .getTextField('topmostSubform[0].Page1[0].CampoTexto2[21]')
-        .setText(String(this.formHojaVidaCompleta.value.licenciaConduccion));
+        .setText(String(this.formHojaDeVida2.value.licenciaConduccion));
 
       form
         .getTextField('topmostSubform[0].Page1[0].CampoTexto2[22]')
-        .setText(String(this.formHojaVidaCompleta.value.categoriaLicencia));
+        .setText(String(this.formHojaDeVida2.value.categoriaLicencia));
     }
     else {
       form
@@ -237,22 +236,22 @@ export class FormularioPublicoComponent implements OnInit {
         .check();
     }
 
-    if (this.formHojaVidaCompleta.value.estaTrabajando == "SI") {
+    if (this.formHojaDeVida2.value.estaTrabajando == "SI") {
       form
         .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[6]')
         .check();
       form
         .getTextField('topmostSubform[0].Page1[0].CampoTexto2[23]')
-        .setText(this.formHojaVidaCompleta.value.empresaActual);
+        .setText(this.formHojaDeVida2.value.empresaActual);
 
-      if (this.formHojaVidaCompleta.value.tipoTrabajo == "Empleado") {
+      if (this.formHojaDeVida2.value.tipoTrabajo == "Empleado") {
         form
           .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[8]')
           .check();
 
         form
           .getTextField('topmostSubform[0].Page1[0].CampoTexto2[24]')
-          .setText(this.formHojaVidaCompleta.value.tipoContrato);
+          .setText(this.formHojaDeVida2.value.tipoContrato);
       }
       else {
         form
@@ -266,7 +265,7 @@ export class FormularioPublicoComponent implements OnInit {
         .check();
     }
 
-    if (this.formHojaVidaCompleta.value.trabajoAntes == "SI") {
+    if (this.formHojaDeVida2.value.trabajoAntes == "SI") {
       form
         .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[10]')
         .check();
@@ -277,7 +276,7 @@ export class FormularioPublicoComponent implements OnInit {
         .check();
     }
 
-    if (this.formHojaVidaCompleta.value.solicitoAntes == "SI") {
+    if (this.formHojaDeVida2.value.solicitoAntes == "SI") {
       form
         .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[12]')
         .check();
@@ -396,40 +395,40 @@ export class FormularioPublicoComponent implements OnInit {
       .getTextField('topmostSubform[0].Page2[0].CampoTexto2[13]')
       .setText(this.formHojaDeVida2.value.telefonoMadre);
 
-      if (this.formHojaVidaCompleta.value.tieneHermanos === 'SI') {
-        const hermanos = this.formHojaVidaCompleta.get('hermanos')?.value;
-      
-        // Iterar sobre cada hermano del FormArray
-        hermanos.forEach((hermano: any, index: number) => {
-          let nombreIndex = 18; // Base para el nombre
-          let profesionIndex = 20; // Base para la profesión
-          let telefonoIndex = 14; // Base para el teléfono
-      
-          // Ajustar los índices según el hermano (index)
-          if (index === 1) {
-            nombreIndex = 21; // Índice del nombre para el hermano 2
-            profesionIndex = 19; // Índice de la profesión para el hermano 2
-            telefonoIndex = 15; // Índice del teléfono para el hermano 2
-          }
-      
-          // Imprimir las posiciones para depuración
-          console.log(`Nombre -> ${nombreIndex}`);
-          console.log(`Profesión -> ${profesionIndex}`);
-          console.log(`Teléfono -> ${telefonoIndex}`);
-      
-          // Llenar los campos en el PDF
-          form
-            .getTextField(`topmostSubform[0].Page2[0].CampoTexto2[${nombreIndex}]`)
-            .setText(hermano.nombre || '');
-          form
-            .getTextField(`topmostSubform[0].Page2[0].CampoTexto2[${profesionIndex}]`)
-            .setText(hermano.profesion || '');
-          form
-            .getTextField(`topmostSubform[0].Page2[0].CampoTexto2[${telefonoIndex}]`)
-            .setText(hermano.telefono || '');
-        });
-      }
-      
+    if (this.formHojaDeVida2.value.tieneHermanos === 'SI') {
+      const hermanos = this.formHojaDeVida2.get('hermanos')?.value;
+
+      // Iterar sobre cada hermano del FormArray
+      hermanos.forEach((hermano: any, index: number) => {
+        let nombreIndex = 18; // Base para el nombre
+        let profesionIndex = 20; // Base para la profesión
+        let telefonoIndex = 14; // Base para el teléfono
+
+        // Ajustar los índices según el hermano (index)
+        if (index === 1) {
+          nombreIndex = 21; // Índice del nombre para el hermano 2
+          profesionIndex = 19; // Índice de la profesión para el hermano 2
+          telefonoIndex = 15; // Índice del teléfono para el hermano 2
+        }
+
+        // Imprimir las posiciones para depuración
+        console.log(`Nombre -> ${nombreIndex}`);
+        console.log(`Profesión -> ${profesionIndex}`);
+        console.log(`Teléfono -> ${telefonoIndex}`);
+
+        // Llenar los campos en el PDF
+        form
+          .getTextField(`topmostSubform[0].Page2[0].CampoTexto2[${nombreIndex}]`)
+          .setText(hermano.nombre || '');
+        form
+          .getTextField(`topmostSubform[0].Page2[0].CampoTexto2[${profesionIndex}]`)
+          .setText(hermano.profesion || '');
+        form
+          .getTextField(`topmostSubform[0].Page2[0].CampoTexto2[${telefonoIndex}]`)
+          .setText(hermano.telefono || '');
+      });
+    }
+
 
 
 
@@ -608,6 +607,10 @@ export class FormularioPublicoComponent implements OnInit {
     form
       .getTextField('topmostSubform[0].Page4[0].CampoTexto2[4]')
       .setText(this.formHojaDeVida2.value.ocupacionReferencia1);
+    form
+      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[6]')
+      .setText(this.formHojaDeVida2.value.direccionReferenciaPersonal1);
+
 
     form
       .getTextField('topmostSubform[0].Page4[0].CampoTexto2[1]')
@@ -618,6 +621,9 @@ export class FormularioPublicoComponent implements OnInit {
     form
       .getTextField('topmostSubform[0].Page4[0].CampoTexto2[3]')
       .setText(this.formHojaDeVida2.value.ocupacionReferencia2);
+    form
+      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[7]')
+      .setText(this.formHojaDeVida2.value.direccionReferenciaPersonal2);
 
     // refencias familiares
     form
@@ -629,6 +635,9 @@ export class FormularioPublicoComponent implements OnInit {
     form
       .getTextField('topmostSubform[0].Page4[0].CampoTexto2[5]')
       .setText(this.formHojaDeVida2.value.ocupacionReferenciaFamiliar1);
+    form
+      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[8]')
+      .setText(this.formHojaDeVida2.value.direccionReferenciaFamiliar1);
 
     // Bloquear todos los campos del formulario
     const fields = form.getFields();
@@ -676,15 +685,12 @@ export class FormularioPublicoComponent implements OnInit {
   cargarDatosGuardados(): void {
     const formHojaDeVida2Data = localStorage.getItem('formHojaDeVida2');
     const numeroCedulaLocalStorage = localStorage.getItem('numeroCedula');
-    const formHojaVidaCompleta = localStorage.getItem('formHojaVidaCompleta');
     // Solo cargar los datos si el número de cédula en el formulario coincide con el almacenado
     if (this.numeroCedula == numeroCedulaLocalStorage) {
       if (formHojaDeVida2Data) {
         this.formHojaDeVida2.patchValue(JSON.parse(formHojaDeVida2Data));
       }
-      if (formHojaVidaCompleta) {
-        this.formHojaVidaCompleta.patchValue(JSON.parse(formHojaVidaCompleta));
-      }
+
     }
   }
 
@@ -771,14 +777,13 @@ export class FormularioPublicoComponent implements OnInit {
       estudiaActualmente: new FormControl('', Validators.required),
 
       escolaridad: new FormControl('', Validators.required),
-      estudiosExtras: new FormControl('', Validators.required),
       nombreInstitucion: new FormControl('', Validators.required),
       anoFinalizacion: new FormControl('', [
         Validators.required,
       ]),
-
       tituloObtenido: new FormControl('', Validators.required),
-
+      estudiosExtrasSelect: new FormControl([]), // Control para el mat-select
+      estudiosExtras: this.fb.array([]), // FormArray para los campos dinámicos
 
 
       tallaChaqueta: new FormControl('', Validators.required),
@@ -904,12 +909,6 @@ export class FormularioPublicoComponent implements OnInit {
       experienciaSignificativa: new FormControl('', Validators.required),
       motivacion: new FormControl('', Validators.required),
 
-
-    }), { validators: this.validar };
-
-    this.escucharNumeroDeHijos();
-
-    this.formHojaVidaCompleta = new FormGroup({
       deseaGenerar: new FormControl('', Validators.required),
       tieneVehiculo: new FormControl(''),
       licenciaConduccion: new FormControl(''),
@@ -930,18 +929,97 @@ export class FormularioPublicoComponent implements OnInit {
 
       tieneHermanos: new FormControl(''),
       numeroHermanos: new FormControl(''),
-      hermanos: this.fb.array([]) // Array para almacenar la información de los hermanos
+      hermanos: this.fb.array([]), // Array para almacenar la información de los hermanos
 
+
+      direccionReferenciaPersonal1: new FormControl('', Validators.required),
+      direccionReferenciaPersonal2: new FormControl('', Validators.required),
+      direccionReferenciaFamiliar1: new FormControl('', Validators.required),
+
+    }), { validators: this.validar };
+
+    this.escucharNumeroDeHijos();
+
+    // Escucha cambios en escolaridad
+    this.formHojaDeVida2.get('escolaridad')?.valueChanges.subscribe((value) => {
+      if (value === 'SIN ESTUDIOS') {
+        // Deshabilita campos y elimina validaciones
+        this.formHojaDeVida2.get('nombreInstitucion')?.clearValidators();
+        this.formHojaDeVida2.get('anoFinalizacion')?.clearValidators();
+        this.formHojaDeVida2.get('tituloObtenido')?.clearValidators();
+        this.formHojaDeVida2.get('estudiosExtras')?.clearValidators();
+      } else {
+        // Habilita campos y agrega validaciones nuevamente
+        this.formHojaDeVida2.get('nombreInstitucion')?.setValidators(Validators.required);
+        this.formHojaDeVida2.get('anoFinalizacion')?.setValidators(Validators.required);
+        this.formHojaDeVida2.get('tituloObtenido')?.setValidators(Validators.required);
+        this.formHojaDeVida2.get('estudiosExtras')?.setValidators(Validators.required);
+      }
+
+      // Actualiza el estado de los controles
+      this.formHojaDeVida2.get('nombreInstitucion')?.updateValueAndValidity();
+      this.formHojaDeVida2.get('anoFinalizacion')?.updateValueAndValidity();
+      this.formHojaDeVida2.get('tituloObtenido')?.updateValueAndValidity();
+      this.formHojaDeVida2.get('estudiosExtras')?.updateValueAndValidity();
     });
+
 
 
   }
 
 
+  // Método para agregar un nuevo grupo de estudios extras
+addEstudioExtra(nivel: string) {
+  const estudiosExtras = this.formHojaDeVida2.get('estudiosExtras') as FormArray;
+  estudiosExtras.push(
+    this.fb.group({
+      nivel: [nivel, Validators.required],
+      anoFinalizacion: ['', Validators.required],
+      anosCursados: ['', Validators.required],
+      tituloObtenido: ['', Validators.required],
+      nombreInstitucion: ['', Validators.required],
+      ciudad: ['', Validators.required],
+    })
+  );
+}
+
+// Método para eliminar un grupo de estudios extras
+removeEstudioExtra(index: number) {
+  const estudiosExtras = this.formHojaDeVida2.get('estudiosExtras') as FormArray;
+  estudiosExtras.removeAt(index);
+}
+
+// Método para manejar los cambios del select múltiple
+onEstudiosExtrasChange(selectedValues: string[]) {
+  const estudiosExtras = this.formHojaDeVida2.get('estudiosExtras') as FormArray;
+
+  // Limpiamos el FormArray antes de agregar los seleccionados
+  estudiosExtras.clear();
+
+  // Agregamos un grupo por cada opción seleccionada
+  selectedValues.forEach((nivel) => this.addEstudioExtra(nivel));
+}
+
+get estudiosExtrasSelectControl(): FormControl {
+  return this.formHojaDeVida2.get('estudiosExtrasSelect') as FormControl;
+}
+
+  // Getter para el FormArray
+  get estudiosExtras(): FormArray {
+    return this.formHojaDeVida2.get('estudiosExtras') as FormArray;
+  }
+
+
+
+
+
+
+
+
   // Getter para obtener el array de hermanos
   get hermanosArray(): FormArray {
     // "!" le indica a TypeScript que confías en que esto NUNCA es null/undefined
-    return this.formHojaVidaCompleta.get('hermanos')! as FormArray;
+    return this.formHojaDeVida2.get('hermanos')! as FormArray;
   }
 
 
@@ -949,7 +1027,7 @@ export class FormularioPublicoComponent implements OnInit {
 
   // Manejo del cambio en "¿Tiene hermanos?"
   onTieneHermanosChange() {
-    const tieneHermanos = this.formHojaVidaCompleta.get('tieneHermanos')?.value;
+    const tieneHermanos = this.formHojaDeVida2.get('tieneHermanos')?.value;
 
     if (tieneHermanos === 'SI') {
       this.mostrarCamposHermanos = true;
@@ -962,7 +1040,7 @@ export class FormularioPublicoComponent implements OnInit {
   // Manejo del cambio en "¿Cuántos hermanos?"
   // Actualiza el método
   onNumeroHermanosChange(): void {
-    const numeroHermanos = +this.formHojaVidaCompleta.get('numeroHermanos')?.value || 0;
+    const numeroHermanos = +this.formHojaDeVida2.get('numeroHermanos')?.value || 0;
 
     // Limpia el FormArray antes de añadir nuevos controles
     this.hermanosArray.clear();
@@ -989,7 +1067,7 @@ export class FormularioPublicoComponent implements OnInit {
 
   // Limpia los campos de hermanos
   limpiarCamposHermanos() {
-    this.formHojaVidaCompleta.patchValue({
+    this.formHojaDeVida2.patchValue({
       numeroHermanos: '',
     });
     this.hermanosArray.clear();
@@ -1038,7 +1116,6 @@ export class FormularioPublicoComponent implements OnInit {
 
 
     this.guardarCambiosEnLocalStorage(this.formHojaDeVida2, 'formHojaDeVida2');
-    this.guardarCambiosEnLocalStorage(this.formHojaVidaCompleta, 'formHojaVidaCompleta');
 
   }
 
@@ -1767,39 +1844,21 @@ export class FormularioPublicoComponent implements OnInit {
     return departamento ? departamento.ciudades : [];
   }
 
-  cargarDatosJSON(): void {
+  async cargarDatosJSON(): Promise<void> {
     this.http.get('../../assets/colombia.json').subscribe(
       (data) => {
         this.datos = data;
       },
-      (error) => {
-        console.error('Error al leer el archivo JSON', error);
-      }
     );
   }
 
   // Manejo del cambio de selección en el select
   onSelectionChange() {
-    const deseaGenerar = this.formHojaVidaCompleta.get('deseaGenerar')?.value;
+    const deseaGenerar = this.formHojaDeVida2.get('deseaGenerar')?.value;
     this.mostrarSubirHojaVida = deseaGenerar === false;
     this.mostrarCamposAdicionales = deseaGenerar === true;
   }
 
-  onTieneVehiculoChange() {
-    this.mostrarCamposVehiculo = this.formHojaVidaCompleta.get('tieneVehiculo')?.value === 'SI';
-  }
-
-  onEstaTrabajandoChange() {
-    this.mostrarCamposTrabajo = this.formHojaVidaCompleta.get('estaTrabajando')?.value === 'SI';
-  }
-
-  onTieneParientesChange() {
-    this.mostrarParientes = this.formHojaVidaCompleta.get('tieneParientes')?.value === 'SI';
-  }
-
-  onPracticaDeportesChange() {
-    this.mostrarDeportes = this.formHojaVidaCompleta.get('practicaDeportes')?.value === 'SI';
-  }
 
   onArchivoSeleccionado(event: any) {
     const archivo = event.target.files[0]; // Obtiene el primer archivo seleccionado
@@ -1831,7 +1890,7 @@ export class FormularioPublicoComponent implements OnInit {
       }
 
       // Si el archivo es válido, almacenarlo en una variable
-      this.formHojaVidaCompleta.patchValue({
+      this.formHojaDeVida2.patchValue({
         archivoHojaDeVida: archivo
       });
 
@@ -2191,7 +2250,6 @@ export class FormularioPublicoComponent implements OnInit {
     'UNIVERSIDAD',
     'ESPECIALIZACIÓN',
     'NINGUNA',
-    'OTROS',
   ];
 
   areasExperiencia: string[] = [
