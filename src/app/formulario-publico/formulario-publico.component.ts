@@ -33,8 +33,9 @@ import { DomSanitizer } from '@angular/platform-browser';
 import { FirmaComponent } from '../firma/firma.component';
 import { urlBack } from '../model/Usuario';
 import Swal from 'sweetalert2';
-import { PDFCheckBox, PDFDocument, PDFTextField } from 'pdf-lib';
-// IMPORTAR FO
+import { degrees, PDFCheckBox, PDFDocument, PDFTextField, rgb, StandardFonts } from 'pdf-lib';
+import { MatMenuModule } from '@angular/material/menu';
+import { GestionDocumentalService } from '../shared/service/gestionDocumental/gestion-documental.service';
 
 @Component({
   selector: 'app-formulario-publico',
@@ -54,6 +55,7 @@ import { PDFCheckBox, PDFDocument, PDFTextField } from 'pdf-lib';
     MatButtonModule,
     MatDividerModule,
     MatIconModule,
+    MatMenuModule
     //FirmaComponent,
   ],
   templateUrl: './formulario-publico.component.html',
@@ -96,7 +98,11 @@ export class FormularioPublicoComponent implements OnInit {
 
   categoriasLicencia = ['A1', 'A2', 'B1', 'B2', 'B3', 'C1', 'C2', 'C3'];
   tiposContrato = ['Fijo', 'Indefinido', 'Prestación de servicios', 'Obra o labor'];
-
+  uploadedFiles: { [key: string]: { file: File, fileName: string } } = {}; // Almacenar tanto el archivo como el nombre
+  typeMap: { [key: string]: number } = {
+    "hojaDeVida": 28,
+    hojaDeVidaGenerada: 28,
+  };
 
   async listFormFields() {
     // Asume que tienes un PDF en la carpeta de activos; ajusta la ruta según sea necesario
@@ -137,7 +143,6 @@ export class FormularioPublicoComponent implements OnInit {
   }
 
   async fillForm() {
-
     console.log(this.formHojaDeVida2.value);
 
     const pdfUrl = '../../assets/Archivos/minerva.pdf';
@@ -145,8 +150,8 @@ export class FormularioPublicoComponent implements OnInit {
     const pdfDoc = await PDFDocument.load(arrayBuffer);
 
     const form = pdfDoc.getForm();
-    let date: Date = new Date();
 
+    let date: Date = new Date();
 
     // campotexto 0: dia, 1: mes, 2: año del dia
     form
@@ -318,8 +323,7 @@ export class FormularioPublicoComponent implements OnInit {
 
     // Como conoce la vacante
     // Si fuenteVacante comienza con REFERIDO se debe marcar la casilla topmostSubform[0].Page1[0].CasillaVerificación1[18]
-    console.log()
-    console.log(this.formHojaDeVida2.value.fuenteVacante)
+
     if (this.formHojaDeVida2.value.fuenteVacante == 'REFERIDO (AMIGO, FAMILIAR, CONOCIDO)') {
       form
         .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[20]')
@@ -412,10 +416,6 @@ export class FormularioPublicoComponent implements OnInit {
         }
 
         // Imprimir las posiciones para depuración
-        console.log(`Nombre -> ${nombreIndex}`);
-        console.log(`Profesión -> ${profesionIndex}`);
-        console.log(`Teléfono -> ${telefonoIndex}`);
-
         // Llenar los campos en el PDF
         form
           .getTextField(`topmostSubform[0].Page2[0].CampoTexto2[${nombreIndex}]`)
@@ -452,67 +452,7 @@ export class FormularioPublicoComponent implements OnInit {
         .check();
     }
 
-    // si estudios extra contiene la palabra tecnico
-    if (this.formHojaDeVida2.value.estudiosExtras.includes('Técnico')) {
-      form
-        .getCheckBox('topmostSubform[0].Page2[0].CasillaVerificación1[5]')
-        .check();
-      form
-        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[52]')
-        .setText(this.formHojaDeVida2.value.anoFinalizacion);
-      form
-        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[50]')
-        .setText(this.formHojaDeVida2.value.tituloObtenido);
-      form
-        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[49]')
-        .setText(this.formHojaDeVida2.value.nombreInstitucion);
-    }
-    // si estudios extra contiene la palabra tecnologo
-    if (this.formHojaDeVida2.value.estudiosExtras.includes('Tecnólogo')) {
-      form
-        .getCheckBox('topmostSubform[0].Page2[0].CasillaVerificación1[6]')
-        .check();
-      form
-        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[34]')
-        .setText(this.formHojaDeVida2.value.anoFinalizacion);
-      form
-        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[46]')
-        .setText(this.formHojaDeVida2.value.tituloObtenido);
-      form
-        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[47]')
-        .setText(this.formHojaDeVida2.value.nombreInstitucion);
-    }
-    // si estudios extra contiene la palabra profesional
-    if (this.formHojaDeVida2.value.estudiosExtras.includes('Profesional')) {
-      form
-        .getCheckBox('topmostSubform[0].Page2[0].CasillaVerificación1[7]')
-        .check();
-      form
-        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[44]')
-        .setText(this.formHojaDeVida2.value.anoFinalizacion);
-      form
-        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[42]')
-        .setText(this.formHojaDeVida2.value.tituloObtenido);
-      form
-        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[41]')
-        .setText(this.formHojaDeVida2.value.nombreInstitucion);
-    }
-    // si estudios extra contiene la palabra especializacion o maestria o doctorado
-    if (
-      this.formHojaDeVida2.value.estudiosExtras.includes('Especialización') ||
-      this.formHojaDeVida2.value.estudiosExtras.includes('Maestría') ||
-      this.formHojaDeVida2.value.estudiosExtras.includes('Doctorado')
-    ) {
-      form
-        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[36]')
-        .setText(this.formHojaDeVida2.value.anoFinalizacion);
-      form
-        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[38]')
-        .setText(this.formHojaDeVida2.value.tituloObtenido);
-      form
-        .getTextField('topmostSubform[0].Page2[0].CampoTexto2[39]')
-        .setText(this.formHojaDeVida2.value.nombreInstitucion);
-    }
+
 
     // informacion empresa
     form
@@ -647,13 +587,122 @@ export class FormularioPublicoComponent implements OnInit {
 
     const pdfBytes = await pdfDoc.save();
 
-    this.imprimirInformacion2();
+    // Agregar la marca de agua
+    const watermarkText = "TUAPO HV GENERADA"; // Define tu texto de marca de agua
+    const watermarkedPdfBytes = await this.addWatermarkToPdf(pdfBytes, watermarkText);
 
-    // Descargar el PDF en el cliente
+    // Convertir el Uint8Array con marca de agua en un Blob.
+    const blob = new Blob([watermarkedPdfBytes], { type: 'application/pdf' });
+
+    // Convertir el Blob en un File.
+    const file = new File([blob], 'Hoja de vida generada con marca de agua.pdf', { type: 'application/pdf' });
+
+    // Asignar el File al objeto uploadedFiles.
+    this.uploadedFiles['hojaDeVidaGenerada'] = { file: file, fileName: 'Hoja de vida generada con marca de agua.pdf' };
+
+    // Función para normalizar texto
+    function normalizeText(text: string): string {
+      return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+    }
+
+    // Descargar el PDF con marca de agua en el cliente
     this.downloadPDF(
-      pdfBytes,
-      `Minerva-${this.formHojaDeVida2.value.pApellido}-${this.formHojaDeVida2.value.sApellido}${this.formHojaDeVida2.value.sNombre}.pdf`
+      watermarkedPdfBytes,
+      `Minerva-${normalizeText(this.formHojaDeVida2.value.pApellido)}-${normalizeText(this.formHojaDeVida2.value.sApellido)}-${normalizeText(this.formHojaDeVida2.value.pNombre)}-${normalizeText(this.formHojaDeVida2.value.sNombre)}.pdf`
     );
+
+  }
+
+  // Función para agregar una marca de agua al PDF
+  // Función para agregar una marca de agua al PDF con Helvetica (integrada)
+  async addWatermarkToPdf(pdfBytes: Uint8Array, watermarkText: string): Promise<Uint8Array> {
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+
+    // Usar una fuente integrada en PDF-Lib
+    const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+    const pages = pdfDoc.getPages();
+    for (const page of pages) {
+      const { width, height } = page.getSize();
+
+      // Agregar texto como marca de agua
+      page.drawText(watermarkText, {
+        x: (width / 2) - 230, // Ajusta para centrar horizontalmente
+        y: (height / 2) - 250, // Ajusta para centrar verticalmente
+        size: 62, // Tamaño del texto
+        font: helveticaFont, // Usar la fuente integrada
+        color: rgb(152 / 255, 227 / 255, 57 / 255), // Convertir valores a fracciones
+        opacity: 0.20, // Transparencia
+        rotate: degrees(45), // Rotación del texto
+      });
+    }
+    return await pdfDoc.save();
+  }
+
+
+
+
+  // Manejar la carga de archivos
+  onFileUpload(event: Event, fileType: string) {
+    const input = event.target as HTMLInputElement;
+
+    if (input.files && input.files.length > 0) {
+      const file = input.files[0]; // Obtiene el archivo
+      this.uploadedFiles[fileType] = { file, fileName: file.name }; // Almacena el archivo y el nombre
+    }
+  }
+
+  // Método para abrir un archivo en una nueva pestaña
+  verArchivo(campo: string) {
+    const archivo = this.uploadedFiles[campo];
+
+    if (archivo && archivo.file) {
+      if (typeof archivo.file === 'string') {
+        // Asegurarse de que la URL esté correctamente codificada para evitar problemas
+        const fileUrl = encodeURI(archivo.file);
+        // Abrir el archivo en una nueva pestaña
+        window.open(fileUrl, '_blank');
+      } else if (archivo.file instanceof File) {
+        // Crear una URL temporal para el archivo si es un objeto File
+        const fileUrl = URL.createObjectURL(archivo.file);
+        window.open(fileUrl, '_blank');
+
+        // Revocar la URL después de que el archivo ha sido abierto para liberar memoria
+        setTimeout(() => {
+          URL.revokeObjectURL(fileUrl);
+        }, 100);
+      }
+    } else {
+      Swal.fire('Error', 'No se pudo encontrar el archivo para este campo', 'error');
+    }
+  }
+
+  subirArchivo(event: any, campo: string) {
+    const input = event.target as HTMLInputElement; // Referencia al input
+    const file = input.files?.[0]; // Obtén el archivo seleccionado
+
+    if (file) {
+      // Verificar si el nombre del archivo tiene más de 100 caracteres
+      if (file.name.length > 100) {
+        Swal.fire('Error', 'El nombre del archivo no debe exceder los 100 caracteres', 'error');
+
+        // Limpiar el input
+        this.resetInput(input);
+        return; // Salir de la función si la validación falla
+      }
+
+      // Si la validación es exitosa, almacenar el archivo
+      this.uploadedFiles[campo] = { file: file, fileName: file.name }; // Guarda el archivo y el nombre
+    }
+
+    // Limpiar el input para permitir seleccionar el mismo archivo nuevamente
+    this.resetInput(input);
+  }
+
+  // Método para reiniciar el input en el DOM
+  private resetInput(input: HTMLInputElement): void {
+    const newInput = input.cloneNode(true) as HTMLInputElement;
+    input.parentNode?.replaceChild(newInput, input);
   }
 
 
@@ -690,7 +739,6 @@ export class FormularioPublicoComponent implements OnInit {
       if (formHojaDeVida2Data) {
         this.formHojaDeVida2.patchValue(JSON.parse(formHojaDeVida2Data));
       }
-
     }
   }
 
@@ -701,7 +749,8 @@ export class FormularioPublicoComponent implements OnInit {
     private sanitizer: DomSanitizer,
     private cdRef: ChangeDetectorRef,
     private router: Router,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private gestionDocumentosService: GestionDocumentalService,
   ) {
 
     // Llamada a la función para inicializar el formulario con base en el número de hijos
@@ -909,7 +958,8 @@ export class FormularioPublicoComponent implements OnInit {
       experienciaSignificativa: new FormControl('', Validators.required),
       motivacion: new FormControl('', Validators.required),
 
-      deseaGenerar: new FormControl('', Validators.required),
+      deseaGenerar: new FormControl('',),
+      hojaDeVida: new FormControl('',),
       tieneVehiculo: new FormControl(''),
       licenciaConduccion: new FormControl(''),
       categoriaLicencia: new FormControl([]),
@@ -942,26 +992,40 @@ export class FormularioPublicoComponent implements OnInit {
 
     // Escucha cambios en escolaridad
     this.formHojaDeVida2.get('escolaridad')?.valueChanges.subscribe((value) => {
+      const estudiosExtras = this.formHojaDeVida2.get('estudiosExtras') as FormArray;
+
       if (value === 'SIN ESTUDIOS') {
-        // Deshabilita campos y elimina validaciones
+        // Limpia el FormArray
+        while (estudiosExtras.length !== 0) {
+          estudiosExtras.removeAt(0);
+        }
+
+        // Limpia los valores seleccionados en el control de selección múltiple
+        this.estudiosExtrasSelectControl.setValue([]);
+
+        // Limpia validaciones de campos relacionados
         this.formHojaDeVida2.get('nombreInstitucion')?.clearValidators();
         this.formHojaDeVida2.get('anoFinalizacion')?.clearValidators();
         this.formHojaDeVida2.get('tituloObtenido')?.clearValidators();
-        this.formHojaDeVida2.get('estudiosExtras')?.clearValidators();
+
+        // Opcionalmente, desactiva el control de "Estudios Extras"
+        estudiosExtras.disable();
       } else {
-        // Habilita campos y agrega validaciones nuevamente
+        // Habilita el control de "Estudios Extras"
+        estudiosExtras.enable();
+
+        // Vuelve a aplicar validaciones según sea necesario
         this.formHojaDeVida2.get('nombreInstitucion')?.setValidators(Validators.required);
         this.formHojaDeVida2.get('anoFinalizacion')?.setValidators(Validators.required);
         this.formHojaDeVida2.get('tituloObtenido')?.setValidators(Validators.required);
-        this.formHojaDeVida2.get('estudiosExtras')?.setValidators(Validators.required);
       }
 
-      // Actualiza el estado de los controles
+      // Actualiza el estado de validación de los controles
       this.formHojaDeVida2.get('nombreInstitucion')?.updateValueAndValidity();
       this.formHojaDeVida2.get('anoFinalizacion')?.updateValueAndValidity();
       this.formHojaDeVida2.get('tituloObtenido')?.updateValueAndValidity();
-      this.formHojaDeVida2.get('estudiosExtras')?.updateValueAndValidity();
     });
+
 
 
 
@@ -969,40 +1033,32 @@ export class FormularioPublicoComponent implements OnInit {
 
 
   // Método para agregar un nuevo grupo de estudios extras
-addEstudioExtra(nivel: string) {
-  const estudiosExtras = this.formHojaDeVida2.get('estudiosExtras') as FormArray;
-  estudiosExtras.push(
-    this.fb.group({
-      nivel: [nivel, Validators.required],
-      anoFinalizacion: ['', Validators.required],
-      anosCursados: ['', Validators.required],
-      tituloObtenido: ['', Validators.required],
-      nombreInstitucion: ['', Validators.required],
-      ciudad: ['', Validators.required],
-    })
-  );
-}
+  addEstudioExtra(nivel: string) {
+    const estudiosExtras = this.formHojaDeVida2.get('estudiosExtras') as FormArray;
+    if (nivel !== 'NINGUNA') {
+      estudiosExtras.push(
+        this.fb.group({
+          nivel: [nivel, Validators.required],
+          anoFinalizacion: ['', Validators.required],
+          anosCursados: ['', Validators.required],
+          tituloObtenido: ['', Validators.required],
+          nombreInstitucion: ['', Validators.required],
+          ciudad: ['', Validators.required],
+        })
+      );
+    }
+  }
 
-// Método para eliminar un grupo de estudios extras
-removeEstudioExtra(index: number) {
-  const estudiosExtras = this.formHojaDeVida2.get('estudiosExtras') as FormArray;
-  estudiosExtras.removeAt(index);
-}
+  // Método para eliminar un grupo de estudios extras
+  removeEstudioExtra(index: number) {
+    const estudiosExtras = this.formHojaDeVida2.get('estudiosExtras') as FormArray;
+    estudiosExtras.removeAt(index);
+  }
 
-// Método para manejar los cambios del select múltiple
-onEstudiosExtrasChange(selectedValues: string[]) {
-  const estudiosExtras = this.formHojaDeVida2.get('estudiosExtras') as FormArray;
-
-  // Limpiamos el FormArray antes de agregar los seleccionados
-  estudiosExtras.clear();
-
-  // Agregamos un grupo por cada opción seleccionada
-  selectedValues.forEach((nivel) => this.addEstudioExtra(nivel));
-}
-
-get estudiosExtrasSelectControl(): FormControl {
-  return this.formHojaDeVida2.get('estudiosExtrasSelect') as FormControl;
-}
+  // Getter para el FormControl del select
+  get estudiosExtrasSelectControl(): FormControl {
+    return this.formHojaDeVida2.get('estudiosExtrasSelect') as FormControl;
+  }
 
   // Getter para el FormArray
   get estudiosExtras(): FormArray {
@@ -1012,58 +1068,10 @@ get estudiosExtrasSelectControl(): FormControl {
 
 
 
-
-
-
-
   // Getter para obtener el array de hermanos
   get hermanosArray(): FormArray {
-    // "!" le indica a TypeScript que confías en que esto NUNCA es null/undefined
-    return this.formHojaDeVida2.get('hermanos')! as FormArray;
+    return this.formHojaDeVida2.get('hermanos') as FormArray;
   }
-
-
-
-
-  // Manejo del cambio en "¿Tiene hermanos?"
-  onTieneHermanosChange() {
-    const tieneHermanos = this.formHojaDeVida2.get('tieneHermanos')?.value;
-
-    if (tieneHermanos === 'SI') {
-      this.mostrarCamposHermanos = true;
-    } else {
-      this.mostrarCamposHermanos = false;
-      this.limpiarCamposHermanos(); // Limpia el array de hermanos si selecciona "No"
-    }
-  }
-
-  // Manejo del cambio en "¿Cuántos hermanos?"
-  // Actualiza el método
-  onNumeroHermanosChange(): void {
-    const numeroHermanos = +this.formHojaDeVida2.get('numeroHermanos')?.value || 0;
-
-    // Limpia el FormArray antes de añadir nuevos controles
-    this.hermanosArray.clear();
-
-    // Añade un FormGroup para cada hermano
-    for (let i = 0; i < numeroHermanos; i++) {
-      this.hermanosArray.push(
-        this.fb.group({
-          nombre: ['', Validators.required],
-          profesion: ['', Validators.required],
-          telefono: ['', [Validators.required, Validators.pattern(/^\d+$/)]]
-        })
-      );
-    }
-
-    // Fuerza la detección de cambios
-    this.cdRef.detectChanges();
-
-    console.log(this.hermanosArray.value);
-  }
-
-
-
 
   // Limpia los campos de hermanos
   limpiarCamposHermanos() {
@@ -1090,7 +1098,6 @@ get estudiosExtrasSelectControl(): FormControl {
     });
 
     dialogRef.afterClosed().subscribe(result => {
-      console.log(`Dialog result: ${result}`);
     });
   }
 
@@ -1103,7 +1110,6 @@ get estudiosExtrasSelectControl(): FormControl {
     try {
       this.escucharCambiosEnDepartamento();
     } catch (e) {
-      console.log(e);
     }
 
     this.formHojaDeVida2
@@ -1111,6 +1117,54 @@ get estudiosExtrasSelectControl(): FormControl {
       .valueChanges.subscribe((numHijos) => {
         this.actualizarEdadesHijos(numHijos);
       });
+
+    // Nos suscribimos a los cambios en el control del FormControl del select
+    this.estudiosExtrasSelectControl.valueChanges.subscribe((selectedValues: string[]) => {
+      const estudiosExtras = this.formHojaDeVida2.get('estudiosExtras') as FormArray;
+
+      // Limpiamos el FormArray antes de agregar los seleccionados
+      estudiosExtras.clear();
+
+      // Agregamos un grupo por cada opción seleccionada
+      selectedValues?.forEach((nivel) => this.addEstudioExtra(nivel));
+    });
+
+
+    // Suscripción a cambios en "¿Tiene hermanos?"
+    this.formHojaDeVida2.get('tieneHermanos')?.valueChanges.subscribe((tieneHermanos: string) => {
+      if (tieneHermanos === 'SI') {
+        this.mostrarCamposHermanos = true;
+      } else {
+        this.mostrarCamposHermanos = false;
+        this.limpiarCamposHermanos(); // Limpia el array de hermanos si selecciona "No"
+      }
+    });
+
+    // Suscripción a cambios en "¿Cuántos hermanos?"
+    this.formHojaDeVida2.get('numeroHermanos')?.valueChanges.subscribe((numeroHermanos: number) => {
+      const hermanosArray = this.hermanosArray;
+
+      // Limpia el FormArray antes de añadir nuevos controles
+      hermanosArray.clear();
+
+      // Añade un FormGroup para cada hermano
+      for (let i = 0; i < (numeroHermanos || 0); i++) {
+        hermanosArray.push(
+          this.fb.group({
+            nombre: ['', Validators.required],
+            profesion: ['', Validators.required],
+            telefono: ['', [Validators.required, Validators.pattern(/^\d+$/)]]
+          })
+        );
+      }
+    });
+
+    // Suscripción al control "deseaGenerar"
+    this.formHojaDeVida2.get('deseaGenerar')?.valueChanges.subscribe((deseaGenerar: boolean) => {
+      if (!deseaGenerar) {
+        this.limpiarCamposAdicionales();
+      }
+    });
 
 
 
@@ -1129,9 +1183,86 @@ get estudiosExtrasSelectControl(): FormControl {
     }
   }
 
+  // Método para limpiar los campos asociados
+  limpiarCamposAdicionales() {
+    this.formHojaDeVida2.patchValue({
+      tieneVehiculo: null,
+      licenciaConduccion: null,
+      categoriaLicencia: null,
+      estaTrabajando: null,
+      empresaActual: null,
+      tipoTrabajo: null,
+      tipoContrato: null,
+      trabajoAntes: null,
+      solicitoAntes: null,
+      tieneHermanos: null,
+      numeroHermanos: null
+    });
+
+    // Eliminar hoja de vida de uploadedFiles
+    delete this.uploadedFiles['hojaDeVida'];
+
+    // Limpia los arrays o grupos anidados, si existen
+    this.hermanosArray.clear();
+  }
 
 
 
+
+  // Método para subir todos los archivos almacenados en uploadedFiles
+  subirTodosLosArchivos(): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      // Filtrar y preparar los archivos para subir
+      const archivosAEnviar = Object.keys(this.uploadedFiles)
+        .filter((key) => {
+          const fileData = this.uploadedFiles[key];
+          // Verificar si la clave tiene un tipo documental válido
+          if (!(key in this.typeMap)) {
+            console.error(`La clave "${key}" no tiene un tipo documental asignado en typeMap`);
+            return false;
+          }
+          // Verificar si el archivo es válido
+          return fileData && fileData.file;
+        })
+        .map((key) => ({
+          key,
+          ...this.uploadedFiles[key],
+          typeId: this.typeMap[key], // Asignar el tipo documental correspondiente
+        }));
+
+      if (archivosAEnviar.length === 0) {
+        resolve(true); // Resolver si no hay archivos
+        return;
+      }
+
+      // Crear promesas para subir cada archivo
+      const promesasDeSubida = archivosAEnviar.map(({ key, file, fileName, typeId }) => {
+        return new Promise<void>((resolveSubida, rejectSubida) => {
+          this.gestionDocumentosService
+            .guardarDocumento(fileName, this.numeroCedula, typeId, file)
+            .subscribe({
+              next: () => {
+                resolveSubida();
+              },
+              error: (error: any) => {
+                console.error(`Error al subir archivo "${fileName}" (${key}):`, error);
+                rejectSubida(`Error al subir archivo "${key}": ${error.message}`);
+              },
+            });
+        });
+      });
+
+      // Esperar a que todas las subidas terminen
+      Promise.all(promesasDeSubida)
+        .then(() => {
+          resolve(true);
+        })
+        .catch((error) => {
+          console.error('Ocurrió un error durante la subida de archivos:', error);
+          reject(error);
+        });
+    });
+  }
 
 
 
@@ -1214,7 +1345,7 @@ get estudiosExtrasSelectControl(): FormControl {
         oficina: this.formHojaDeVida2.value.oficina,
 
         escolaridad: this.formHojaDeVida2.value.escolaridad,
-        estudiosExtra: this.formHojaDeVida2.value.estudiosExtras, // Corregido "Extras" a "Extra"
+        estudiosExtra: this.formHojaDeVida2.value.estudiosExtrasSelect.join(','),
         nombreInstitucion: this.formHojaDeVida2.value.nombreInstitucion,
         anoFinalizacion: this.formHojaDeVida2.value.anoFinalizacion,
         tituloObtenido: this.formHojaDeVida2.value.tituloObtenido,
@@ -1254,6 +1385,8 @@ get estudiosExtrasSelectControl(): FormControl {
           this.formHojaDeVida2.value.ocupacionReferencia1, // Cambiado de "ocupacionReferencia1" a "ocupacionReferenciaPersonal1"
         tiempoConoceReferenciaPersonal1:
           this.formHojaDeVida2.value.tiempoConoceReferenciaPersonal1,
+        direccionReferenciaPersonal1:
+          this.formHojaDeVida2.value.direccionReferenciaPersonal1,
 
         nombreReferenciaPersonal2:
           this.formHojaDeVida2.value.nombreReferenciaPersonal2,
@@ -1263,6 +1396,8 @@ get estudiosExtrasSelectControl(): FormControl {
           this.formHojaDeVida2.value.ocupacionReferencia2, // Cambiado de "ocupacionReferencia2" a "ocupacionReferenciaPersonal2"
         tiempoConoceReferenciaPersonal2:
           this.formHojaDeVida2.value.tiempoConoceReferenciaPersonal2,
+        direccionReferenciaPersonal2:
+          this.formHojaDeVida2.value.direccionReferenciaPersonal2,
 
         nombreReferenciaFamiliar1:
           this.formHojaDeVida2.value.nombreReferenciaFamiliar1,
@@ -1272,6 +1407,8 @@ get estudiosExtrasSelectControl(): FormControl {
           this.formHojaDeVida2.value.ocupacionReferenciaFamiliar1,
         parentescoReferenciaFamiliar1:
           this.formHojaDeVida2.value.parentescoReferenciaFamiliar1,
+        direccionReferenciaFamiliar1:
+          this.formHojaDeVida2.value.direccionReferenciaFamiliar1,
 
         nombreReferenciaFamiliar2:
           this.formHojaDeVida2.value.nombreReferenciaFamiliar2,
@@ -1339,13 +1476,15 @@ get estudiosExtrasSelectControl(): FormControl {
 
       };
 
-      console.log(datosAEnviar);
       const upperCaseValues = this.convertValuesToUpperCase(datosAEnviar);
       // parte de hijos tambien en mayuscula
       const hijos = this.formHojaDeVida2.value.hijos;
       const upperCaseHijos = hijos.map((hijo: any) => this.convertValuesToUpperCase(hijo));
       upperCaseValues.hijos = upperCaseHijos;
-
+      // Si uploadFiles tiene hoja de vida generada, agregarla a los datos a enviar
+      if (this.formHojaDeVida2.value.deseaGenerar) {
+        this.fillForm();
+      }
 
       const url = `${urlBack.url}/contratacion/subirParte2`; // Asegúrate de sustituir `elEndpointEspecifico` con el path correcto
       // Realizar la petición HTTP POST
@@ -1353,8 +1492,30 @@ get estudiosExtrasSelectControl(): FormControl {
         (response: any) => {
           // Imprimir solo el mensaje de respuesta
           if (response && response.message) {
-            console.log(response.message);
             /* swal y que cuando le de click a aceptar lo redireccione a la pagina de inicio */
+            this.subirTodosLosArchivos().then((allFilesUploaded) => {
+              if (allFilesUploaded) {
+                Swal.close(); // Cerrar el Swal de carga
+                // Mostrar mensaje de éxito
+                Swal.fire({
+                  title: '¡Éxito!',
+                  text: 'Datos y archivos guardados exitosamente.',
+                  icon: 'success',
+                  confirmButtonText: 'Ok'
+                });
+              }
+            }).catch((error) => {
+              // Cerrar el Swal de carga y mostrar el mensaje de error en caso de fallo al subir archivos
+              Swal.close(); // Asegurar que se cierre el Swal de carga antes de mostrar el error
+              Swal.fire({
+                title: 'Error',
+                text: `Hubo un error al subir los archivos: ${error}`,
+                icon: 'error',
+                confirmButtonText: 'Ok'
+              });
+            });
+
+
             Swal.fire({
               title: '¡Datos guardados!',
               text: 'Los datos se guardaron correctamente.',
@@ -1367,11 +1528,13 @@ get estudiosExtrasSelectControl(): FormControl {
               .catch((error) => {
                 console.error('Error al redirigir:', error);
               });
-
-
-
           } else {
-            console.log('No se encontró un mensaje en la respuesta.');
+            Swal.fire({
+              title: 'Error',
+              text: 'Hubo un error al guardar los datos.',
+              icon: 'error',
+              confirmButtonText: 'Aceptar',
+            });
           }
         },
         (error) => {
@@ -1519,7 +1682,6 @@ get estudiosExtrasSelectControl(): FormControl {
   llenarFormularioConDatos(datos: any) {
     if (datos.data && datos.data.length > 0) {
       let datosHoja = datos.data[0]; // Asume que quieres llenar el formulario con el primer objeto en el array 'data'
-      console.log(datosHoja);
       // Encuentra el objeto correspondiente a "Sí" o "No" en opcionBinaria
       const opcionSeleccionada = this.opcionBinaria.find(
         (opcion) =>
@@ -1894,7 +2056,6 @@ get estudiosExtrasSelectControl(): FormControl {
         archivoHojaDeVida: archivo
       });
 
-      console.log('Archivo seleccionado:', archivo);
       Swal.fire({
         title: 'Archivo cargado',
         text: `El archivo "${archivo.name}" se cargó correctamente.`,
@@ -1904,24 +2065,16 @@ get estudiosExtrasSelectControl(): FormControl {
     }
   }
 
-
-
-
-
-
-
   opcionesPromocion: string[] = [
-    "REFERIDO (AMIGO, FAMILIAR, CONOCIDO)",
+    "RED SOCIAL (FACEBOOK, INSTAGRAM, TIKTOK)",
     "YA HABÍA TRABAJADO CON NOSOTROS",
+    "REFERENCIADO POR ALGUIEN QUE YA TRABAJA/O EN LA TEMPORAL",
     "PERIFONEO (CARRO, MOTO)",
     "VOLANTES (A PIE)",
-    "RED SOCIAL WHATSAPP",
-    "RED SOCIAL FACEBOOK",
-    "RED SOCIAL INSTAGRAM",
     "PUNTO FÍSICO DIRECTO (PREGUNTÓ EN LA OFICINA TEMPORAL)",
-    "CONVOCATORIA EXTERNA (MUNICIPIO, LOCALIDAD, BARRIO)"
+    "CONVOCATORIA EXTERNA (MUNICIPIO, LOCALIDAD, BARRIO)",
+    "CHAT SERVICIO AL CLIENTE (WHATSAPP, REDES SOCIALES)",
   ];
-
 
   // Arreglo para el tipo de cedula
   tipoDocs: any[] = [

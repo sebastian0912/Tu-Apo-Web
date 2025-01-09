@@ -308,6 +308,14 @@ mat-datepicker {
     margin-bottom: 0px;
   }
 
+  .example-full-width {
+    width: 100% !important;
+  }
+
+  button[type="submit"] {
+    width: 100%;
+  }
+
   .boton {
     width: 300px;
   }
@@ -388,6 +396,9 @@ mat-datepicker {
     margin-top: 10px;
     margin-bottom: 0px;
   }
+
+
+  
 
   .file {
     width: 42%;
@@ -475,8 +486,19 @@ mat-datepicker {
 .form-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 15px; /* Espaciado horizontal entre campos */
+  gap: 5pt; /* Espaciado horizontal entre campos */
   align-items: flex-start; /* Alinea los campos al inicio */
+}
+
+.input-container {
+  display: flex;
+  align-items: center;
+  margin-left: 15pt;
+}
+
+.example-full-width {
+  margin-left: -1pt;
+  width: 80%;
 }
 
 

@@ -17,11 +17,6 @@
         (click)="buscarCedula()"> Buscar
       </button>
 
-      <!--boton generar hoja de vida -->
-      <button type="button" class="boton" mat-raised-button color="primary" (click)="listFormFields()"> Generar hoja de
-        vida
-      </button>
-
     </div>
     <!--
       <form class="formulario formulario2" [formGroup]="formHojaDeVida2" id="formulario" *ngIf="mostrarFormulario" autocomplete="off">
@@ -372,8 +367,7 @@
           <!-- Estudios Extras (Multiple Select) -->
           <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('escolaridad')?.value !== 'SIN ESTUDIOS'">
             <mat-label>Estudios Extras</mat-label>
-            <mat-select [formControl]="estudiosExtrasSelectControl" multiple
-              (selectionChange)="onEstudiosExtrasChange($event.value)">
+            <mat-select [formControl]="estudiosExtrasSelectControl" multiple>
               <mat-option *ngFor="let nivel of cursosDespuesColegio" [value]="nivel">
                 {{ nivel }}
               </mat-option>
@@ -383,7 +377,7 @@
           <!-- Campos dinámicos por cada selección -->
           <div formArrayName="estudiosExtras">
             <div *ngFor="let estudio of estudiosExtras.controls; let i = index" [formGroupName]="i">
-              <h3>{{ estudio.get('nivel')?.value }}</h3>
+              <h3 style="margin-left: 20pt; margin-top: 10pt;">{{ estudio.get('nivel')?.value }}</h3>
 
               <mat-form-field appearance="fill">
                 <mat-label>Año de Finalización</mat-label>
@@ -410,8 +404,6 @@
                 <input matInput formControlName="ciudad">
               </mat-form-field>
 
-              <!-- Botón para eliminar un estudio extra -->
-              <button mat-button color="warn" (click)="removeEstudioExtra(i)">Eliminar</button>
             </div>
           </div>
 
@@ -701,7 +693,6 @@
             <mat-label>Ocupación Referencia Familiar 1</mat-label>
             <input matInput formControlName="ocupacionReferenciaFamiliar1">
           </mat-form-field>
-
 
           <!--direccionReferenciaFamiliar1-->
           <mat-form-field appearance="fill">
@@ -1118,193 +1109,226 @@
           <h1>Datos parte 4 </h1>
         </div>
 
-        <!-- ¿Está dispuesto a realizar actividades diferentes al cargo? -->
-        <mat-form-field appearance="fill">
-          <mat-label>¿Está dispuesto a realizar actividades diferentes al cargo?</mat-label>
-          <mat-select formControlName="actividadesDi">
-            <mat-option value="SI">SÍ</mat-option>
-            <mat-option value="TAL VEZ">TAL VEZ</mat-option>
-            <mat-option value="NO">NO</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <!-- Mencione una experiencia significativa en su trabajo -->
-        <mat-form-field appearance="fill">
-          <mat-label>Mencione una experiencia significativa en su trabajo</mat-label>
-          <textarea matInput formControlName="experienciaSignificativa" rows="3"></textarea>
-        </mat-form-field>
-
-        <!-- ¿Cuál es su motivación? -->
-        <mat-form-field appearance="fill">
-          <mat-label>¿Cuál es su motivación?</mat-label>
-          <mat-select formControlName="motivacion">
-            <mat-option value="FAMILIA">FAMILIA</mat-option>
-            <mat-option value="HIJOS">HIJOS</mat-option>
-            <mat-option value="ESTUDIO">ESTUDIO</mat-option>
-            <mat-option value="CRECIMIENTO PERSONAL">CRECIMIENTO PERSONAL</mat-option>
-          </mat-select>
-        </mat-form-field>
+        <div class="datos">
 
 
 
+          <!-- ¿Está dispuesto a realizar actividades diferentes al cargo? -->
+          <mat-form-field appearance="fill">
+            <mat-label>¿Está dispuesto a realizar actividades diferentes al cargo?</mat-label>
+            <mat-select formControlName="actividadesDi">
+              <mat-option value="SI">SÍ</mat-option>
+              <mat-option value="TAL VEZ">TAL VEZ</mat-option>
+              <mat-option value="NO">NO</mat-option>
+            </mat-select>
+          </mat-form-field>
 
-        <!-- Selección para generar hoja de vida -->
-        <mat-form-field appearance="fill">
-          <mat-label>¿Desea generar su hoja de vida?</mat-label>
-          <mat-select formControlName="deseaGenerar" (selectionChange)="onSelectionChange()">
-            <mat-option [value]="true">Sí</mat-option>
-            <mat-option [value]="false">No</mat-option>
-          </mat-select>
-        </mat-form-field>
+          <!-- Mencione una experiencia significativa en su trabajo -->
+          <mat-form-field appearance="fill">
+            <mat-label>Mencione una experiencia significativa en su trabajo</mat-label>
+            <textarea matInput formControlName="experienciaSignificativa" rows="3"></textarea>
+          </mat-form-field>
 
-        <!-- Tiene vehículo -->
-        <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('deseaGenerar')?.value">
-          <mat-label>¿Tiene vehículo?</mat-label>
-          <mat-select formControlName="tieneVehiculo">
-            <mat-option value="SI">SÍ</mat-option>
-            <mat-option value="NO">NO</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <!-- Licencia de conducción -->
-        <mat-form-field appearance="fill"
-          *ngIf="formHojaDeVida2.get('deseaGenerar')?.value && formHojaDeVida2.get('tieneVehiculo')?.value === 'SI'">
-          <mat-label>Licencia de conducción Nº</mat-label>
-          <input matInput formControlName="licenciaConduccion" />
-        </mat-form-field>
-
-        <!-- Categoría de la licencia -->
-        <mat-form-field
-          *ngIf="formHojaDeVida2.get('deseaGenerar')?.value && formHojaDeVida2.get('tieneVehiculo')?.value === 'SI'"
-          appearance="fill">
-          <mat-label>Categoría</mat-label>
-          <mat-select formControlName="categoriaLicencia" multiple>
-            <mat-option *ngFor="let categoria of categoriasLicencia" [value]="categoria">{{ categoria }}</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <!-- Está trabajando actualmente -->
-        <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('deseaGenerar')?.value">
-          <mat-label>¿Está trabajando actualmente?</mat-label>
-          <mat-select formControlName="estaTrabajando">
-            <mat-option value="SI">SÍ</mat-option>
-            <mat-option value="NO">NO</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <!-- Empresa -->
-        <mat-form-field appearance="fill"
-          *ngIf="formHojaDeVida2.get('deseaGenerar')?.value && formHojaDeVida2.get('estaTrabajando')?.value === 'SI'">
-          <mat-label>Empresa</mat-label>
-          <input matInput formControlName="empresaActual" />
-        </mat-form-field>
-
-        <!-- Empleado o independiente -->
-        <mat-form-field appearance="fill"
-          *ngIf="formHojaDeVida2.get('deseaGenerar')?.value && formHojaDeVida2.get('estaTrabajando')?.value === 'SI'">
-          <mat-label>¿Empleado o independiente?</mat-label>
-          <mat-select formControlName="tipoTrabajo">
-            <mat-option value="Empleado">Empleado</mat-option>
-            <mat-option value="Independiente">Independiente</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <!-- Tipo de contrato -->
-        <mat-form-field appearance="fill"
-          *ngIf="formHojaDeVida2.get('deseaGenerar')?.value && formHojaDeVida2.get('estaTrabajando')?.value === 'SI'">
-          <mat-label>Tipo de contrato</mat-label>
-          <mat-select formControlName="tipoContrato">
-            <mat-option *ngFor="let tipo of tiposContrato" [value]="tipo">{{ tipo }}</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <!-- Trabajó antes en esta empresa -->
-        <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('deseaGenerar')?.value">
-          <mat-label>¿Trabajó antes en esta empresa?</mat-label>
-          <mat-select formControlName="trabajoAntes">
-            <mat-option value="SI">SÍ</mat-option>
-            <mat-option value="NO">NO</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <!-- Solicitó empleo antes -->
-        <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('deseaGenerar')?.value">
-          <mat-label>¿Solicitó empleo antes en esta empresa?</mat-label>
-          <mat-select formControlName="solicitoAntes">
-            <mat-option value="SI">SÍ</mat-option>
-            <mat-option value="NO">NO</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-
-        <!-- Tiene hermanos -->
-        <!-- La pregunta "¿Tiene hermanos?" -->
-        <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('deseaGenerar')?.value">
-          <mat-label>¿Tiene hermanos?</mat-label>
-          <mat-select formControlName="tieneHermanos" (selectionChange)="onTieneHermanosChange()">
-            <mat-option [value]="'SI'">Sí</mat-option>
-            <mat-option [value]="'NO'">No</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <!-- Campo para "¿Cuántos hermanos?" usando mat-select -->
-        <mat-form-field appearance="fill"
-          *ngIf="formHojaDeVida2.get('deseaGenerar')?.value && formHojaDeVida2.get('tieneHermanos')?.value === 'SI'">
-          <mat-label>¿Cuántos hermanos?</mat-label>
-          <mat-select formControlName="numeroHermanos" (selectionChange)="onNumeroHermanosChange()">
-            <mat-option [value]="1">1</mat-option>
-            <mat-option [value]="2">2</mat-option>
-          </mat-select>
-        </mat-form-field>
+          <!-- ¿Cuál es su motivación? -->
+          <mat-form-field appearance="fill">
+            <mat-label>¿Cuál es su motivación?</mat-label>
+            <mat-select formControlName="motivacion">
+              <mat-option value="FAMILIA">FAMILIA</mat-option>
+              <mat-option value="HIJOS">HIJOS</mat-option>
+              <mat-option value="ESTUDIO">ESTUDIO</mat-option>
+              <mat-option value="CRECIMIENTO PERSONAL">CRECIMIENTO PERSONAL</mat-option>
+            </mat-select>
+          </mat-form-field>
 
 
 
-        <!-- Información de los hermanos -->
-        <!-- Aquí va el FormArray de hermanos -->
-        <div formArrayName="hermanos" *ngIf="hermanosArray?.length && hermanosArray.length > 0">
-          <!-- Recorremos cada "hermano" en el array -->
-          <div *ngFor="let hermano of hermanosArray.controls; let i = index" [formGroupName]="i"
-            class="hermano-container">
-            <h2>Hermano {{ i + 1 }}</h2>
 
-            <!-- Campo para el nombre -->
-            <mat-form-field appearance="fill">
-              <mat-label>Nombre</mat-label>
-              <input matInput formControlName="nombre" />
-              <mat-error *ngIf="hermano.get('nombre')?.invalid && hermano.get('nombre')?.touched">
-                ¡El nombre es requerido!
-              </mat-error>
-            </mat-form-field>
+          <!-- Selección para generar hoja de vida -->
+          <mat-form-field appearance="fill">
+            <mat-label>¿Desea generar su hoja de vida? *OPCIONAL SUBIR</mat-label>
+            <mat-select formControlName="deseaGenerar" (selectionChange)="onSelectionChange()">
+              <mat-option [value]="true">Sí</mat-option>
+              <mat-option [value]="false">No</mat-option>
+            </mat-select>
+          </mat-form-field>
 
-            <!-- Campo para la profesión -->
-            <mat-form-field appearance="fill">
-              <mat-label>Profesión/ocupación/oficio</mat-label>
-              <input matInput formControlName="profesion" />
-              <mat-error *ngIf="hermano.get('profesion')?.invalid && hermano.get('profesion')?.touched">
-                ¡La profesión es requerida!
-              </mat-error>
-            </mat-form-field>
+          <!-- Input para cargar archivo si selecciona "No" -->
+          <div *ngIf="formHojaDeVida2.get('deseaGenerar')?.value === false" class="input-container">
+            <!-- Menú para acciones con el archivo -->
+            <button mat-icon-button [matMenuTriggerFor]="pdfMenuHojaDeVida" aria-label="PDF options" type="button">
+              <mat-icon>more_vert</mat-icon>
+            </button>
+            <mat-menu #pdfMenuHojaDeVida="matMenu">
+              <!-- Opción para ver archivo -->
+              <button mat-menu-item (click)="verArchivo('hojaDeVida')" type="button">Ver PDF</button>
+              <!-- Opción para subir archivo -->
+              <button mat-menu-item type="button">
+                <label for="fileInputHojaDeVida" style="cursor: pointer;">Subir PDF</label>
+              </button>
+              <!-- Input de archivo oculto -->
+              <input type="file" id="fileInputHojaDeVida" style="display: none;"
+                (change)="subirArchivo($event, 'hojaDeVida')" accept=".pdf" />
+            </mat-menu>
 
-            <!-- Campo para el teléfono -->
-            <mat-form-field appearance="fill">
-              <mat-label>Teléfono</mat-label>
-              <input matInput formControlName="telefono" />
-              <mat-error *ngIf="hermano.get('telefono')?.errors?.['required'] && hermano.get('telefono')?.touched">
-                ¡El teléfono es requerido!
-              </mat-error>
-              <mat-error *ngIf="hermano.get('telefono')?.errors?.['pattern'] && hermano.get('telefono')?.touched">
-                Solo se admiten dígitos.
-              </mat-error>
+            <!-- Campo de texto para mostrar el nombre del archivo -->
+            <mat-form-field appearance="fill" class="example-full-width">
+              <mat-label>Hoja de Vida</mat-label>
+              <input matInput formControlName="hojaDeVida"
+                [value]="uploadedFiles['hojaDeVida'] ? uploadedFiles['hojaDeVida'].fileName : ''" readonly />
             </mat-form-field>
           </div>
-        </div>
 
-        <div style="align-items: center; margin: 0 auto; text-align: center; margin-top: 20px;">
-          <button type="submit" mat-raised-button color="primary"
-            style="width: 40%; text-align: center; margin: 0 auto; " (click)="imprimirInformacion2()">
-            Guardar </button> <br> <br>
-        </div>
+          <!-- Tiene vehículo -->
+          <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('deseaGenerar')?.value">
+            <mat-label>¿Tiene vehículo?</mat-label>
+            <mat-select formControlName="tieneVehiculo">
+              <mat-option value="SI">SÍ</mat-option>
+              <mat-option value="NO">NO</mat-option>
+            </mat-select>
+          </mat-form-field>
 
+          <!-- Licencia de conducción -->
+          <mat-form-field appearance="fill"
+            *ngIf="formHojaDeVida2.get('deseaGenerar')?.value && formHojaDeVida2.get('tieneVehiculo')?.value === 'SI'">
+            <mat-label>Licencia de conducción Nº</mat-label>
+            <input matInput formControlName="licenciaConduccion" />
+          </mat-form-field>
+
+          <!-- Categoría de la licencia -->
+          <mat-form-field
+            *ngIf="formHojaDeVida2.get('deseaGenerar')?.value && formHojaDeVida2.get('tieneVehiculo')?.value === 'SI'"
+            appearance="fill">
+            <mat-label>Categoría</mat-label>
+            <mat-select formControlName="categoriaLicencia" multiple>
+              <mat-option *ngFor="let categoria of categoriasLicencia" [value]="categoria">{{ categoria }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <!-- Está trabajando actualmente -->
+          <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('deseaGenerar')?.value">
+            <mat-label>¿Está trabajando actualmente?</mat-label>
+            <mat-select formControlName="estaTrabajando">
+              <mat-option value="SI">SÍ</mat-option>
+              <mat-option value="NO">NO</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <!-- Empresa -->
+          <mat-form-field appearance="fill"
+            *ngIf="formHojaDeVida2.get('deseaGenerar')?.value && formHojaDeVida2.get('estaTrabajando')?.value === 'SI'">
+            <mat-label>Empresa</mat-label>
+            <input matInput formControlName="empresaActual" />
+          </mat-form-field>
+
+          <!-- Empleado o independiente -->
+          <mat-form-field appearance="fill"
+            *ngIf="formHojaDeVida2.get('deseaGenerar')?.value && formHojaDeVida2.get('estaTrabajando')?.value === 'SI'">
+            <mat-label>¿Empleado o independiente?</mat-label>
+            <mat-select formControlName="tipoTrabajo">
+              <mat-option value="Empleado">Empleado</mat-option>
+              <mat-option value="Independiente">Independiente</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <!-- Tipo de contrato -->
+          <mat-form-field appearance="fill"
+            *ngIf="formHojaDeVida2.get('deseaGenerar')?.value && formHojaDeVida2.get('estaTrabajando')?.value === 'SI'">
+            <mat-label>Tipo de contrato</mat-label>
+            <mat-select formControlName="tipoContrato">
+              <mat-option *ngFor="let tipo of tiposContrato" [value]="tipo">{{ tipo }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <!-- Trabajó antes en esta empresa -->
+          <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('deseaGenerar')?.value">
+            <mat-label>¿Trabajó antes en esta empresa?</mat-label>
+            <mat-select formControlName="trabajoAntes">
+              <mat-option value="SI">SÍ</mat-option>
+              <mat-option value="NO">NO</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <!-- Solicitó empleo antes -->
+          <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('deseaGenerar')?.value">
+            <mat-label>¿Solicitó empleo antes en esta empresa?</mat-label>
+            <mat-select formControlName="solicitoAntes">
+              <mat-option value="SI">SÍ</mat-option>
+              <mat-option value="NO">NO</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+
+          <!-- Tiene hermanos -->
+          <!-- La pregunta "¿Tiene hermanos?" -->
+          <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('deseaGenerar')?.value">
+            <mat-label>¿Tiene hermanos?</mat-label>
+            <mat-select formControlName="tieneHermanos">
+              <mat-option [value]="'SI'">Sí</mat-option>
+              <mat-option [value]="'NO'">No</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <!-- Campo para "¿Cuántos hermanos?" usando mat-select -->
+          <mat-form-field appearance="fill"
+            *ngIf="formHojaDeVida2.get('deseaGenerar')?.value && formHojaDeVida2.get('tieneHermanos')?.value === 'SI'">
+            <mat-label>¿Cuántos hermanos?</mat-label>
+            <mat-select formControlName="numeroHermanos">
+              <mat-option [value]="1">1</mat-option>
+              <mat-option [value]="2">2</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+
+
+          <!-- Información de los hermanos -->
+          <!-- Aquí va el FormArray de hermanos -->
+          <div formArrayName="hermanos"
+            *ngIf="hermanosArray?.length && hermanosArray.length > 0 && formHojaDeVida2.get('deseaGenerar')?.value">
+            <!-- Recorremos cada "hermano" en el array -->
+            <div *ngFor="let hermano of hermanosArray.controls; let i = index" [formGroupName]="i"
+              class="hermano-container">
+              <h2 style="line-height: 1.0; margin-left: 20pt; margin-top: 15px; margin-bottom: 10px; flex: 1 1 100%;">
+                Hermano {{ i + 1 }}</h2>
+
+              <!-- Campo para el nombre -->
+              <mat-form-field appearance="fill">
+                <mat-label>Nombre</mat-label>
+                <input matInput formControlName="nombre" />
+                <mat-error *ngIf="hermano.get('nombre')?.invalid && hermano.get('nombre')?.touched">
+                  ¡El nombre es requerido!
+                </mat-error>
+              </mat-form-field>
+
+              <!-- Campo para la profesión -->
+              <mat-form-field appearance="fill">
+                <mat-label>Profesión/ocupación/oficio</mat-label>
+                <input matInput formControlName="profesion" />
+                <mat-error *ngIf="hermano.get('profesion')?.invalid && hermano.get('profesion')?.touched">
+                  ¡La profesión es requerida!
+                </mat-error>
+              </mat-form-field>
+
+              <!-- Campo para el teléfono -->
+              <mat-form-field appearance="fill">
+                <mat-label>Teléfono</mat-label>
+                <input matInput formControlName="telefono" />
+                <mat-error *ngIf="hermano.get('telefono')?.errors?.['required'] && hermano.get('telefono')?.touched">
+                  ¡El teléfono es requerido!
+                </mat-error>
+                <mat-error *ngIf="hermano.get('telefono')?.errors?.['pattern'] && hermano.get('telefono')?.touched">
+                  Solo se admiten dígitos.
+                </mat-error>
+              </mat-form-field>
+            </div>
+          </div>
+
+          <div style="align-items: center; margin: 0 auto; text-align: center; margin-top: 20px; flex: 1 1 100%;">
+            <button type="submit" mat-raised-button color="primary"
+              style="width: 80%; text-align: center; margin: 0 auto; " (click)="imprimirInformacion2()">
+              Guardar </button> <br> <br>
+          </div>
+
+        </div>
       </div>
     </form>
 
