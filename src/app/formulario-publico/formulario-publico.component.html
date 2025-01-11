@@ -19,9 +19,9 @@
 
     </div>
     <!--
+      <form class="formulario formulario2" [formGroup]="formHojaDeVida2" id="formulario" autocomplete="off">
+      -->
       <form class="formulario formulario2" [formGroup]="formHojaDeVida2" id="formulario" *ngIf="mostrarFormulario" autocomplete="off">
-    -->
-    <form class="formulario formulario2" [formGroup]="formHojaDeVida2" id="formulario" autocomplete="off">
 
       <div>
 
@@ -818,18 +818,19 @@
           </mat-form-field>
 
           <!-- Empresas de flores que ha trabajado -->
-          <mat-form-field appearance="fill">
+          <mat-form-field appearance="fill" *ngIf="formHojaDeVida2.get('experienciaLaboral')?.value">
             <mat-label>Empresas de flores que ha trabajado (Separarlas con ,)</mat-label>
             <input matInput formControlName="empresas_laborado">
           </mat-form-field>
 
-          <!-- Describa paso a paso cómo es su labor -->
+          <!-- Describa paso a paso cómo es su labor 
           <mat-form-field appearance="fill">
             <mat-label>Describa paso a paso cómo es su labor (ser lo más breve posible)</mat-label>
             <textarea matInput formControlName="labores_realizadas" rows="3"></textarea>
           </mat-form-field>
+          -->
 
-          <!-- Califique su rendimiento (Opciones) -->
+          <!-- Califique su rendimiento (Opciones) 
           <mat-form-field appearance="fill">
             <mat-label>Califique su rendimiento</mat-label>
             <mat-select formControlName="rendimiento">
@@ -838,26 +839,30 @@
               <mat-option value="EXCELENTE">EXCELENTE</mat-option>
             </mat-select>
           </mat-form-field>
+          -->
 
 
-          <!-- ¿Por qué se da esta auto calificación? -->
+          <!-- ¿Por qué se da esta auto calificación? 
           <mat-form-field appearance="fill">
             <mat-label>¿Por qué se da esta auto calificación?</mat-label>
             <textarea matInput formControlName="porqueRendimiento" rows="3"></textarea>
           </mat-form-field>
+          -->
 
-          <!-- Según su experiencia y desempeño laboral, ¿por qué motivos lo han felicitado? -->
+          <!-- Según su experiencia y desempeño laboral, ¿por qué motivos lo han felicitado? 
           <mat-form-field appearance="fill">
             <mat-label>¿Por qué motivos lo han felicitado?</mat-label>
             <textarea matInput formControlName="porqueLofelicitarian" rows="3"></textarea>
           </mat-form-field>
+          -->
 
-          <!-- ¿Ha tenido algún malentendido o situación conflictiva en algún trabajo? Si sí, especifique por qué. -->
+          <!-- ¿Ha tenido algún malentendido o situación conflictiva en algún trabajo? Si sí, especifique por qué. 
           <mat-form-field appearance="fill">
             <mat-label>¿Ha tenido algún malentendido o situación conflictiva en algún trabajo? Si sí, especifique por
               qué.</mat-label>
-            <textarea matInput formControlName="malentendido" rows="3"></textarea>
-          </mat-form-field>
+              <textarea matInput formControlName="malentendido" rows="3"></textarea>
+            </mat-form-field>
+            -->
 
 
         </div>
@@ -993,7 +998,7 @@
           </mat-select>
         </mat-form-field>
 
-        <!-- ¿Cómo es su relación Familiar? -->
+        <!-- ¿Cómo es su relación Familiar? 
         <mat-form-field appearance="fill">
           <mat-label>¿Cómo es su relación Familiar?</mat-label>
           <mat-select formControlName="como_es_su_relacion_familiar">
@@ -1003,6 +1008,7 @@
             <mat-option value="EXCELENTE">EXCELENTE (CONVIVIMOS BIEN ACTUALMENTE)</mat-option>
           </mat-select>
         </mat-form-field>
+        -->
 
         <div class="title">
           <h1>Datos parte 3 </h1>
@@ -1042,7 +1048,7 @@
             </mat-select>
           </mat-form-field>
 
-          <!-- Tipo de Vivienda -->
+          <!-- Tipo de Vivienda 
           <mat-form-field appearance="fill">
             <mat-label>Tipo de Vivienda</mat-label>
             <mat-select formControlName="tipoVivienda2">
@@ -1051,6 +1057,7 @@
               </mat-option>
             </mat-select>
           </mat-form-field>
+          -->
 
           <!-- Características de la Vivienda -->
           <mat-form-field appearance="fill">
@@ -1075,25 +1082,26 @@
             </mat-select>
           </mat-form-field>
 
-
-          <h1 style="line-height: 1.0; margin-left: 20pt; margin-top: 15px; margin-bottom: 10px; flex: 1 1 100%;">
-            Cuales
-            son sus
-            expectativas de vida </h1>
-
-          <mat-form-field appearance="fill">
-            <mat-label>¿Expectativas de vida?</mat-label>
-            <mat-select formControlName="expectativasVidaChecks" multiple>
-              <mat-option *ngFor="let expectativa of expectativasVida" [value]="expectativa">
-                {{ expectativa }}
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-
-
-          <!-- Cómo se enteró de la vacante formcontrol fuenteVacante, select del arreglo opcionesPromocion  -->
-
-          <mat-form-field appearance="fill">
+          <!--
+            <h1 style="line-height: 1.0; margin-left: 20pt; margin-top: 15px; margin-bottom: 10px; flex: 1 1 100%;">
+              Cuales
+              son sus
+              expectativas de vida </h1>
+              
+              <mat-form-field appearance="fill">
+                <mat-label>¿Expectativas de vida?</mat-label>
+                <mat-select formControlName="expectativasVidaChecks" multiple>
+                  <mat-option *ngFor="let expectativa of expectativasVida" [value]="expectativa">
+                    {{ expectativa }}
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+              -->
+              
+              
+              <!-- Cómo se enteró de la vacante formcontrol fuenteVacante, select del arreglo opcionesPromocion  -->
+              
+              <mat-form-field appearance="fill">
             <mat-label>Cómo se enteró de la vacante</mat-label>
             <mat-select formControlName="fuenteVacante">
               <mat-option *ngFor="let fuente of opcionesPromocion" [value]="fuente">
@@ -1113,7 +1121,7 @@
 
 
 
-          <!-- ¿Está dispuesto a realizar actividades diferentes al cargo? -->
+          <!-- ¿Está dispuesto a realizar actividades diferentes al cargo? 
           <mat-form-field appearance="fill">
             <mat-label>¿Está dispuesto a realizar actividades diferentes al cargo?</mat-label>
             <mat-select formControlName="actividadesDi">
@@ -1122,14 +1130,16 @@
               <mat-option value="NO">NO</mat-option>
             </mat-select>
           </mat-form-field>
+          -->
 
-          <!-- Mencione una experiencia significativa en su trabajo -->
+          <!-- Mencione una experiencia significativa en su trabajo 
           <mat-form-field appearance="fill">
             <mat-label>Mencione una experiencia significativa en su trabajo</mat-label>
             <textarea matInput formControlName="experienciaSignificativa" rows="3"></textarea>
           </mat-form-field>
+          -->
 
-          <!-- ¿Cuál es su motivación? -->
+          <!-- ¿Cuál es su motivación? 
           <mat-form-field appearance="fill">
             <mat-label>¿Cuál es su motivación?</mat-label>
             <mat-select formControlName="motivacion">
@@ -1139,9 +1149,7 @@
               <mat-option value="CRECIMIENTO PERSONAL">CRECIMIENTO PERSONAL</mat-option>
             </mat-select>
           </mat-form-field>
-
-
-
+          -->
 
           <!-- Selección para generar hoja de vida -->
           <mat-form-field appearance="fill">

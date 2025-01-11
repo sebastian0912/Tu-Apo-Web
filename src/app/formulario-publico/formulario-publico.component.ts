@@ -958,7 +958,7 @@ export class FormularioPublicoComponent implements OnInit {
       experienciaSignificativa: new FormControl('', Validators.required),
       motivacion: new FormControl('', Validators.required),
 
-      deseaGenerar: new FormControl('',),
+      deseaGenerar: new FormControl(false,),
       hojaDeVida: new FormControl('',),
       tieneVehiculo: new FormControl(''),
       licenciaConduccion: new FormControl(''),
@@ -1264,22 +1264,52 @@ export class FormularioPublicoComponent implements OnInit {
     });
   }
 
-
-
-
   imprimirInformacion2(): void {
     let camposInvalidos: string[] = [];
 
+    console.log(camposInvalidos);
+    // validar formHojaDeVida2
+
+
+    // Lista de campos que se deben ignorar
+    const camposIgnorados = [
+      'tipoVivienda2',
+      'expectativasVidaChecks',
+      'porqueLofelicitarian',
+      'malentendido',
+      'actividadesDi',
+      'como_es_su_relacion_familiar',
+      'experienciaSignificativa',
+      'motivacion'
+    ];
+
     // Validar formHojaDeVida2
-    if (this.formHojaDeVida2.invalid) {
-      Swal.fire({
-        title: '¡Formulario incompleto!',
-        text: 'Por favor, completa todos los campos obligatorios.',
-        icon: 'warning',
-        confirmButtonText: 'Aceptar',
+    if (!this.formHojaDeVida2.invalid) {
+      // Obtener los campos inválidos que no están en la lista de ignorados
+      Object.keys(this.formHojaDeVida2.controls).forEach((campo) => {
+        const control = this.formHojaDeVida2.get(campo);
+        if (control && control.invalid && !camposIgnorados.includes(campo)) {
+          camposInvalidos.push(campo); // Agregar el nombre del campo al array
+        }
       });
+
+      // Mostrar alerta si hay campos inválidos
+      if (camposInvalidos.length > 0) {
+        Swal.fire({
+          title: '¡Formulario incompleto!',
+          text: `Por favor, completa todos los campos obligatorios: ${camposInvalidos.join(', ')}`,
+          icon: 'warning',
+          confirmButtonText: 'Aceptar',
+        });
+      }
+      console.log(camposInvalidos);
+      // es valido
+      console.log(this.formHojaDeVida2.invalid);
+
       return;
     }
+
+
 
     // Si hay campos inválidos en cualquiera de los dos formularios, mostramos el Swal
     if (camposInvalidos.length > 0) {
@@ -1434,14 +1464,14 @@ export class FormularioPublicoComponent implements OnInit {
         familiaConUnSoloIngreso: this.formHojaDeVida2.value.familiaSolo,
         numHabitaciones: this.formHojaDeVida2.value.numeroHabitaciones,
         numPersonasPorHabitacion: this.formHojaDeVida2.value.personasPorHabitacion,
-        tipoVivienda2p: this.formHojaDeVida2.value.tipoVivienda2, // Corregido para alinear con Django
+        tipoVivienda2p: this.formHojaDeVida2.value.tipoVivienda2 ?? '',
         caracteristicasVivienda:
           this.formHojaDeVida2.value.caracteristicasVivienda,
-        malentendido: this.formHojaDeVida2.value.malentendido,
+        malentendido: this.formHojaDeVida2.value.malentendidom ?? '',
         hijos: this.formHojaDeVida2.value.hijos,
         como_es_su_relacion_familiar: this.formHojaDeVida2.value.como_es_su_relacion_familiar,
         experienciaLaboral: this.formHojaDeVida2.value.experienciaLaboral,
-        porqueLofelicitarian: this.formHojaDeVida2.value.porqueLofelicitarian,
+        porqueLofelicitarian: this.formHojaDeVida2.value.porqueLofelicitarian ?? '',
         areaCultivoPoscosecha: this.formHojaDeVida2.value.areaCultivoPoscosecha ?? '',
         laboresRealizadas: this.formHojaDeVida2.value.laboresRealizadas ?? '',
         tiempoExperiencia: this.formHojaDeVida2.value.tiempoExperiencia ?? '',
@@ -2071,6 +2101,7 @@ export class FormularioPublicoComponent implements OnInit {
     "REFERENCIADO POR ALGUIEN QUE YA TRABAJA/O EN LA TEMPORAL",
     "PERIFONEO (CARRO, MOTO)",
     "VOLANTES (A PIE)",
+    "CONVOCATORIA EXTERNA (MUNICIPIO, LOCALIDAD, BARRIO)",
     "PUNTO FÍSICO DIRECTO (PREGUNTÓ EN LA OFICINA TEMPORAL)",
     "CONVOCATORIA EXTERNA (MUNICIPIO, LOCALIDAD, BARRIO)",
     "CHAT SERVICIO AL CLIENTE (WHATSAPP, REDES SOCIALES)",
