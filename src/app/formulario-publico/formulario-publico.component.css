@@ -4,6 +4,10 @@
   -webkit-text-size-adjust: 100%;
 }
 
+mat-error{
+  line-height: 0.9;
+}
+
 /* Aplica a todo el texto dentro del formulario */
 form.formulario2 {
   text-transform: uppercase;
@@ -398,7 +402,7 @@ mat-datepicker {
   }
 
 
-  
+
 
   .file {
     width: 42%;

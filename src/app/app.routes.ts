@@ -12,6 +12,5 @@ export const routes: Routes = [
     { path: 'formularioPublico', component: FormularioPublicoComponent },
     { path: 'Lecto-Escritura', component: PruebaLectoEscriComponent },
     { path: 'seguridad-En-El-Trabajo', component: PruebaInduccionSeguridadSaludEnElTrabajoComponent },
-    { path: 'solicitud-traslado', component: SolicitudTrasladoComponent }
-
+    { path: 'solicitud-traslado', component: SolicitudTrasladoComponent },
 ];

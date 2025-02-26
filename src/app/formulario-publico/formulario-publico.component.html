@@ -84,15 +84,29 @@
             <input type="email" matInput formControlName="correo" placeholder="Ej: ejemplo@gmail.com">
           </mat-form-field><BR>
 
-          <mat-form-field appearance="fill">
-            <mat-label>Número de celular</mat-label>
-            <input type="text" matInput formControlName="numCelular" placeholder="Ej: 3147859841">
-          </mat-form-field><BR>
+            <mat-form-field appearance="fill">
+              <mat-label>Número de celular</mat-label>
+              <input type="tel" matInput formControlName="numCelular" placeholder="Ej: 3147859841">
+              <mat-error *ngIf="formHojaDeVida2.get('numCelular')?.hasError('required')">
+                El número de celular es obligatorio.
+              </mat-error>
+              <mat-error *ngIf="formHojaDeVida2.get('numCelular')?.hasError('pattern')">
+                Debe ser un número de celular válido en Colombia.
+              </mat-error>
+            </mat-form-field>
 
-          <mat-form-field appearance="fill">
-            <mat-label>Número de WhatsApp</mat-label>
-            <input type="text" matInput formControlName="numWha" placeholder="Ej: 317598725">
-          </mat-form-field><BR>
+            <mat-form-field appearance="fill">
+              <mat-label>Número de WhatsApp</mat-label>
+              <input type="tel" matInput formControlName="numWha" placeholder="Ej: 3175987256">
+              <mat-error *ngIf="formHojaDeVida2.get('numWha')?.hasError('required')">
+                El número de WhatsApp es obligatorio.
+              </mat-error>
+              <mat-error *ngIf="formHojaDeVida2.get('numWha')?.hasError('pattern')">
+                Debe ser un número de celular válido en Colombia.
+              </mat-error>
+            </mat-form-field>
+
+
 
           <mat-form-field appearance="fill">
             <mat-label>Departamento donde vive</mat-label>
@@ -823,14 +837,14 @@
             <input matInput formControlName="empresas_laborado">
           </mat-form-field>
 
-          <!-- Describa paso a paso cómo es su labor 
+          <!-- Describa paso a paso cómo es su labor
           <mat-form-field appearance="fill">
             <mat-label>Describa paso a paso cómo es su labor (ser lo más breve posible)</mat-label>
             <textarea matInput formControlName="labores_realizadas" rows="3"></textarea>
           </mat-form-field>
           -->
 
-          <!-- Califique su rendimiento (Opciones) 
+          <!-- Califique su rendimiento (Opciones)
           <mat-form-field appearance="fill">
             <mat-label>Califique su rendimiento</mat-label>
             <mat-select formControlName="rendimiento">
@@ -842,21 +856,21 @@
           -->
 
 
-          <!-- ¿Por qué se da esta auto calificación? 
+          <!-- ¿Por qué se da esta auto calificación?
           <mat-form-field appearance="fill">
             <mat-label>¿Por qué se da esta auto calificación?</mat-label>
             <textarea matInput formControlName="porqueRendimiento" rows="3"></textarea>
           </mat-form-field>
           -->
 
-          <!-- Según su experiencia y desempeño laboral, ¿por qué motivos lo han felicitado? 
+          <!-- Según su experiencia y desempeño laboral, ¿por qué motivos lo han felicitado?
           <mat-form-field appearance="fill">
             <mat-label>¿Por qué motivos lo han felicitado?</mat-label>
             <textarea matInput formControlName="porqueLofelicitarian" rows="3"></textarea>
           </mat-form-field>
           -->
 
-          <!-- ¿Ha tenido algún malentendido o situación conflictiva en algún trabajo? Si sí, especifique por qué. 
+          <!-- ¿Ha tenido algún malentendido o situación conflictiva en algún trabajo? Si sí, especifique por qué.
           <mat-form-field appearance="fill">
             <mat-label>¿Ha tenido algún malentendido o situación conflictiva en algún trabajo? Si sí, especifique por
               qué.</mat-label>
@@ -911,7 +925,7 @@
               </mat-form-field>
 
               <!--
-                SEXO, FECHA NACIMIENTO, DOCUMENTO DE IDENTIDAD, OCUPACION, Curso              
+                SEXO, FECHA NACIMIENTO, DOCUMENTO DE IDENTIDAD, OCUPACION, Curso
               -->
 
               <!-- Sexo del Hijo -->
@@ -998,7 +1012,7 @@
           </mat-select>
         </mat-form-field>
 
-        <!-- ¿Cómo es su relación Familiar? 
+        <!-- ¿Cómo es su relación Familiar?
         <mat-form-field appearance="fill">
           <mat-label>¿Cómo es su relación Familiar?</mat-label>
           <mat-select formControlName="como_es_su_relacion_familiar">
@@ -1048,7 +1062,7 @@
             </mat-select>
           </mat-form-field>
 
-          <!-- Tipo de Vivienda 
+          <!-- Tipo de Vivienda
           <mat-form-field appearance="fill">
             <mat-label>Tipo de Vivienda</mat-label>
             <mat-select formControlName="tipoVivienda2">
@@ -1087,7 +1101,7 @@
               Cuales
               son sus
               expectativas de vida </h1>
-              
+
               <mat-form-field appearance="fill">
                 <mat-label>¿Expectativas de vida?</mat-label>
                 <mat-select formControlName="expectativasVidaChecks" multiple>
@@ -1097,10 +1111,10 @@
                 </mat-select>
               </mat-form-field>
               -->
-              
-              
+
+
               <!-- Cómo se enteró de la vacante formcontrol fuenteVacante, select del arreglo opcionesPromocion  -->
-              
+
               <mat-form-field appearance="fill">
             <mat-label>Cómo se enteró de la vacante</mat-label>
             <mat-select formControlName="fuenteVacante">
@@ -1121,7 +1135,7 @@
 
 
 
-          <!-- ¿Está dispuesto a realizar actividades diferentes al cargo? 
+          <!-- ¿Está dispuesto a realizar actividades diferentes al cargo?
           <mat-form-field appearance="fill">
             <mat-label>¿Está dispuesto a realizar actividades diferentes al cargo?</mat-label>
             <mat-select formControlName="actividadesDi">
@@ -1132,14 +1146,14 @@
           </mat-form-field>
           -->
 
-          <!-- Mencione una experiencia significativa en su trabajo 
+          <!-- Mencione una experiencia significativa en su trabajo
           <mat-form-field appearance="fill">
             <mat-label>Mencione una experiencia significativa en su trabajo</mat-label>
             <textarea matInput formControlName="experienciaSignificativa" rows="3"></textarea>
           </mat-form-field>
           -->
 
-          <!-- ¿Cuál es su motivación? 
+          <!-- ¿Cuál es su motivación?
           <mat-form-field appearance="fill">
             <mat-label>¿Cuál es su motivación?</mat-label>
             <mat-select formControlName="motivacion">

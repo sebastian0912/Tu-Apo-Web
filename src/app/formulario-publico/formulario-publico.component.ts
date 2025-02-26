@@ -36,6 +36,7 @@ import Swal from 'sweetalert2';
 import { degrees, PDFCheckBox, PDFDocument, PDFTextField, rgb, StandardFonts } from 'pdf-lib';
 import { MatMenuModule } from '@angular/material/menu';
 import { GestionDocumentalService } from '../shared/service/gestionDocumental/gestion-documental.service';
+import { CandidatoService } from '../shared/service/candidato/candidato.service';
 
 @Component({
   selector: 'app-formulario-publico',
@@ -360,20 +361,20 @@ export class FormularioPublicoComponent implements OnInit {
         const base64Image = this.guardarObjeti3;
         const imageBytes = this.base64ToUint8Array(base64Image);
         const format = this.getImageFormat(base64Image);
-    
+
         const x = 175 * 2.83465;
         let y = (297 - 51.9 - 40) * 2.83465;
         const width = 30 * 2.83465;
         const height = 41 * 2.83465;
         y -= 51; // Mover la imagen 30 puntos más abajo como ejemplo
-    
+
         let image!: any;
         if (format === 'jpeg') {
           image = await pdfDoc.embedJpg(imageBytes);
         } else if (format === 'png') {
           image = await pdfDoc.embedPng(imageBytes);
         }
-    
+
         const page = pdfDoc.getPage(0);
         page.drawImage(image, { x, y, width, height });
     */
@@ -751,6 +752,7 @@ export class FormularioPublicoComponent implements OnInit {
     private router: Router,
     private dialog: MatDialog,
     private gestionDocumentosService: GestionDocumentalService,
+    private candidatoService: CandidatoService,
   ) {
 
     // Llamada a la función para inicializar el formulario con base en el número de hijos
@@ -770,14 +772,14 @@ export class FormularioPublicoComponent implements OnInit {
 
       genero: new FormControl('', Validators.required),
       correo: new FormControl('', [Validators.required, Validators.email]),
+
       numCelular: new FormControl('', [
         Validators.required,
-        Validators.pattern(/^\d{10}$/),
+        Validators.pattern(/^3\d{9}$/) // Debe empezar con 3 y tener 10 dígitos en total
       ]),
-
       numWha: new FormControl('', [
-
-        Validators.pattern(/^\d{10}$/),
+        Validators.required,  // Si este campo debe ser obligatorio
+        Validators.pattern(/^3\d{9}$/)
       ]),
 
       departamento: new FormControl('', Validators.required), // Cambié 'genero' por 'departamento' para que sea más descriptivo
@@ -1264,14 +1266,22 @@ export class FormularioPublicoComponent implements OnInit {
     });
   }
 
-  imprimirInformacion2(): void {
-    let camposInvalidos: string[] = [];
+  async imprimirInformacion2(): Promise<void> {
+    // veririficar q ese correo no exista en la base de datos
+    await this.candidatoService.validarCorreoCedula(this.formHojaDeVida2.value.correo, this.formHojaDeVida2.value.numeroCedula).subscribe((res) => {
+      if (res.correo_repetido){
+        Swal.fire({
+          title: '¡Correo duplicado!',
+          text: 'El correo ingresado ya se encuentra registrado por otra persona, tiene que cambiarlo',
+          icon: 'error',
+          confirmButtonText: 'Aceptar',
+        });
+        return;
+      }
+    });
 
-    console.log(camposInvalidos);
-    // validar formHojaDeVida2
 
-
-    // Lista de campos que se deben ignorar
+    const camposInvalidos: string[] = [];
     const camposIgnorados = [
       'tipoVivienda2',
       'expectativasVidaChecks',
@@ -1280,36 +1290,25 @@ export class FormularioPublicoComponent implements OnInit {
       'actividadesDi',
       'como_es_su_relacion_familiar',
       'experienciaSignificativa',
-      'motivacion'
+      'motivacion',
     ];
 
-    // Validar formHojaDeVida2
-    if (!this.formHojaDeVida2.invalid) {
-      // Obtener los campos inválidos que no están en la lista de ignorados
-      Object.keys(this.formHojaDeVida2.controls).forEach((campo) => {
-        const control = this.formHojaDeVida2.get(campo);
-        if (control && control.invalid && !camposIgnorados.includes(campo)) {
-          camposInvalidos.push(campo); // Agregar el nombre del campo al array
-        }
-      });
-
-      // Mostrar alerta si hay campos inválidos
-      if (camposInvalidos.length > 0) {
-        Swal.fire({
-          title: '¡Formulario incompleto!',
-          text: `Por favor, completa todos los campos obligatorios: ${camposInvalidos.join(', ')}`,
-          icon: 'warning',
-          confirmButtonText: 'Aceptar',
-        });
+    // Validar los controles y agregar nombres inválidos que no están ignorados
+    Object.keys(this.formHojaDeVida2.controls).forEach(campo => {
+      const control = this.formHojaDeVida2.get(campo);
+      if (control?.invalid && !camposIgnorados.includes(campo)) {
+        camposInvalidos.push(campo);
       }
-      console.log(camposInvalidos);
-      // es valido
-      console.log(this.formHojaDeVida2.invalid);
+    });
 
-      return;
+    if (camposInvalidos.length > 0) {
+      Swal.fire({
+        title: '¡Formulario incompleto!',
+        text: `Por favor, completa todos los campos obligatorios: ${camposInvalidos.join(', ')}`,
+        icon: 'warning',
+        confirmButtonText: 'Aceptar',
+      });
     }
-
-
 
     // Si hay campos inválidos en cualquiera de los dos formularios, mostramos el Swal
     if (camposInvalidos.length > 0) {
@@ -1320,6 +1319,7 @@ export class FormularioPublicoComponent implements OnInit {
         confirmButtonText: 'Aceptar',
       });
     } else {
+      console.log('Formulario válido');
       // recoger numero de cedula del local storage
       const cedula = localStorage.getItem('cedula');
 
@@ -1467,7 +1467,7 @@ export class FormularioPublicoComponent implements OnInit {
         tipoVivienda2p: this.formHojaDeVida2.value.tipoVivienda2 ?? '',
         caracteristicasVivienda:
           this.formHojaDeVida2.value.caracteristicasVivienda,
-        malentendido: this.formHojaDeVida2.value.malentendidom ?? '',
+        malentendido: this.formHojaDeVida2.value.malentendido ?? '',
         hijos: this.formHojaDeVida2.value.hijos,
         como_es_su_relacion_familiar: this.formHojaDeVida2.value.como_es_su_relacion_familiar,
         experienciaLaboral: this.formHojaDeVida2.value.experienciaLaboral,
@@ -1522,7 +1522,6 @@ export class FormularioPublicoComponent implements OnInit {
         (response: any) => {
           // Imprimir solo el mensaje de respuesta
           if (response && response.message) {
-            /* swal y que cuando le de click a aceptar lo redireccione a la pagina de inicio */
             this.subirTodosLosArchivos().then((allFilesUploaded) => {
               if (allFilesUploaded) {
                 Swal.close(); // Cerrar el Swal de carga

@@ -96,7 +96,6 @@ export class SolicitudTrasladoComponent {
     // si existe el usuario
     this.http.get(`${urlBack.url}/contratacion/buscarCandidato/${this.formtraslados.get('numero_cedula')?.value}`).subscribe({
       next: (response) => {
-        console.log('Respuesta del servidor:', response);
         this.enviarDatos();
       },
       error: (error) => {
@@ -113,42 +112,55 @@ export class SolicitudTrasladoComponent {
 
 
   enviarDatos(): void {
+    // 1. Mostrar Swal de "cargando" antes de la petición
+    Swal.fire({
+      title: 'Enviando',
+      html: 'Por favor, espere...',
+      icon: 'info',
+      allowOutsideClick: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading();  // Activa el ícono de carga
+      }
+    });
+
+    // 2. Preparar datos
     const formData = new FormData();
     formData.append('numero_cedula', this.formtraslados.get('numero_cedula')?.value);
     formData.append('eps_a_trasladar', this.formtraslados.get('eps_a_trasladar')?.value);
-  
-    // Añadir la cadena Base64 al objeto FormData
     if (this.base64String) {
       formData.append('solicitud_traslado', this.base64String);
     }
-    
-    // Mostrar el contenido de FormData en la consola
-    formData.forEach((value, key) => {
-      console.log(`${key}: ${value}`);
-    });
-  
-    // Corrección en la URL: quitar la comilla adicional antes de '/traslados/formulario-solicitud'
+
+    // 3. Hacer la petición HTTP
     this.http.post(`${urlBack.url}/traslados/formulario-solicitud`, formData).subscribe({
       next: (response) => {
-        console.log('Respuesta del servidor:', response);
+        // Cerrar el Swal de cargando
+        Swal.close();
+
+        // Mostrar Swal de éxito
         Swal.fire({
           icon: 'success',
           title: 'Solicitud enviada',
-          text: 'Su solicitud de traslado ha sido enviada correctamente.',
+          text: 'Su solicitud de traslado ha sido enviada correctamente.'
         });
       },
       error: (error) => {
+        // Cerrar el Swal de cargando
+        Swal.close();
+
+        // Mostrar Swal de error
         Swal.fire({
           icon: 'error',
           title: 'Error',
-          text: 'Recuerde que solo se puede hacer una solicitud a la vez.',
+          text: 'Recuerde que solo se puede hacer una solicitud a la vez.'
         });
         console.error('Error al enviar los datos:', error);
       }
     });
-}
+  }
 
-  
-    
-  
+
+
+
 }

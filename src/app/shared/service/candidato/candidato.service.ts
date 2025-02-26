@@ -39,5 +39,17 @@ export class CandidatoService {
     );
   }
 
+  // validar-correo-cedula/
+  public validarCorreoCedula(correo: string, cedula: string): Observable<any> {
+    const headers = this.createAuthorizationHeader();
+    const params = { cedula, correo };  // Asegurarse de que están en el orden correcto
+
+    return this.http.get(`${this.apiUrl}/contratacion/validar-correo-cedula/`, { headers, params }).pipe(
+        map((response: any) => response),
+        catchError(this.handleError)
+    );
+}
+
+
 
 }
