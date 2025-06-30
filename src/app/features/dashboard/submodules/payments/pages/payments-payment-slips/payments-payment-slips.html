@@ -1,0 +1,67 @@
+<div class="contenedor">
+
+  <div id="overlay" class="loader-overlay" style="display: none;"></div>
+  <div class="wrapper">
+    <div class="contenido">
+
+      <!--icono para cerrar sesion-->
+      <div class="iconoCerrarSesion">
+        <h1 class="titulo"> Bienvenido: </h1>
+        <div class="imgcaja">
+          <img src="../../assets/salida.png" (click)="cerrarSesion()" alt="Cerrar Sesion" title="Cerrar Sesion">
+        </div>
+      </div>
+
+      <div class="cuadroTexto">
+        <div class="valor">
+          <div class="valoresEscribir">
+
+            <h1 class="titulo" style="margin-right: 10px;"> Digite el número de identificación del empleado a validar:
+            </h1>
+            <input type="text" id="cedula" placeholder="Número de identificación" class="input"
+              style="margin-left: 35px; margin-top: -20px;" [(ngModel)]="cedula" />
+
+            <button class="btn2" style="margin-top: 15px; margin-left: 85px;" (click)="sendCedula()">Buscar</button>
+
+
+          </div>
+        </div>
+      </div>
+
+
+      <div class="tabla" id="oculto">
+        <table class="table">
+          <thead class="table-dark">
+            <tr>
+              <th>No</th>
+              <th>Cedula</th>
+              <th>Nombre</th>
+              <th>Ingreso</th>
+              <th>Retiro</th>
+              <th>Finca</th>
+              <th>Telefono</th>
+              <th>CONCEPTO</th>
+              <th>Desprendibles</th>
+              <th>Certificaciones</th>
+              <th>Cartas de retiro</th>
+              <th>Carta de cesantias</th>
+              <th>Entrevista de retiro</th>
+              <th>Correo</th>
+              <th>Confirmacion Envio</th>
+            </tr>
+          </thead>
+
+          <tbody id="tabla">
+
+
+          </tbody>
+
+        </table>
+      </div>
+
+    </div>
+
+
+
+  </div>
+</div>

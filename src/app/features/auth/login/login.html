@@ -1,0 +1,44 @@
+<div class="backgraound">
+  <div class="view">
+    <div class="blob-container">
+      <div class="orbit"></div>
+    </div>
+
+    <div class="login">
+      <!--
+        <img src="logo/FOMAGMesa-de-trabajo-34@2x.png" />
+        -->
+      <h2>¡Bienvenido a Tu Apo Web!</h2>
+      <h3>¡Mantén tus datos seguros!</h3>
+
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="form">
+        <mat-form-field class="textbox" appearance="outline">
+          <mat-label>Correo electrónico</mat-label>
+          <input matInput type="email" formControlName="email" required />
+          <mat-error *ngIf="loginForm.get('email')?.hasError('required')">
+            El correo electrónico es obligatorio
+          </mat-error>
+          <mat-error *ngIf="loginForm.get('email')?.hasError('email')">
+            Correo electrónico no válido
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field class="textbox" appearance="outline">
+          <mat-label>Contraseña</mat-label>
+          <input matInput type="password" formControlName="password" required />
+          <mat-error *ngIf="loginForm.get('password')?.hasError('required')">
+            La contraseña es obligatoria
+          </mat-error>
+        </mat-form-field>
+
+        <button mat-flat-button color="primary" type="submit" [disabled]="loginForm.invalid">
+          Iniciar sesión
+        </button>
+      </form>
+<!--
+  <a href="#">¿Olvidaste tu contraseña?</a>
+  <p class="footer">¿No tienes una cuenta? <a href="#">¡Regístrate!</a></p>
+  -->
+    </div>
+  </div>
+</div>

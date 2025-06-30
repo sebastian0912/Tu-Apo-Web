@@ -1,19 +1,24 @@
-import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
+import {
+  ApplicationConfig,
+  provideBrowserGlobalErrorListeners,
+  provideZoneChangeDetection
+} from '@angular/core';
 import { provideRouter } from '@angular/router';
-import { provideHttpClient, withFetch } from '@angular/common/http';
-import { routes } from './app.routes';
-import { provideClientHydration } from '@angular/platform-browser';
-import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
+import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 
+import { routes } from './app.routes';
+import { authInterceptor } from './core/interceptors/auth-interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
+    provideBrowserGlobalErrorListeners(),
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
-    provideClientHydration(),
-    provideAnimationsAsync(),
-    provideAnimationsAsync(),
-    provideAnimationsAsync(),
-    provideHttpClient(withFetch()), provideAnimationsAsync(), provideAnimationsAsync(),
-  ],
+    provideClientHydration(withEventReplay()),
+    provideHttpClient(
+      withFetch(),                // 👈 agrega esta línea
+      withInterceptors([authInterceptor])
+    )
+  ]
 };
