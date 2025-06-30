@@ -1,1 +1,48 @@
-<p>form-transfer-request works!</p>
+<div class="contenedor">
+    <div class="head">
+        <h1> Solicitud de traslado </h1>
+    </div>
+
+    <form class="formulario" [formGroup]="formtraslados" id="formulario" (submit)="enviarSolicitudTraslado()">
+        <div>
+
+            <div class="title">
+                <h1>Llena por favor los siguientes campos</h1>
+            </div>
+            <div class="datos">
+
+                <mat-form-field class="input">
+                    <mat-label>Número de documento de identidad</mat-label>
+                    <input matInput placeholder="10058547896" formControlName="numero_cedula">
+                </mat-form-field>
+
+                <mat-form-field class="input">
+                    <mat-label>EPS a trasladar</mat-label>
+                    <mat-select formControlName="eps_a_trasladar">
+                        <mat-option value="Nueva_Eps">Nueva EPS</mat-option>
+                        <mat-option value="Salud_Total">Salud Total</mat-option>
+                        <!--Famisanar-->
+                        <mat-option value="Famisanar">Famisanar</mat-option>
+                    </mat-select>
+                </mat-form-field>
+
+                <div class="archivo">
+                    <!-- Omitir mat-form-field para el input de tipo file -->
+                    <div class="file-input">
+                        <input type="file" #fileInput (change)="uploadFile($event)" formControlName="solicitud_traslado"
+                            [hidden]="true">
+                        <button (click)="fileInput.click()" matButton="filled" type="button">
+                            <mat-icon>attach_file</mat-icon> Adjuntar solicitud de traslado
+                        </button>
+                        <mat-form-field appearance="fill">
+                            <input matInput [value]="fileName" placeholder="No file selected" readonly>
+                        </mat-form-field>
+                    </div>
+                </div>
+
+                <button matButton="filled" style="width: 40vw;" type="submit">Enviar</button>
+
+            </div>
+        </div>
+    </form>
+</div>

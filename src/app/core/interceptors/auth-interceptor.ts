@@ -32,7 +32,6 @@ export const authInterceptor: HttpInterceptorFn = (
   }
 
   if (!jwtToken) {
-    console.warn('⚠️ No hay token JWT disponible.');
     return next(req);
   }
 

@@ -1,40 +1,158 @@
-@import url('https://fonts.googleapis.com/css2?family=Roboto&display=swap');
-@import url('//fonts.googleapis.com/css?family=Oswald');
-@import url('//fonts.googleapis.com/css?family=Open+Sans');
+/* ======================
+   Importación de fuentes
+   ====================== */
+@import url("https://fonts.googleapis.com/css2?family=Roboto&display=swap");
+@import url("https://fonts.googleapis.com/css?family=Oswald");
+@import url("https://fonts.googleapis.com/css?family=Open+Sans");
 
-/* You can add global styles to this file, and also import other style files */
-*, *::before, *::after{
-  box-sizing: border-box; /* Set the sizing of an element to include it's border */
+/* ======================
+      Reseteo y normalización
+      ====================== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-*{
-  margin: 0; /* Set the default margin to 0 */
-  padding: 0; /* Set the default padding to 0 */
+ul[role="list"],
+ol[role="list"] {
+  list-style: none;
 }
 
-ul[role='list'], ol[role='list']{
-  list-style: none; /* Turn off numbered and unordered list decoration */
+html:focus-within {
+  scroll-behavior: smooth;
 }
 
-html:focus-within{
-  scroll-behavior: smooth; /* Make the scrolling inside of any scrollable element smooth */
+a:not([class]) {
+  text-decoration-skip-ink: auto;
 }
 
-a:not([class]){
-  text-decoration-skip-ink: auto; /* Makes link undelines look better */
-}
-
-img, picture, svg, video, canvas{
-  max-width: 100%; /* Makes it responsive */
-  height: auto; /* Makes it responsive */
-  vertical-align: middle; /* Makes text next to inline images look better */
-  font-style: italic; /* If the images don't load it makes the alt decription look better */
+img,
+picture,
+svg,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+  vertical-align: middle;
+  font-style: italic;
   background-repeat: no-repeat;
-  /* The background repeat and size are there if you want to load a picture first like a backroung image that is worse quality while the better quality image loads */
   background-size: cover;
 }
 
-input, button, textarea, select{
-  font: inherit; /* Makes these elements inherit fonts */
+input,
+button,
+textarea,
+select {
+  font: inherit;
 }
 
+/* Prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+    transition: none;
+  }
+}
+
+/* ======================
+      Estilos base de html/body
+      ====================== */
+html,
+body {
+  height: 100%;
+  font-family: "Roboto", "Helvetica Neue", sans-serif;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  background-repeat: no-repeat;
+}
+
+/* ======================
+      Layout principal
+      ====================== */
+.dashboard-container {
+  display: flex;
+  height: 100vh;
+}
+
+/* Contenido del dashboard */
+.dashboard-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+
+mat-card {
+  background-color: #fff !important;
+  width: 100%;
+  max-width: 93vw;
+  height: auto;
+  padding: 12px;
+  margin: 0 auto;
+}
+
+/* ======================
+      Tabla
+      ====================== */
+.table-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.table-container table {
+  width: 100%;
+  text-align: center;
+  font-size: 14px;
+}
+
+.table-container th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: #1b1e36 !important;
+  color: white;
+  align-items: center;
+}
+
+.mat-table th.mat-header-cell {
+  background-color: #182540 !important;
+}
+
+.mat-table {
+  width: 100%;
+}
+
+.table-container tr:nth-child(even) {
+  background-color: #fff;
+}
+
+.table-container tr:nth-child(odd) {
+  background-color: #fff;
+}
+
+.table-container td,
+.table-container th {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

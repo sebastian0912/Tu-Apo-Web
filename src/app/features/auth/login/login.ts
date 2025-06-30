@@ -4,7 +4,6 @@ import { FormGroup, FormBuilder, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import Swal from 'sweetalert2';
 import { LoginS } from '../service/login-s';
-
 @Component({
   selector: 'app-login',
   imports: [
@@ -66,7 +65,7 @@ export class Login {
         localStorage.setItem('user', JSON.stringify(user));
 
         // Redirigir
-        this.router.navigate(['/desprendibles']);
+        this.router.navigate(['/dashboard/desprendibles-de-pago']);
         return;
       }
 

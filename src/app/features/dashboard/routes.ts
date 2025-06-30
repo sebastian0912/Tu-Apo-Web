@@ -8,12 +8,9 @@ export const routes: Routes = [
     component: Dashboard,
     children: [
       { path: '', component: Home },
-      // payments
       { path: 'desprendibles-de-pago', loadChildren: () => import('./submodules/payments/payments.routes').then(m => m.routes) },
     ]
   },
-  {
-    path: 'formularios',
-    loadChildren: () => import('./submodules/forms/pages/form.routes').then(m => m.routes)
-  }
+  // Ruta de fallback
+  { path: '**', redirectTo: '', pathMatch: 'full' }
 ];
