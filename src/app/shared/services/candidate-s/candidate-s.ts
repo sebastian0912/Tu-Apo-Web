@@ -51,4 +51,9 @@ export class CandidateS {
     const url = `${this.apiUrl}/contratacion/subirParte2`;
     return this.http.post(url, datos);
   }
+
+  // Crear o actualizar candidato
+  crearActualizarCandidato(data: any): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/contratacion/candidato/`, data);
+  }
 }

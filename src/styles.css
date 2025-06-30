@@ -81,24 +81,6 @@ body {
   background-repeat: no-repeat;
 }
 
-/* ======================
-      Layout principal
-      ====================== */
-.dashboard-container {
-  display: flex;
-  height: 100vh;
-}
-
-/* Contenido del dashboard */
-.dashboard-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 24px;
-  overflow-y: auto;
-}
-
-
 mat-card {
   background-color: #fff !important;
   width: 100%;

@@ -1,3 +1,17 @@
+.fondo {
+  height: 100vh;
+  width: 100vw;
+  background: linear-gradient(120deg, #eeeeee 50%, #febb2e 40%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+mat-card{
+  margin-top: 0;
+  max-width: 80vw;
+}
+
 /* Header */
 .header {
   display: flex;
@@ -32,7 +46,7 @@
 }
 
 .input-id {
-  min-width: 150pt;
+  min-width: 190pt;
   max-height: 50pt;
 }
 
@@ -55,42 +69,52 @@ a:hover {
 
 /* Responsive */
 @media (max-width: 900px) {
+
   .tabla-resultados,
   .search-form,
   .header {
     margin-left: 6px;
     margin-right: 6px;
   }
-  th, td {
+
+  th,
+  td {
     font-size: 0.98rem;
     padding: 8px 2px;
   }
+
   .header .titulo {
     font-size: 1.4rem;
   }
 }
 
 @media (max-width: 700px) {
-  .header, .search-form {
+
+  .header,
+  .search-form {
     flex-direction: column;
     align-items: stretch;
     gap: 8px;
     padding: 12px 6px 8px 6px;
     margin: 0 2px 12px 2px;
   }
+
   .header .titulo {
     text-align: center;
     margin-bottom: 8px;
   }
+
   .header button {
     align-self: flex-end;
     margin-left: 0;
     margin-bottom: 8px;
   }
+
   .input-id {
     min-width: 120px;
     width: 100%;
   }
+
   .button {
     width: 100%;
     margin-top: 8px;
@@ -98,32 +122,41 @@ a:hover {
 }
 
 @media (max-width: 500px) {
-  .header, .search-form, .table-container {
+
+  .header,
+  .search-form,
+  .table-container {
     margin: 0 1px;
     padding: 0 1px;
   }
+
   .header {
     padding-top: 10px;
     padding-bottom: 2px;
   }
+
   .header .titulo {
     font-size: 1.05rem;
   }
+
   .input-id {
     font-size: 0.95rem;
     min-width: 90px;
   }
+
   .button {
     font-size: 0.93rem;
     min-width: 80px;
     margin-top: 6px;
   }
-  th, td {
+
+  th,
+  td {
     font-size: 0.85rem;
     padding: 6px 1px;
   }
-  .table-container{
+
+  .table-container {
     margin-top: 10pt;
   }
 }
-

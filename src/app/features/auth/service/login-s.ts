@@ -39,6 +39,11 @@ export class LoginS {
     window.location.href = '';
   }
 
-
+  // Register
+  async register(user: any): Promise<any> {
+    return await firstValueFrom(
+      this.http.post(`${this.apiUrl}/usuarios/registro`, user)
+    );
+  }
 
 }

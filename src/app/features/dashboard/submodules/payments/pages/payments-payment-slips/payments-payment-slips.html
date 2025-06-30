@@ -1,124 +1,126 @@
-<mat-card>
-  <mat-card-content>
+<div class="fondo">
+  <mat-card>
+    <mat-card-content>
 
-    <!-- Header de bienvenida y cerrar sesión -->
-    <div class="header">
-      <h1 class="titulo">Bienvenido, consulte los desprendibles de pago</h1>
-      <button mat-icon-button color="primary" (click)="cerrarSesion()" aria-label="Cerrar sesión"
-        matTooltip="Cerrar sesión" matTooltipPosition="left">
-        <mat-icon>logout</mat-icon>
-      </button>
-    </div>
+      <!-- Header de bienvenida y cerrar sesión -->
+      <div class="header">
+        <h1 class="titulo">Bienvenido, consulte los desprendibles de pago</h1>
+        <button mat-icon-button color="primary" (click)="cerrarSesion()" aria-label="Cerrar sesión"
+          matTooltip="Cerrar sesión" matTooltipPosition="left">
+          <mat-icon>logout</mat-icon>
+        </button>
+      </div>
 
-    <!-- Formulario de búsqueda -->
-    <form [formGroup]="searchForm" (ngSubmit)="sendCedula()" class="search-form">
-      <mat-form-field appearance="outline" class="input-id">
-        <mat-label>Número de identificación</mat-label>
-        <input matInput placeholder="Ingrese el número de identificación" formControlName="cedula">
-      </mat-form-field>
-      <button matButton="filled" type="submit" [disabled]="searchForm.invalid" class="button">Buscar</button>
-    </form>
+      <!-- Formulario de búsqueda -->
+      <form [formGroup]="searchForm" (ngSubmit)="sendCedula()" class="search-form">
+        <mat-form-field appearance="outline" class="input-id">
+          <mat-label>Número de identificación</mat-label>
+          <input matInput placeholder="Ingrese el número de identificación" formControlName="cedula">
+        </mat-form-field>
+        <button matButton="filled" type="submit" [disabled]="searchForm.invalid" class="button">Buscar</button>
+      </form>
 
-    <!-- Tabla de resultados -->
-    <div class="table-container" *ngIf="dataSource && dataSource.data.length > 0">
-      <table mat-table [dataSource]="dataSource" class="mat-elevation-z2">
+      <!-- Tabla de resultados -->
+      <div class="table-container" *ngIf="dataSource && dataSource.data.length > 0">
+        <table mat-table [dataSource]="dataSource" class="mat-elevation-z2">
 
-        <ng-container matColumnDef="nombre">
-          <th mat-header-cell *matHeaderCellDef>Nombre</th>
-          <td mat-cell *matCellDef="let element">{{ element.nombre }}</td>
-        </ng-container>
+          <ng-container matColumnDef="nombre">
+            <th mat-header-cell *matHeaderCellDef>Nombre</th>
+            <td mat-cell *matCellDef="let element">{{ element.nombre }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="ingreso">
-          <th mat-header-cell *matHeaderCellDef>Ingreso</th>
-          <td mat-cell *matCellDef="let element">{{ element.ingreso }}</td>
-        </ng-container>
+          <ng-container matColumnDef="ingreso">
+            <th mat-header-cell *matHeaderCellDef>Ingreso</th>
+            <td mat-cell *matCellDef="let element">{{ element.ingreso }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="retiro">
-          <th mat-header-cell *matHeaderCellDef>Retiro</th>
-          <td mat-cell *matCellDef="let element">{{ element.retiro }}</td>
-        </ng-container>
+          <ng-container matColumnDef="retiro">
+            <th mat-header-cell *matHeaderCellDef>Retiro</th>
+            <td mat-cell *matCellDef="let element">{{ element.retiro }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="finca">
-          <th mat-header-cell *matHeaderCellDef>Finca</th>
-          <td mat-cell *matCellDef="let element">{{ element.finca }}</td>
-        </ng-container>
+          <ng-container matColumnDef="finca">
+            <th mat-header-cell *matHeaderCellDef>Finca</th>
+            <td mat-cell *matCellDef="let element">{{ element.finca }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="telefono">
-          <th mat-header-cell *matHeaderCellDef>Teléfono</th>
-          <td mat-cell *matCellDef="let element">{{ element.telefono }}</td>
-        </ng-container>
+          <ng-container matColumnDef="telefono">
+            <th mat-header-cell *matHeaderCellDef>Teléfono</th>
+            <td mat-cell *matCellDef="let element">{{ element.telefono }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="concepto">
-          <th mat-header-cell *matHeaderCellDef>CONCEPTO</th>
-          <td mat-cell *matCellDef="let element">{{ element.concepto }}</td>
-        </ng-container>
+          <ng-container matColumnDef="concepto">
+            <th mat-header-cell *matHeaderCellDef>CONCEPTO</th>
+            <td mat-cell *matCellDef="let element">{{ element.concepto }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="desprendibles">
-          <th mat-header-cell *matHeaderCellDef>Desprendibles</th>
-          <td mat-cell *matCellDef="let element">
-            <ng-container *ngIf="element.desprendibles; else noLink">
-              <a [href]="element.desprendibles" target="_blank" rel="noopener">Ver</a>
-            </ng-container>
-            <ng-template #noLink>-</ng-template>
-          </td>
-        </ng-container>
+          <ng-container matColumnDef="desprendibles">
+            <th mat-header-cell *matHeaderCellDef>Desprendibles</th>
+            <td mat-cell *matCellDef="let element">
+              <ng-container *ngIf="element.desprendibles; else noLink">
+                <a [href]="element.desprendibles" target="_blank" rel="noopener">Ver</a>
+              </ng-container>
+              <ng-template #noLink>-</ng-template>
+            </td>
+          </ng-container>
 
-        <ng-container matColumnDef="certificaciones">
-          <th mat-header-cell *matHeaderCellDef>Certificaciones</th>
-          <td mat-cell *matCellDef="let element">
-            <ng-container *ngIf="element.certificaciones; else noLinkC">
-              <a [href]="element.certificaciones" target="_blank" rel="noopener">Ver</a>
-            </ng-container>
-            <ng-template #noLinkC>-</ng-template>
-          </td>
-        </ng-container>
+          <ng-container matColumnDef="certificaciones">
+            <th mat-header-cell *matHeaderCellDef>Certificaciones</th>
+            <td mat-cell *matCellDef="let element">
+              <ng-container *ngIf="element.certificaciones; else noLinkC">
+                <a [href]="element.certificaciones" target="_blank" rel="noopener">Ver</a>
+              </ng-container>
+              <ng-template #noLinkC>-</ng-template>
+            </td>
+          </ng-container>
 
-        <ng-container matColumnDef="cartasRetiro">
-          <th mat-header-cell *matHeaderCellDef>Cartas de retiro</th>
-          <td mat-cell *matCellDef="let element">
-            <ng-container *ngIf="element.cartasRetiro; else noLinkCR">
-              <a [href]="element.cartasRetiro" target="_blank" rel="noopener">Ver</a>
-            </ng-container>
-            <ng-template #noLinkCR>-</ng-template>
-          </td>
-        </ng-container>
+          <ng-container matColumnDef="cartasRetiro">
+            <th mat-header-cell *matHeaderCellDef>Cartas de retiro</th>
+            <td mat-cell *matCellDef="let element">
+              <ng-container *ngIf="element.cartasRetiro; else noLinkCR">
+                <a [href]="element.cartasRetiro" target="_blank" rel="noopener">Ver</a>
+              </ng-container>
+              <ng-template #noLinkCR>-</ng-template>
+            </td>
+          </ng-container>
 
-        <ng-container matColumnDef="cartaCesantias">
-          <th mat-header-cell *matHeaderCellDef>Carta de cesantías</th>
-          <td mat-cell *matCellDef="let element">
-            <ng-container *ngIf="element.cartaCesantias; else noLinkCC">
-              <a [href]="element.cartaCesantias" target="_blank" rel="noopener">Ver</a>
-            </ng-container>
-            <ng-template #noLinkCC>-</ng-template>
-          </td>
-        </ng-container>
+          <ng-container matColumnDef="cartaCesantias">
+            <th mat-header-cell *matHeaderCellDef>Carta de cesantías</th>
+            <td mat-cell *matCellDef="let element">
+              <ng-container *ngIf="element.cartaCesantias; else noLinkCC">
+                <a [href]="element.cartaCesantias" target="_blank" rel="noopener">Ver</a>
+              </ng-container>
+              <ng-template #noLinkCC>-</ng-template>
+            </td>
+          </ng-container>
 
-        <ng-container matColumnDef="entrevistaRetiro">
-          <th mat-header-cell *matHeaderCellDef>Entrevista de retiro</th>
-          <td mat-cell *matCellDef="let element">
-            <ng-container *ngIf="element.entrevistaRetiro; else noLinkER">
-              <a [href]="element.entrevistaRetiro" target="_blank" rel="noopener">Ver</a>
-            </ng-container>
-            <ng-template #noLinkER>-</ng-template>
-          </td>
-        </ng-container>
+          <ng-container matColumnDef="entrevistaRetiro">
+            <th mat-header-cell *matHeaderCellDef>Entrevista de retiro</th>
+            <td mat-cell *matCellDef="let element">
+              <ng-container *ngIf="element.entrevistaRetiro; else noLinkER">
+                <a [href]="element.entrevistaRetiro" target="_blank" rel="noopener">Ver</a>
+              </ng-container>
+              <ng-template #noLinkER>-</ng-template>
+            </td>
+          </ng-container>
 
-        <ng-container matColumnDef="correo">
-          <th mat-header-cell *matHeaderCellDef>Correo</th>
-          <td mat-cell *matCellDef="let element">{{ element.correo }}</td>
-        </ng-container>
+          <ng-container matColumnDef="correo">
+            <th mat-header-cell *matHeaderCellDef>Correo</th>
+            <td mat-cell *matCellDef="let element">{{ element.correo }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="confirmacionEnvio">
-          <th mat-header-cell *matHeaderCellDef>Confirmación Envío</th>
-          <td mat-cell *matCellDef="let element">{{ element.confirmacionEnvio }}</td>
-        </ng-container>
+          <ng-container matColumnDef="confirmacionEnvio">
+            <th mat-header-cell *matHeaderCellDef>Confirmación Envío</th>
+            <td mat-cell *matCellDef="let element">{{ element.confirmacionEnvio }}</td>
+          </ng-container>
 
-        <!-- Encabezados y filas -->
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+          <!-- Encabezados y filas -->
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
 
-      </table>
-    </div>
+        </table>
+      </div>
 
-  </mat-card-content>
-</mat-card>
+    </mat-card-content>
+  </mat-card>
+</div>
