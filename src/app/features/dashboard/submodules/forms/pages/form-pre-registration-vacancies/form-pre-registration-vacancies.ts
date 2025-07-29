@@ -40,6 +40,17 @@ export class FormPreRegistrationVacancies {
   numeroCedula!: any;
   archivos: any = [];
   mostrarCamposAdicionales: boolean = false; // Controla la visibilidad de los campos adicionales
+  emailUserPattern = '^[^@\\s]+$'; // No admite @ ni espacios
+
+  dominiosValidos: string[] = [
+    'GMAIL.COM', 'HOTMAIL.COM', 'YAHOO.COM', 'ICLOUD.COM', 'OUTLOOK.COM',
+    'OUTLOOK.ES', 'MAIL.COM', 'YAHOO.COM.CO', 'UNICARTAGENA.EDU.CO',
+    'CUN.EDU.CO', 'MISENA.EDU.CO', 'UNIGUAJIRA.EDU.CO', 'UNILLANOS.EDU.CO',
+    'UCUNDINAMARCA.EDU.CO', 'UNCUNDINAMARCA.EDU.CO', 'USANTOTOMAS.EDU.CO',
+    'UNAL.EDU.CO', 'UNICAUCA.EDU.CO', 'UNIMILITAR.EDU.CO', 'HOTMAIL.COM.CO',
+    'HOTMAIL.COM.AR', 'LASVILLAS.EMAIL', 'YAHOO.ES'
+  ];
+
 
   constructor(
     private fb: FormBuilder,
@@ -108,13 +119,8 @@ export class FormPreRegistrationVacancies {
       experienciaFlores: ['', Validators.required],
       oficina: ['', Validators.required],
       brigadaDe: [''],
-      correo_electronico: [
-        '',
-        [
-          Validators.required,
-          Validators.email
-        ]
-      ]
+      correo_usuario: ['', [Validators.required, Validators.pattern(this.emailUserPattern)]],
+      correo_dominio: ['', Validators.required],
     });
   }
 
@@ -140,11 +146,10 @@ export class FormPreRegistrationVacancies {
   generos: any[] = ['M', 'F'];
 
   oficinas: string[] = [
-    'ANDES', 'BOSA', 'CARTAGENITA', 'FACA_PRIMERA', 'FACA_PRINCIPAL', 'FONTIBÓN',
+    'VIRTUAL', 'ANDES', 'BOSA', 'CARTAGENITA', 'FACA_PRIMERA', 'FACA_PRINCIPAL', 'FONTIBÓN',
     'FORANEOS', 'FUNZA', 'MADRID', 'MONTE_VERDE', 'ROSAL', 'SOACHA', 'SUBA',
     'TOCANCIPÁ', 'USME', 'ZIPAQUIRÁ', 'BRIGADA'
   ];
-
 
   async onSubmit() {
     if (this.formVacante.invalid) {
@@ -153,6 +158,23 @@ export class FormPreRegistrationVacancies {
     }
 
     const formValue = { ...this.formVacante.value };
+
+    // Validar que el usuario del correo NO tenga arroba ni dominio
+    if (/@|\s/.test(formValue.correo_usuario)) {
+      Swal.fire('Error', 'El usuario del correo no debe incluir el símbolo @ ni espacios ni el dominio.', 'error');
+      return;
+    }
+    if (!formValue.correo_dominio) {
+      Swal.fire('Error', 'Debe seleccionar un dominio para el correo.', 'error');
+      return;
+    }
+
+    // Armar el correo completo
+    // Al enviar:
+    formValue.correo_electronico = `${formValue.correo_usuario}@${formValue.correo_dominio}`;
+    // O si en el select ya agregas el @, no agregues aquí
+    delete formValue.correo_usuario;
+    delete formValue.correo_dominio;
 
     // Combina oficina solo si aplica
     if (formValue.oficina === 'BRIGADA' && formValue.brigadaDe) {
@@ -170,6 +192,8 @@ export class FormPreRegistrationVacancies {
 
     formValue.username = formValue.correo_electronico;
     formValue.password = formValue.numero_de_documento;
+    formValue.primer_apellido = formValue.primerApellido;
+    formValue.primer_nombre = formValue.primerNombre;
 
     let showWarning = false;
     let warningMsg = '';
@@ -178,15 +202,26 @@ export class FormPreRegistrationVacancies {
       const response = await this.authService.register(formValue);
       console.log('Registro exitoso:', response);
       if (response) {
-
+        Object.keys(formValue).forEach(key => {
+          if (typeof formValue[key] === 'string') {
+            formValue[key] = formValue[key].toUpperCase();
+          }
+        });
         console.log('Form Value:', formValue);
+
         await firstValueFrom(this.candidateService.crearActualizarCandidato(formValue));
         await firstValueFrom(this.candidateService.guardarInfoPersonal(formValue));
         Swal.fire({
           icon: 'success',
           title: 'Registro Exitoso',
           text: 'Tu cuenta ha sido creada correctamente',
+          confirmButtonText: 'Aceptar'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            this.formVacante.reset(); // Aquí resetea tu form reactivo
+          }
         });
+
         return;
       }
     } catch (error: any) {
@@ -250,6 +285,7 @@ export class FormPreRegistrationVacancies {
       });
     }
   }
+
 
 
 

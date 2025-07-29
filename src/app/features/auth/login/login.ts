@@ -63,9 +63,13 @@ export class Login {
         const user = await this.loginS.getUserData();
         // Guardar en localStorage
         localStorage.setItem('user', JSON.stringify(user));
-
-        // Redirigir
-        this.router.navigate(['/dashboard/desprendibles-de-pago']);
+        if (user.rol === 'SIN-ASIGNAR') {
+          this.router.navigate(['/formulario/formulario-vacantes-prueba']);
+        }
+        else {
+          // Redirigir
+          this.router.navigate(['/dashboard/desprendibles-de-pago']);
+        }
         return;
       }
 

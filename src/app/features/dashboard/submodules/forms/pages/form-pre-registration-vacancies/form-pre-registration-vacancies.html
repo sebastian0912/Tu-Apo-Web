@@ -40,7 +40,8 @@
         <!-- Número de documento -->
         <mat-form-field appearance="fill">
           <mat-label>Número de documento</mat-label>
-          <input matInput formControlName="numero_de_documento" placeholder="Ej: 10058478963" maxlength="15" min="0"  type="number">
+          <input matInput formControlName="numero_de_documento" placeholder="Ej: 10058478963" maxlength="15" min="0"
+            type="number">
           <mat-error
             *ngIf="formVacante.get('numeroDocumento')?.hasError('required') && formVacante.get('numeroDocumento')?.touched">
             El número de documento es obligatorio.
@@ -139,7 +140,8 @@
         <!-- Número de WhatsApp -->
         <mat-form-field appearance="fill">
           <mat-label>Número de WhatsApp</mat-label>
-          <input matInput formControlName="numeroWhatsapp" placeholder="Ej: 3175987256" maxlength="10" min="0"  type="number">
+          <input matInput formControlName="numeroWhatsapp" placeholder="Ej: 3175987256" maxlength="10" min="0"
+            type="number">
           <mat-error
             *ngIf="formVacante.get('numeroWhatsapp')?.hasError('required') && formVacante.get('numeroWhatsapp')?.touched">
             El número de WhatsApp es obligatorio.
@@ -189,15 +191,33 @@
           </mat-error>
         </mat-form-field>
 
-        <!-- Correo electrónico -->
+        <!-- Campo correo electrónico (solo usuario) -->
         <mat-form-field appearance="fill">
           <mat-label>Correo electrónico</mat-label>
-          <input matInput formControlName="correo_electronico" placeholder="Ej: ejemplo@gmail.com">
-          <mat-error *ngIf="formVacante.get('correo')?.hasError('required') && formVacante.get('correo')?.touched">
+          <input matInput formControlName="correo_usuario" placeholder="Ej: sebstian088" autocomplete="off"
+            [pattern]="emailUserPattern" maxlength="64">
+          <span matSuffix>&#64;</span> <!-- <-- aquí, para mostrar @ -->
+          <mat-error
+            *ngIf="formVacante.get('correo_usuario')?.hasError('required') && formVacante.get('correo_usuario')?.touched">
             El correo electrónico es obligatorio.
           </mat-error>
-          <mat-error *ngIf="formVacante.get('correo')?.hasError('email') && formVacante.get('correo')?.touched">
-            Ingrese un correo electrónico válido.
+          <mat-error
+            *ngIf="formVacante.get('correo_usuario')?.hasError('pattern') && formVacante.get('correo_usuario')?.touched">
+            Ingrese solo el usuario, sin dominio.
+          </mat-error>
+        </mat-form-field>
+
+        <!-- Dominio (select) -->
+        <mat-form-field appearance="fill" >
+          <mat-label>Dominio</mat-label>
+          <mat-select formControlName="correo_dominio" required>
+            <mat-option *ngFor="let dom of dominiosValidos" [value]="dom">
+              &#64;{{ dom }}
+            </mat-option>
+          </mat-select>
+          <mat-error
+            *ngIf="formVacante.get('correo_dominio')?.hasError('required') && formVacante.get('correo_dominio')?.touched">
+            Seleccione el dominio.
           </mat-error>
         </mat-form-field>
 
