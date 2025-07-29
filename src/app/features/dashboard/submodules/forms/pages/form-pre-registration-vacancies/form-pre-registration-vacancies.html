@@ -40,7 +40,8 @@
         <!-- Número de documento -->
         <mat-form-field appearance="fill">
           <mat-label>Número de documento</mat-label>
-          <input matInput formControlName="numero_de_documento" placeholder="Ej: 10058478963" maxlength="15" min="0"  type="number">
+          <input matInput formControlName="numero_de_documento" placeholder="Ej: 10058478963" maxlength="15" min="0"
+            type="number">
           <mat-error
             *ngIf="formVacante.get('numeroDocumento')?.hasError('required') && formVacante.get('numeroDocumento')?.touched">
             El número de documento es obligatorio.
@@ -58,7 +59,7 @@
         <!-- Primer apellido -->
         <mat-form-field appearance="fill">
           <mat-label>Primer apellido</mat-label>
-          <input matInput formControlName="primerApellido" placeholder="Ej: Pelaez" maxlength="30">
+          <input matInput formControlName="primerApellido" maxlength="30">
           <mat-error
             *ngIf="formVacante.get('primerApellido')?.hasError('required') && formVacante.get('primerApellido')?.touched">
             El primer apellido es obligatorio.
@@ -72,14 +73,14 @@
         <!-- Segundo apellido -->
         <mat-form-field appearance="fill">
           <mat-label>Segundo apellido</mat-label>
-          <input matInput formControlName="segundoApellido" placeholder="Ej: Mendez" maxlength="30">
+          <input matInput formControlName="segundoApellido" maxlength="30">
           <!-- Este campo no es obligatorio, sin error -->
         </mat-form-field>
 
         <!-- Primer nombre -->
         <mat-form-field appearance="fill">
           <mat-label>Primer nombre</mat-label>
-          <input matInput formControlName="primerNombre" placeholder="Ej: Juan" maxlength="30">
+          <input matInput formControlName="primerNombre" maxlength="30">
           <mat-error
             *ngIf="formVacante.get('primerNombre')?.hasError('required') && formVacante.get('primerNombre')?.touched">
             El primer nombre es obligatorio.
@@ -93,7 +94,7 @@
         <!-- Segundo nombre -->
         <mat-form-field appearance="fill">
           <mat-label>Segundo nombre</mat-label>
-          <input matInput formControlName="segundoNombre" placeholder="Ej: Danilo" maxlength="30">
+          <input matInput formControlName="segundoNombre" maxlength="30">
           <!-- No obligatorio -->
         </mat-form-field>
 
@@ -139,7 +140,8 @@
         <!-- Número de WhatsApp -->
         <mat-form-field appearance="fill">
           <mat-label>Número de WhatsApp</mat-label>
-          <input matInput formControlName="numeroWhatsapp" placeholder="Ej: 3175987256" maxlength="10" min="0"  type="number">
+          <input matInput formControlName="numeroWhatsapp" placeholder="Ej: 3175987256" maxlength="10" min="0"
+            type="number">
           <mat-error
             *ngIf="formVacante.get('numeroWhatsapp')?.hasError('required') && formVacante.get('numeroWhatsapp')?.touched">
             El número de WhatsApp es obligatorio.
@@ -152,7 +154,7 @@
 
         <!-- Género -->
         <mat-form-field appearance="fill">
-          <mat-label>Género</mat-label>
+          <mat-label>Sexo</mat-label>
           <mat-select formControlName="genero" required>
             <mat-option *ngFor="let genero of generos" [value]="genero">
               {{ genero }}
@@ -172,6 +174,31 @@
           </mat-select>
           <mat-error
             *ngIf="formVacante.get('experienciaFlores')?.hasError('required') && formVacante.get('experienciaFlores')?.touched">
+            Este campo es obligatorio.
+          </mat-error>
+        </mat-form-field>
+
+        <!-- Selección de tipo de experiencia -->
+        <mat-form-field appearance="fill" *ngIf="formVacante.get('experienciaFlores')?.value === 'Sí'">
+          <mat-label>Tipo de experiencia en flores</mat-label>
+          <mat-select formControlName="tipoExperienciaFlores" required>
+            <mat-option value="CULTIVO">CULTIVO</mat-option>
+            <mat-option value="POSCOSECHA">POSCOSECHA</mat-option>
+            <mat-option value="OTROS">OTROS</mat-option>
+          </mat-select>
+          <mat-error
+            *ngIf="formVacante.get('tipoExperienciaFlores')?.hasError('required') && formVacante.get('tipoExperienciaFlores')?.touched">
+            Este campo es obligatorio.
+          </mat-error>
+        </mat-form-field>
+
+        <!-- Campo para especificar si selecciona OTROS -->
+        <mat-form-field appearance="fill" *ngIf="formVacante.get('tipoExperienciaFlores')?.value === 'OTROS'">
+          <mat-label>¿Cuál?</mat-label>
+          <input matInput formControlName="otroExperiencia" maxlength="64"
+            placeholder="Especifique otro tipo de experiencia">
+          <mat-error
+            *ngIf="formVacante.get('otroExperiencia')?.hasError('required') && formVacante.get('otroExperiencia')?.touched">
             Este campo es obligatorio.
           </mat-error>
         </mat-form-field>

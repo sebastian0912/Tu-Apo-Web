@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { SharedModule } from '../../../../../../shared/shared-module';
 import { FormArray, FormBuilder, FormControl, FormGroup, FormsModule, Validators } from '@angular/forms';
 import { DateAdapter, MAT_DATE_LOCALE, MAT_DATE_FORMATS } from '@angular/material/core';
@@ -34,18 +34,21 @@ export const MY_DATE_FORMATS = {
     { provide: MAT_DATE_LOCALE, useValue: 'es-CO' }, // o 'es'
   ]
 })
-export class FormPreRegistrationVacancies {
+export class FormPreRegistrationVacancies implements OnInit {
   //datosHoja: HojaDeVida = new HojaDeVida();
   formVacante!: FormGroup;
   numeroCedula!: any;
   archivos: any = [];
   mostrarCamposAdicionales: boolean = false; // Controla la visibilidad de los campos adicionales
+  otroExperienciaControl = new FormControl('', [Validators.maxLength(64)]); // Control para el campo "Otro" de experiencia
 
   constructor(
     private fb: FormBuilder,
     private candidateService: CandidateS,
     private authService: LoginS,
   ) {
+
+
     this.formVacante = this.fb.group({
       comoSeEntero: ['', Validators.required],
       tipoDoc: ['', Validators.required],
@@ -106,6 +109,8 @@ export class FormPreRegistrationVacancies {
       ],
       genero: ['', Validators.required],
       experienciaFlores: ['', Validators.required],
+      tipoExperienciaFlores: ['', Validators.required],
+      otroExperiencia: [''],
       oficina: ['', Validators.required],
       brigadaDe: [''],
       correo_electronico: [
@@ -116,7 +121,23 @@ export class FormPreRegistrationVacancies {
         ]
       ]
     });
+
+    this.formVacante.addControl('otroExperiencia', this.otroExperienciaControl);
   }
+
+  ngOnInit(): void {
+    // Si seleccionan OTROS, que el campo sea obligatorio, si no, lo limpia
+    this.formVacante.get('tipoExperienciaFlores')?.valueChanges.subscribe(value => {
+      if (value === 'OTROS') {
+        this.otroExperienciaControl.setValidators([Validators.required, Validators.maxLength(64)]);
+      } else {
+        this.otroExperienciaControl.setValue('');
+        this.otroExperienciaControl.clearValidators();
+      }
+      this.otroExperienciaControl.updateValueAndValidity();
+    });
+  }
+
 
   opcionesPromocion: string[] = [
     "RED SOCIAL (FACEBOOK, INSTAGRAM, TIKTOK)",
@@ -140,9 +161,9 @@ export class FormPreRegistrationVacancies {
   generos: any[] = ['M', 'F'];
 
   oficinas: string[] = [
-    'ANDES', 'BOSA', 'CARTAGENITA', 'FACA_PRIMERA', 'FACA_PRINCIPAL', 'FONTIBÓN',
-    'FORANEOS', 'FUNZA', 'MADRID', 'MONTE_VERDE', 'ROSAL', 'SOACHA', 'SUBA',
-    'TOCANCIPÁ', 'USME', 'ZIPAQUIRÁ', 'BRIGADA'
+    'CARTAGENITA', 'FACA_PRIMERA', 'FACA_PRINCIPAL', 'FONTIBÓN',
+    'FORANEOS', 'FUNZA', 'MADRID', 'ROSAL', 'SOACHA', 'SUBA',
+    'TOCANCIPÁ', 'ZIPAQUIRÁ', 'BRIGADA'
   ];
 
 
@@ -171,17 +192,46 @@ export class FormPreRegistrationVacancies {
     formValue.username = formValue.correo_electronico;
     formValue.password = formValue.numero_de_documento;
 
+    // 🔹 Si seleccionó OTROS y escribió algo, lo pones en tipoExperienciaFlores
+    if (
+      formValue.experienciaFlores === 'Sí' &&
+      formValue.tipoExperienciaFlores === 'OTROS' &&
+      this.otroExperienciaControl.value
+    ) {
+      formValue.tipoExperienciaFlores = this.otroExperienciaControl.value.trim();
+    }
+
     let showWarning = false;
     let warningMsg = '';
 
+    // 1. Guardar info personal primero. Si existe registro reciente, no seguir.
+    try {
+      await firstValueFrom(this.candidateService.guardarInfoPersonal(formValue));
+    } catch (error: any) {
+      const errDetail = error?.error?.detail;
+      if (typeof errDetail === 'string' && errDetail.includes('Ya existe un registro para este número en la última media hora')) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Registro reciente',
+          text: 'Ya registraste tus datos el dia de hoy. Intenta mañana.',
+        });
+        return;
+      }
+      // Otro error desconocido
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: errDetail || 'No se pudo guardar la información personal.',
+      });
+      return;
+    }
+
+    // 2. Si la info personal fue guardada, intentamos el registro de usuario
     try {
       const response = await this.authService.register(formValue);
       console.log('Registro exitoso:', response);
       if (response) {
-
-        console.log('Form Value:', formValue);
         await firstValueFrom(this.candidateService.crearActualizarCandidato(formValue));
-        await firstValueFrom(this.candidateService.guardarInfoPersonal(formValue));
         Swal.fire({
           icon: 'success',
           title: 'Registro Exitoso',
@@ -192,7 +242,7 @@ export class FormPreRegistrationVacancies {
     } catch (error: any) {
       const errors = error?.error || {};
 
-      // --------- NUEVO: Procesar arrays y los textos reales ---------
+      // Procesar arrays y los textos reales
       const emailExists =
         Array.isArray(errors.correo_electronico) &&
         errors.correo_electronico.some((msg: string) =>
@@ -230,11 +280,9 @@ export class FormPreRegistrationVacancies {
         return;
       }
     }
-    console.log('Form Value:', formValue);
 
-    // Si llegas aquí, es warning, así que guarda la info igual
+    // Si llegas aquí, es warning, así que guarda el candidato igual
     await firstValueFrom(this.candidateService.crearActualizarCandidato(formValue));
-    await firstValueFrom(this.candidateService.guardarInfoPersonal(formValue));
 
     if (showWarning) {
       Swal.fire({
@@ -250,6 +298,7 @@ export class FormPreRegistrationVacancies {
       });
     }
   }
+
 
 
 
