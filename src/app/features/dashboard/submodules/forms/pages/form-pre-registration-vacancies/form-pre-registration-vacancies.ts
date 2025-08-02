@@ -119,7 +119,7 @@ export class FormPreRegistrationVacancies implements OnInit {
       ],
       genero: ['', Validators.required],
       experienciaFlores: ['', Validators.required],
-      tipoExperienciaFlores: ['', Validators.required],
+      tipoExperienciaFlores: [''],
       otroExperiencia: [''],
       oficina: ['', Validators.required],
       brigadaDe: [''],
