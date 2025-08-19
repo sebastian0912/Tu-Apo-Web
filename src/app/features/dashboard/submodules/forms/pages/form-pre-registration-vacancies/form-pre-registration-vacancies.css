@@ -292,3 +292,33 @@ mat-form-field {
     margin-top: -5px;
   }
 }
+
+
+.cards-stack {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 12px;
+  padding: 10pt;
+}
+.card {
+  padding: 12px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 6px rgba(0,0,0,.06);
+}
+.card-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+}
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0 8px;
+}
+.section-header .spacer,
+.card-title .spacer {
+  flex: 1 1 auto;
+}
