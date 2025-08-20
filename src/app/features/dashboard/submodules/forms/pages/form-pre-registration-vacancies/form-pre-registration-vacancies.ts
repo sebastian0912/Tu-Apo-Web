@@ -5,8 +5,11 @@ import { DateAdapter, MAT_DATE_LOCALE, MAT_DATE_FORMATS } from '@angular/materia
 import { MomentDateAdapter } from '@angular/material-moment-adapter';
 import Swal from 'sweetalert2';
 import { CandidateS } from '../../../../../../shared/services/candidate-s/candidate-s';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, map, Observable, startWith } from 'rxjs';
 import { LoginS } from '../../../../../auth/service/login-s';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
+import { HttpClient } from '@angular/common/http';
 
 export const MY_DATE_FORMATS = {
   parse: {
@@ -24,7 +27,9 @@ export const MY_DATE_FORMATS = {
   selector: 'app-form-pre-registration-vacancies',
   imports: [
     SharedModule,
-    FormsModule
+    FormsModule,
+    MatDividerModule,
+    MatAutocompleteModule
   ],
   templateUrl: './form-pre-registration-vacancies.html',
   styleUrl: './form-pre-registration-vacancies.css',
@@ -42,6 +47,9 @@ export class FormPreRegistrationVacancies implements OnInit {
   mostrarCamposAdicionales: boolean = false; // Controla la visibilidad de los campos adicionales
   otroExperienciaControl = new FormControl('', [Validators.maxLength(64)]); // Control para el campo "Otro" de experiencia
   emailUserPattern = '^[^@\\s]+$'; // No admite @ ni espacios
+  allCities: string[] = [];
+  filteredCities$!: Observable<string[]>;
+  filteredCitiesNacimiento$!: Observable<string[]>;
 
   dominiosValidos: string[] = [
     'GMAIL.COM', 'HOTMAIL.COM', 'YAHOO.COM', 'ICLOUD.COM', 'OUTLOOK.COM',
@@ -53,8 +61,45 @@ export class FormPreRegistrationVacancies implements OnInit {
   ];
 
   escolaridades = [
-    'Preescolar', 'Primaria', 'Secundaria', 'Media', 'Técnica', 'Tecnológica', 'Universitaria'
+    {
+      esco: 'EDUCACIÓN BÁSICA PRIMARIA',
+      descripcion: 'EDUCACIÓN BÁSICA PRIMARIA - 1 A 5 GRADO',
+    },
+    {
+      esco: 'EDUCACIÓN BÁSICA SECUNDARIA',
+      descripcion: 'EDUCACIÓN BÁSICA SECUNDARIA - 6 A 9 GRADO',
+    },
+    {
+      esco: 'EDUCACIÓN MEDIA ACADÉMICA',
+      descripcion: 'EDUCACIÓN MEDIA ACADÉMICA - 10 A 11 GRADO',
+    }
   ];
+
+  //  Lista estado civil
+  estadosCiviles: any[] = [
+    {
+      codigo: 'SO',
+      descripcion: 'SO (Soltero)',
+    },
+    {
+      codigo: 'UL',
+      descripcion: 'UL (Unión Libre) ',
+    },
+    {
+      codigo: 'CA',
+      descripcion: 'CA (Casado)',
+    },
+    {
+      codigo: 'SE',
+      descripcion: 'SE (Separado)',
+    },
+    {
+      codigo: 'VI',
+      descripcion: 'VI (Viudo)',
+    },
+  ];
+
+
 
 
   // Arreglo para el tipo de cedula
@@ -92,11 +137,10 @@ export class FormPreRegistrationVacancies implements OnInit {
 
   constructor(
     private fb: FormBuilder,
+    private http: HttpClient,
     private candidateService: CandidateS,
     private authService: LoginS,
   ) {
-
-
     this.formVacante = this.fb.group({
       tipoDoc: ['', Validators.required],
       numero_de_documento: [
@@ -180,6 +224,8 @@ export class FormPreRegistrationVacancies implements OnInit {
       hijos: this.fb.array([]),                   // arreglo dinámico
       tiempoResidencia: ['', Validators.required],
       proyeccion1Ano: ['', Validators.required],
+      escolaridad: [null, Validators.required],
+      estudiaActualmente: [null, Validators.required],
       // --- Experiencias laborales (arreglo dinámico)
       experiencias: this.fb.array([]),
     });
@@ -214,6 +260,10 @@ export class FormPreRegistrationVacancies implements OnInit {
   }
 
   ngOnInit(): void {
+    this.loadCities();
+    this.setupAutocomplete();
+    this.setupAutocompleteNacimiento();
+
     // Tipo experiencia cambia
     this.formVacante.get('tipoExperienciaFlores')?.valueChanges.subscribe(value => {
       if (value === 'OTROS') {
@@ -241,7 +291,67 @@ export class FormPreRegistrationVacancies implements OnInit {
     });
   }
 
+  get municipioCtrl() {
+    return this.formVacante.get('municipioExpedicion')!;
+  }
 
+  get lugarNacimientoCtrl() {
+    return this.formVacante.get('lugarNacimiento')!;
+  }
+
+
+  private loadCities(): void {
+    // ⚠️ Ruta pública. Si aún no sirve /files/utils, mira nota al final.
+    this.http
+      .get<Array<{ id: number; departamento: string; ciudades: string[] }>>('files/utils/colombia.json')
+      .pipe(
+        map(list => {
+          const set = new Set<string>();
+          list.forEach(d => d.ciudades?.forEach(c => set.add(c)));
+          // Orden alfabético en español, ignorando tildes/mayúsculas
+          return Array.from(set).sort((a, b) =>
+            a.localeCompare(b, 'es', { sensitivity: 'base' })
+          );
+        })
+      )
+      .subscribe(ciudades => this.allCities = ciudades);
+  }
+
+  private setupAutocomplete(): void {
+    this.filteredCities$ = this.municipioCtrl.valueChanges.pipe(
+      startWith(this.municipioCtrl.value || ''),
+      map(value => this.filterCities(String(value ?? '')))
+    );
+  }
+
+  // Búsqueda insensitive a tildes y mayúsculas
+  private filterCities(value: string): string[] {
+    const norm = (s: string) =>
+      s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+
+    const q = norm(value);
+    if (!q) return this.allCities.slice(0, 50);
+
+    return this.allCities
+      .filter(c => norm(c).includes(q))
+      .slice(0, 50); // limita resultados
+  }
+
+  onMunicipioSelected(event: MatAutocompleteSelectedEvent): void {
+    this.municipioCtrl.setValue(event.option.value);
+  }
+
+
+  private setupAutocompleteNacimiento(): void {
+    this.filteredCitiesNacimiento$ = this.lugarNacimientoCtrl.valueChanges.pipe(
+      startWith(this.lugarNacimientoCtrl.value || ''),
+      map(value => this.filterCities(String(value ?? '')))
+    );
+  }
+
+  onLugarNacimientoSelected(event: MatAutocompleteSelectedEvent): void {
+    this.lugarNacimientoCtrl.setValue(event.option.value);
+  }
 
   // ------- Hijos
   get hijosFA(): FormArray {
@@ -251,8 +361,6 @@ export class FormPreRegistrationVacancies implements OnInit {
   private buildHijoGroup(): FormGroup {
     return this.fb.group({
       edad: [null, [Validators.required, Validators.min(0), Validators.max(99)]],
-      escolaridad: [null, Validators.required],
-      estudiaActualmente: [null, Validators.required] // true/false
     });
   }
 
@@ -272,9 +380,9 @@ export class FormPreRegistrationVacancies implements OnInit {
   addExperiencia(): void {
     this.experienciasFA.push(this.fb.group({
       empresa: ['', [Validators.required, Validators.maxLength(120)]],
-      laboresRealizadas: ['', [Validators.required, Validators.maxLength(800)]],
-      tiempoEnEmpresa: ['', [Validators.required, Validators.maxLength(80)]],  // p.ej. "8 meses", "2 años"
-      laboresPrincipales: ['', [Validators.required, Validators.maxLength(800)]],
+      labores: ['', [Validators.required, Validators.maxLength(800)]],
+      tiempo: ['', [Validators.required, Validators.maxLength(80)]],  // p.ej. "8 meses", "2 años"
+      labores_principales: ['', [Validators.required, Validators.maxLength(800)]],
     }));
   }
 
@@ -293,6 +401,8 @@ export class FormPreRegistrationVacancies implements OnInit {
 
     if (this.formVacante.invalid) {
       this.formVacante.markAllAsTouched();
+      Swal.fire('Error', 'Por favor complete todos los campos requeridos.', 'error');
+
       return;
     }
 
