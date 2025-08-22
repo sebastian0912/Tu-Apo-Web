@@ -2077,6 +2077,7 @@ export class FormVacancies {
     'UN MES',
     'MÁS DE 2 MESES',
     'MÁS DE 6 MESES',
+    'TODA LA VIDA'
   ];
 
   //  Lista estado civil

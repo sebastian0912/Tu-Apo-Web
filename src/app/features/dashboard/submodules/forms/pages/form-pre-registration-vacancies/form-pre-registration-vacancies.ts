@@ -99,8 +99,25 @@ export class FormPreRegistrationVacancies implements OnInit {
     },
   ];
 
+  haceCuantoViveEnlaZona: any[] = [
+    'MENOS DE UN MES',
+    'UN MES',
+    'MÁS DE 2 MESES',
+    'MÁS DE 6 MESES',
+  ];
+  meses = Array.from({ length: 11 }, (_, i) => i + 1);  // 1..11
+  anios = Array.from({ length: 80 }, (_, i) => i + 1);  // 1..80
 
-
+  get tiempoResidenciaParsed() {
+    const v = this.formVacante.value.tiempoResidencia as string | null;
+    if (!v) return null;
+    if (v === 'LIFETIME') return { unit: 'LIFETIME', quantity: null, label: 'Toda la vida' };
+    const [u, q] = v.split(':');
+    const n = Number(q);
+    if (u === 'M') return { unit: 'MONTH', quantity: n, label: `${n} ${n === 1 ? 'mes' : 'meses'}` };
+    if (u === 'Y') return { unit: 'YEAR', quantity: n, label: `${n} ${n === 1 ? 'año' : 'años'}` };
+    return null;
+  }
 
   // Arreglo para el tipo de cedula
   tipoDocs: any[] = [

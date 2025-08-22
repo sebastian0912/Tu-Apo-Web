@@ -230,6 +230,7 @@
           <mat-select formControlName="tipoExperienciaFlores" required>
             <mat-option value="CULTIVO">CULTIVO</mat-option>
             <mat-option value="POSCOSECHA">POSCOSECHA</mat-option>
+            <mat-option value="AMBAS">AMBAS</mat-option>
             <mat-option value="OTROS">OTROS</mat-option>
           </mat-select>
           <mat-error
@@ -273,19 +274,32 @@
         </mat-form-field>
 
         <!--Hace cuento vive en la zona-->
-        <mat-form-field appearance="fill">
+        <!-- ¿Hace cuánto vive en la zona? -->
+        <mat-form-field appearance="outline" class="w-full">
           <mat-label>¿Hace cuánto vive en la zona?</mat-label>
           <mat-select formControlName="tiempoResidencia" required>
-            <mat-option value="MENOS_DE_UN_AÑO">Menos de un año</mat-option>
-            <mat-option value="UNO_A_DOS_ANIOS">De uno a dos años</mat-option>
-            <mat-option value="DOS_A_CINCO_ANIOS">De dos a cinco años</mat-option>
-            <mat-option value="MAS_DE_CINCO_ANIOS">Más de cinco años</mat-option>
+            <mat-option [value]="'LIFETIME'">Toda la vida</mat-option>
+
+            <mat-optgroup label="Meses">
+              <mat-option *ngFor="let m of meses" [value]="'M:' + m">
+                {{ m }} {{ m === 1 ? 'mes' : 'meses' }}
+              </mat-option>
+            </mat-optgroup>
+
+            <mat-optgroup label="Años">
+              <mat-option *ngFor="let y of anios" [value]="'Y:' + y">
+                {{ y }} {{ y === 1 ? 'año' : 'años' }}
+              </mat-option>
+            </mat-optgroup>
           </mat-select>
-          <mat-error
-            *ngIf="formVacante.get('tiempoResidencia')?.hasError('required') && formVacante.get('tiempoResidencia')?.touched">
+
+          <mat-hint>Ej.: 6 meses, 3 años o “Toda la vida”.</mat-hint>
+
+          <mat-error *ngIf="formVacante.get('tiempoResidencia')?.hasError('required')">
             Este campo es obligatorio.
           </mat-error>
         </mat-form-field>
+
 
         <!-- ==== HIJOS ==== -->
         <section class="section">
