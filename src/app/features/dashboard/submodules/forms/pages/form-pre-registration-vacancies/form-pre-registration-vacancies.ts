@@ -10,6 +10,7 @@ import { LoginS } from '../../../../../auth/service/login-s';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
 import { HttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
 
 export const MY_DATE_FORMATS = {
   parse: {
@@ -50,6 +51,7 @@ export class FormPreRegistrationVacancies implements OnInit {
   allCities: string[] = [];
   filteredCities$!: Observable<string[]>;
   filteredCitiesNacimiento$!: Observable<string[]>;
+  readonly SEED_EXP_COUNT = 3;
 
   dominiosValidos: string[] = [
     'GMAIL.COM', 'HOTMAIL.COM', 'YAHOO.COM', 'ICLOUD.COM', 'OUTLOOK.COM',
@@ -63,16 +65,28 @@ export class FormPreRegistrationVacancies implements OnInit {
   escolaridades = [
     {
       esco: 'EDUCACIÓN BÁSICA PRIMARIA',
-      descripcion: 'EDUCACIÓN BÁSICA PRIMARIA - 1 A 5 GRADO',
+      descripcion: 'Educación básica primaria — Grados 1 a 5',
     },
     {
       esco: 'EDUCACIÓN BÁSICA SECUNDARIA',
-      descripcion: 'EDUCACIÓN BÁSICA SECUNDARIA - 6 A 9 GRADO',
+      descripcion: 'Educación básica secundaria — Grados 6 a 9',
     },
     {
       esco: 'EDUCACIÓN MEDIA ACADÉMICA',
-      descripcion: 'EDUCACIÓN MEDIA ACADÉMICA - 10 A 11 GRADO',
-    }
+      descripcion: 'Educación media académica — Grados 10 y 11',
+    },
+    {
+      esco: 'EDUCACIÓN TÉCNICA',
+      descripcion: 'Educación técnica — Formación técnica laboral',
+    },
+    {
+      esco: 'EDUCACIÓN TECNOLÓGICA',
+      descripcion: 'Educación tecnológica — Nivel tecnológico',
+    },
+    {
+      esco: 'EDUCACIÓN PROFESIONAL',
+      descripcion: 'Educación profesional — Pregrado universitario',
+    },
   ];
 
   //  Lista estado civil
@@ -157,6 +171,7 @@ export class FormPreRegistrationVacancies implements OnInit {
     private http: HttpClient,
     private candidateService: CandidateS,
     private authService: LoginS,
+    private router: Router
   ) {
     this.formVacante = this.fb.group({
       tipoDoc: ['', Validators.required],
@@ -245,6 +260,7 @@ export class FormPreRegistrationVacancies implements OnInit {
       estudiaActualmente: [null, Validators.required],
       // --- Experiencias laborales (arreglo dinámico)
       experiencias: this.fb.array([]),
+      empresaDondeTrabajo: ['']
     });
 
 
@@ -280,6 +296,8 @@ export class FormPreRegistrationVacancies implements OnInit {
     this.loadCities();
     this.setupAutocomplete();
     this.setupAutocompleteNacimiento();
+    // Crea 3 tarjetas opcionales por defecto
+    this.seedExperiencias();
 
     // Tipo experiencia cambia
     this.formVacante.get('tipoExperienciaFlores')?.valueChanges.subscribe(value => {
@@ -395,18 +413,13 @@ export class FormPreRegistrationVacancies implements OnInit {
   }
 
   addExperiencia(): void {
-    this.experienciasFA.push(this.fb.group({
-      empresa: ['', [Validators.required, Validators.maxLength(120)]],
-      labores: ['', [Validators.required, Validators.maxLength(800)]],
-      tiempo: ['', [Validators.required, Validators.maxLength(80)]],  // p.ej. "8 meses", "2 años"
-      labores_principales: ['', [Validators.required, Validators.maxLength(800)]],
-    }));
+    this.experienciasFA.push(this.buildExperienciaGroup(true)); // <-- estas sí con required
   }
 
   removeExperiencia(i: number): void {
+    if (i < this.SEED_EXP_COUNT) return; // No permite borrar las 3 primeras
     this.experienciasFA.removeAt(i);
   }
-
 
   // En tu componente:
   // En tu componente
@@ -419,7 +432,11 @@ export class FormPreRegistrationVacancies implements OnInit {
     if (this.formVacante.invalid) {
       this.formVacante.markAllAsTouched();
       Swal.fire('Error', 'Por favor complete todos los campos requeridos.', 'error');
-
+      // que campos estan incompletos
+      const errores = Object.keys(this.formVacante.controls)
+        .filter(key => this.formVacante.get(key)?.invalid)
+        .map(key => `- ${key}`).join('\n');
+      Swal.fire('Campos incompletos', errores, 'warning');
       return;
     }
 
@@ -480,28 +497,59 @@ export class FormPreRegistrationVacancies implements OnInit {
 
       // -------------------------------------------------
       // 7) Guardar info personal primero (puede responder 409)
+      //    → Mostrar info de turnos: pendientes_delante / mi_posicion
       // -------------------------------------------------
       try {
-        await firstValueFrom(this.candidateService.guardarInfoPersonal(formValue));
+        const resp: any = await firstValueFrom(this.candidateService.guardarInfoPersonal(formValue));
+        // Éxito (201): el backend devuelve { registro, turnos }
+        const t = resp?.turnos;
+        if (t) {
+          await Swal.fire({
+            icon: 'info',
+            title: `Tu turno en ${t.oficina || formValue.oficina}`,
+            html: `
+            <div style="text-align:left">
+              <div><b>Fecha:</b> ${t.fecha ?? '—'}</div>
+              <div><b>Pendientes hoy:</b> ${t.pendientes_hoy ?? '—'}</div>
+              <div><b>Pendientes delante de ti:</b> <b>${t.pendientes_delante ?? 0}</b></div>
+              <div><b>Tu posición:</b> <b>${t.mi_posicion ?? 1}</b></div>
+            </div>
+          `,
+            confirmButtonText: 'Entendido'
+          });
+        }
       } catch (error: any) {
         const status = error?.status;
-        const errDetail = error?.error?.detail;
+        const payload = error?.error;
 
         if (status === 409) {
+          // Conflicto (registro reciente): backend también devuelve { registro, turnos }
+          const t = payload?.turnos;
           const numero = formValue?.numero_de_documento;
           const oficina = formValue?.oficina;
+
           await Swal.fire({
             icon: 'warning',
             title: 'Registro reciente',
-            text: errDetail || `Ya existe un registro reciente para la cédula ${numero} en ${oficina}. Por favor espere su turno.`,
+            html: t ? `
+            <div style="text-align:left">
+              <div>Ya existe un registro reciente para la cédula <b>${numero}</b> en <b>${t.oficina || oficina}</b>.</div>
+              <hr/>
+              <div><b>Fecha:</b> ${t.fecha ?? '—'}</div>
+              <div><b>Pendientes hoy:</b> ${t.pendientes_hoy ?? '—'}</div>
+              <div><b>Pendientes delante de ti:</b> <b>${t.pendientes_delante ?? 0}</b></div>
+              <div><b>Tu posición:</b> <b>${t.mi_posicion ?? 1}</b></div>
+            </div>
+          ` : (payload?.detail || `Ya existe un registro reciente para la cédula ${numero} en ${oficina}.`),
+            confirmButtonText: 'Entendido'
           });
-          return;
+          return; // 🔴 No seguimos con registro/candidato si ya hay turno reciente
         }
 
         await Swal.fire({
           icon: 'error',
           title: 'Error',
-          text: errDetail || 'No se pudo guardar la información personal.',
+          text: payload?.detail || 'No se pudo guardar la información personal.',
         });
         return;
       }
@@ -535,11 +583,14 @@ export class FormPreRegistrationVacancies implements OnInit {
         text: 'Tu información ha sido guardada correctamente.',
       });
 
-      this.formVacante.reset();
+      this.router.navigateByUrl('/formulario', { skipLocationChange: true }).then(() => {
+        this.router.navigate(["/formulario/formulario-pre-registro-vacantes"]);
+      });
     } finally {
       this.isSubmitting = false;
     }
   }
+
 
 
 
@@ -559,16 +610,25 @@ export class FormPreRegistrationVacancies implements OnInit {
     if (errors.numero_de_documento) {
       errorMessages.push('Ya existe un usuario con este número de documento.');
     }
-
-    // Ignorar el error del username
-    // Puedes agregar más campos según tus necesidades
-
-    // Unir todos los mensajes de error en una sola cadena
     return errorMessages.join('\n');
   }
 
+  // Construye un group de experiencia; si required=false no pone Validators.required
+  private buildExperienciaGroup(required = true): FormGroup {
+    return this.fb.group({
+      empresa: ['', required ? [Validators.required, Validators.maxLength(120)] : [Validators.maxLength(120)]],
+      labores: ['', required ? [Validators.required, Validators.maxLength(800)] : [Validators.maxLength(800)]],
+      tiempo: ['', required ? [Validators.required, Validators.maxLength(80)] : [Validators.maxLength(80)]],
+      labores_principales: ['', required ? [Validators.required, Validators.maxLength(800)] : [Validators.maxLength(800)]],
+    });
+  }
 
-
+  private seedExperiencias(n = this.SEED_EXP_COUNT): void {
+    const fa = this.experienciasFA;
+    while (fa.length < n) {
+      fa.push(this.buildExperienciaGroup(false)); // <-- OPCIONALES (sin required)
+    }
+  }
 
 
 }

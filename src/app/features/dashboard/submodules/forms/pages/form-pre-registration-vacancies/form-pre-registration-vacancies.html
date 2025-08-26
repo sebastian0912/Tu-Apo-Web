@@ -13,7 +13,7 @@
       <div class="datos">
 
         <!-- Tipo de documento -->
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="outline">
           <mat-label>Tipo de documento</mat-label>
           <mat-select formControlName="tipoDoc" required>
             <mat-option *ngFor="let tipoDoc of tipoDocs" [value]="tipoDoc.abbreviation">
@@ -26,7 +26,7 @@
         </mat-form-field>
 
         <!-- Número de documento -->
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="outline">
           <mat-label>Número de documento</mat-label>
           <input matInput formControlName="numero_de_documento" placeholder="Ej: 10058478963" maxlength="15" min="0"
             type="number">
@@ -45,7 +45,7 @@
         </mat-form-field>
 
         <!-- Primer apellido -->
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="outline">
           <mat-label>Primer apellido</mat-label>
           <input matInput formControlName="primerApellido" maxlength="30">
           <mat-error
@@ -59,14 +59,14 @@
         </mat-form-field>
 
         <!-- Segundo apellido -->
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="outline">
           <mat-label>Segundo apellido</mat-label>
           <input matInput formControlName="segundoApellido" maxlength="30">
           <!-- Este campo no es obligatorio, sin error -->
         </mat-form-field>
 
         <!-- Primer nombre -->
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="outline">
           <mat-label>Primer nombre</mat-label>
           <input matInput formControlName="primerNombre" maxlength="30">
           <mat-error
@@ -80,14 +80,14 @@
         </mat-form-field>
 
         <!-- Segundo nombre -->
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="outline">
           <mat-label>Segundo nombre</mat-label>
           <input matInput formControlName="segundoNombre" maxlength="30">
           <!-- No obligatorio -->
         </mat-form-field>
 
         <!-- Fecha de nacimiento -->
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="outline">
           <mat-label>Fecha de nacimiento</mat-label>
           <input matInput [matDatepicker]="pickerNacimiento" formControlName="fechaNacimiento"
             (focus)="pickerNacimiento.open()" readonly>
@@ -101,7 +101,7 @@
 
         <!--Lugar de nacimiento-->
         <!-- Lugar de nacimiento (con autocompletado) -->
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="outline">
           <mat-label>Lugar de nacimiento</mat-label>
 
           <input matInput type="text" formControlName="lugarNacimiento" [matAutocomplete]="autoNacimiento"
@@ -122,7 +122,7 @@
 
 
         <!-- Fecha de expedición -->
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="outline">
           <mat-label>Fecha de expedición</mat-label>
           <input matInput [matDatepicker]="pickerExpedicion" formControlName="fechaExpedicion"
             (focus)="pickerExpedicion.open()" readonly>
@@ -136,7 +136,7 @@
 
         <!--municipio expedicion-->
         <!-- Municipio de expedición (con autocompletado) -->
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="outline">
           <mat-label>Municipio de expedición</mat-label>
 
           <input matInput type="text" formControlName="municipioExpedicion" [matAutocomplete]="autoMunicipio"
@@ -157,7 +157,7 @@
 
 
         <!-- Barrio -->
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="outline">
           <mat-label>Barrio</mat-label>
           <input matInput formControlName="barrio" placeholder="Ejemplo: Barrio la paz" maxlength="40">
           <mat-error *ngIf="formVacante.get('barrio')?.hasError('required') && formVacante.get('barrio')?.touched">
@@ -169,7 +169,7 @@
         </mat-form-field>
 
         <!--celular-->
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="outline">
           <mat-label>Número de celular</mat-label>
           <input matInput formControlName="numeroCelular" placeholder="Ej: 3175987256" maxlength="10" min="0"
             type="number">
@@ -184,7 +184,7 @@
         </mat-form-field>
 
         <!-- Número de WhatsApp -->
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="outline">
           <mat-label>Número de WhatsApp</mat-label>
           <input matInput formControlName="numeroWhatsapp" placeholder="Ej: 3175987256" maxlength="10" min="0"
             type="number">
@@ -199,7 +199,7 @@
         </mat-form-field>
 
         <!-- Género -->
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="outline">
           <mat-label>Sexo</mat-label>
           <mat-select formControlName="genero" required>
             <mat-option *ngFor="let genero of generos" [value]="genero">
@@ -211,47 +211,9 @@
           </mat-error>
         </mat-form-field>
 
-        <!-- ¿Cuenta con experiencia en flores? -->
-        <mat-form-field appearance="fill">
-          <mat-label>¿Cuenta con experiencia en flores?</mat-label>
-          <mat-select formControlName="experienciaFlores" required>
-            <mat-option value="Sí">Sí</mat-option>
-            <mat-option value="No">No</mat-option>
-          </mat-select>
-          <mat-error
-            *ngIf="formVacante.get('experienciaFlores')?.hasError('required') && formVacante.get('experienciaFlores')?.touched">
-            Este campo es obligatorio.
-          </mat-error>
-        </mat-form-field>
-
-        <!-- Selección de tipo de experiencia -->
-        <mat-form-field appearance="fill" *ngIf="formVacante.get('experienciaFlores')?.value === 'Sí'">
-          <mat-label>Tipo de experiencia en flores</mat-label>
-          <mat-select formControlName="tipoExperienciaFlores" required>
-            <mat-option value="CULTIVO">CULTIVO</mat-option>
-            <mat-option value="POSCOSECHA">POSCOSECHA</mat-option>
-            <mat-option value="AMBAS">AMBAS</mat-option>
-            <mat-option value="OTROS">OTROS</mat-option>
-          </mat-select>
-          <mat-error
-            *ngIf="formVacante.get('tipoExperienciaFlores')?.hasError('required') && formVacante.get('tipoExperienciaFlores')?.touched">
-            Este campo es obligatorio.
-          </mat-error>
-        </mat-form-field>
-
-        <!-- Campo para especificar si selecciona OTROS -->
-        <mat-form-field appearance="fill" *ngIf="formVacante.get('tipoExperienciaFlores')?.value === 'OTROS'">
-          <mat-label>¿Cuál?</mat-label>
-          <input matInput formControlName="otroExperiencia" maxlength="64"
-            placeholder="Especifique otro tipo de experiencia">
-          <mat-error
-            *ngIf="formVacante.get('otroExperiencia')?.hasError('required') && formVacante.get('otroExperiencia')?.touched">
-            Este campo es obligatorio.
-          </mat-error>
-        </mat-form-field>
 
         <!--Estado civil-->
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="outline">
           <mat-label>Estado civil</mat-label>
           <mat-select formControlName="estadoCivil" required>
             <mat-option *ngFor="let estado of estadosCiviles" [value]="estado.codigo">
@@ -264,7 +226,7 @@
           </mat-error>
         </mat-form-field>
 
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="outline">
           <mat-label>¿Con quién vive?</mat-label>
           <mat-select formControlName="conQuienViveChecks" multiple>
             <mat-option *ngFor="let opcion of listaPosiblesRespuestasConquienVive" [value]="opcion">
@@ -300,6 +262,125 @@
           </mat-error>
         </mat-form-field>
 
+        <!-- ¿Cuenta con experiencia en flores? -->
+        <mat-form-field appearance="outline">
+          <mat-label>¿Cuenta con experiencia en flores?</mat-label>
+          <mat-select formControlName="experienciaFlores" required>
+            <mat-option value="Sí">Sí</mat-option>
+            <mat-option value="No">No</mat-option>
+          </mat-select>
+          <mat-error
+            *ngIf="formVacante.get('experienciaFlores')?.hasError('required') && formVacante.get('experienciaFlores')?.touched">
+            Este campo es obligatorio.
+          </mat-error>
+        </mat-form-field>
+
+        <!-- Selección de tipo de experiencia -->
+        <mat-form-field appearance="outline" *ngIf="formVacante.get('experienciaFlores')?.value === 'Sí'">
+          <mat-label>Tipo de experiencia en flores</mat-label>
+          <mat-select formControlName="tipoExperienciaFlores" required>
+            <mat-option value="CULTIVO">CULTIVO</mat-option>
+            <mat-option value="POSCOSECHA">POSCOSECHA</mat-option>
+            <mat-option value="AMBAS">AMBAS</mat-option>
+            <mat-option value="OTROS">OTROS</mat-option>
+          </mat-select>
+          <mat-error
+            *ngIf="formVacante.get('tipoExperienciaFlores')?.hasError('required') && formVacante.get('tipoExperienciaFlores')?.touched">
+            Este campo es obligatorio.
+          </mat-error>
+        </mat-form-field>
+
+        <!-- Campo para especificar si selecciona OTROS -->
+        <mat-form-field appearance="outline" *ngIf="formVacante.get('tipoExperienciaFlores')?.value === 'OTROS'">
+          <mat-label>¿Cuál?</mat-label>
+          <input matInput formControlName="otroExperiencia" maxlength="64"
+            placeholder="Especifique otro tipo de experiencia">
+          <mat-error
+            *ngIf="formVacante.get('otroExperiencia')?.hasError('required') && formVacante.get('otroExperiencia')?.touched">
+            Este campo es obligatorio.
+          </mat-error>
+        </mat-form-field>
+
+        <!--empresaDondeTrabajo-->
+        <mat-form-field appearance="outline" *ngIf="formVacante.get('experienciaFlores')?.value === 'Sí'">
+          <mat-label>Empresa donde trabajo</mat-label>
+          <input matInput formControlName="empresaDondeTrabajo" placeholder="Ej: Floristería XYZ">
+          <mat-error
+            *ngIf="formVacante.get('empresaDondeTrabajo')?.hasError('required') && formVacante.get('empresaDondeTrabajo')?.touched">
+            Este campo es obligatorio.
+          </mat-error>
+        </mat-form-field>
+
+        <!--Como se proyecta en 1 año-->
+        <mat-form-field appearance="outline">
+          <mat-label>¿Cómo se proyecta en 1 año?</mat-label>
+          <input matInput rows="3" formControlName="proyeccion1Ano">
+          <mat-error
+            *ngIf="formVacante.get('proyeccion1Ano')?.invalid && formVacante.get('proyeccion1Ano')?.touched">Requerido</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Escolaridad</mat-label>
+          <mat-select formControlName="escolaridad" required>
+            <mat-option *ngFor="let e of escolaridades" [value]="e.esco">{{ e.descripcion }}</mat-option>
+          </mat-select>
+          <!--requerido-->
+          <mat-error
+            *ngIf="formVacante.get('escolaridad')?.hasError('required') && formVacante.get('escolaridad')?.touched">Requerido</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>¿Estudia actualmente?</mat-label>
+          <mat-select formControlName="estudiaActualmente" required>
+            <mat-option [value]="true">Sí</mat-option>
+            <mat-option [value]="false">No</mat-option>
+          </mat-select>
+          <mat-error
+            *ngIf="formVacante.get('estudiaActualmente')?.hasError('required') && formVacante.get('estudiaActualmente')?.touched">Requerido</mat-error>
+        </mat-form-field>
+
+        <!-- Seleccione una oficina -->
+        <mat-form-field appearance="outline">
+          <mat-label>Seleccione una oficina</mat-label>
+          <mat-select formControlName="oficina" required>
+            <mat-option *ngFor="let oficina of oficinas" [value]="oficina">
+              {{ oficina }}
+            </mat-option>
+          </mat-select>
+          <mat-error *ngIf="formVacante.get('oficina')?.hasError('required') && formVacante.get('oficina')?.touched">
+            Seleccione una oficina.
+          </mat-error>
+        </mat-form-field>
+
+        <!-- Campo correo electrónico (solo usuario) -->
+        <mat-form-field appearance="outline">
+          <mat-label>Correo electrónico</mat-label>
+          <input matInput formControlName="correo_usuario" placeholder="Ej: sebstian088" autocomplete="off"
+            [pattern]="emailUserPattern" maxlength="64">
+          <span matSuffix>&#64;</span> <!-- <-- aquí, para mostrar @ -->
+          <mat-error
+            *ngIf="formVacante.get('correo_usuario')?.hasError('required') && formVacante.get('correo_usuario')?.touched">
+            El correo electrónico es obligatorio.
+          </mat-error>
+          <mat-error
+            *ngIf="formVacante.get('correo_usuario')?.hasError('pattern') && formVacante.get('correo_usuario')?.touched">
+            Ingrese solo el usuario, sin dominio.
+          </mat-error>
+        </mat-form-field>
+
+        <!-- Dominio (select) -->
+        <mat-form-field appearance="outline">
+          <mat-label>Dominio</mat-label>
+          <mat-select formControlName="correo_dominio" required>
+            <mat-option *ngFor="let dom of dominiosValidos" [value]="dom">
+              &#64;{{ dom }}
+            </mat-option>
+          </mat-select>
+          <mat-error
+            *ngIf="formVacante.get('correo_dominio')?.hasError('required') && formVacante.get('correo_dominio')?.touched">
+            Seleccione el dominio.
+          </mat-error>
+        </mat-form-field>
 
         <!-- ==== HIJOS ==== -->
         <section class="section">
@@ -310,7 +391,7 @@
 
           <div class="grid-2" [formGroup]="formVacante">
             <!-- ¿Tiene hijos? -->
-            <mat-form-field appearance="fill">
+            <mat-form-field appearance="outline">
               <mat-label>¿Tiene hijos?</mat-label>
               <mat-select formControlName="tieneHijos" required>
                 <mat-option [value]="true">Sí</mat-option>
@@ -329,7 +410,7 @@
           <!-- Si tiene hijos, mostrar detalles debajo -->
           <div *ngIf="formVacante.get('tieneHijos')?.value === true" class="stack">
             <div class="grid-2" [formGroup]="formVacante">
-              <mat-form-field appearance="fill">
+              <mat-form-field appearance="outline">
                 <mat-label>¿Quién los cuida?</mat-label>
                 <input matInput formControlName="cuidadorHijos" placeholder="Ej: Madre, Abuela, Guardería...">
                 <mat-error
@@ -338,7 +419,7 @@
                 </mat-error>
               </mat-form-field>
 
-              <mat-form-field appearance="fill">
+              <mat-form-field appearance="outline">
                 <mat-label>Número de hijos</mat-label>
                 <input matInput type="number" min="1" formControlName="numeroHijos" placeholder="Ej: 2">
                 <mat-error
@@ -359,7 +440,7 @@
                 </div>
 
                 <div class="grid-3">
-                  <mat-form-field appearance="fill">
+                  <mat-form-field appearance="outline">
                     <mat-label>Edad</mat-label>
                     <input matInput type="number" formControlName="edad" min="0" max="99">
                     <mat-error *ngIf="hijo.get('edad')?.hasError('required')">Requerido</mat-error>
@@ -375,12 +456,8 @@
         <!-- ==== EXPERIENCIA LABORAL ==== -->
         <section class="section">
           <div class="section-head">
-            <h3 class="section-title">Empresas donde ha laborado</h3>
+            <h3 class="section-title">Empresas donde ha laborado (Llenalo si tienes experiencia)</h3>
             <span class="spacer"></span>
-            <button mat-stroked-button color="primary" type="button" (click)="addExperiencia()">
-              <mat-icon>add</mat-icon>
-              Agregar experiencia
-            </button>
           </div>
 
           <div formArrayName="experiencias" class="cards-stack">
@@ -394,24 +471,24 @@
               </div>
 
               <div class="grid-2">
-                <mat-form-field appearance="fill">
+                <mat-form-field appearance="outline">
                   <mat-label>Nombre de la empresa</mat-label>
                   <input matInput formControlName="empresa">
                 </mat-form-field>
 
-                <mat-form-field appearance="fill">
+                <mat-form-field appearance="outline">
                   <mat-label>Tiempo (meses/años)</mat-label>
                   <input matInput formControlName="tiempo">
                 </mat-form-field>
               </div>
 
               <div class="grid-1">
-                <mat-form-field appearance="fill">
+                <mat-form-field appearance="outline">
                   <mat-label>Labores realizadas</mat-label>
                   <textarea matInput rows="2" formControlName="labores"></textarea>
                 </mat-form-field>
 
-                <mat-form-field appearance="fill">
+                <mat-form-field appearance="outline">
                   <mat-label>Labores principales</mat-label>
                   <textarea matInput rows="2" formControlName="labores_principales"></textarea>
                 </mat-form-field>
@@ -421,76 +498,7 @@
         </section>
 
 
-        <!--Como se proyecta en 1 año-->
-        <mat-form-field appearance="fill">
-          <mat-label>¿Cómo se proyecta en 1 año?</mat-label>
-          <input matInput rows="3" formControlName="proyeccion1Ano">
-          <mat-error
-            *ngIf="formVacante.get('proyeccion1Ano')?.invalid && formVacante.get('proyeccion1Ano')?.touched">Requerido</mat-error>
-        </mat-form-field>
 
-        <mat-form-field appearance="fill">
-          <mat-label>Escolaridad</mat-label>
-          <mat-select formControlName="escolaridad" required>
-            <mat-option *ngFor="let e of escolaridades" [value]="e.esco">{{ e.descripcion }}</mat-option>
-          </mat-select>
-          <!--requerido-->
-          <mat-error
-            *ngIf="formVacante.get('escolaridad')?.hasError('required') && formVacante.get('escolaridad')?.touched">Requerido</mat-error>
-        </mat-form-field>
-
-        <mat-form-field appearance="fill">
-          <mat-label>¿Estudia actualmente?</mat-label>
-          <mat-select formControlName="estudiaActualmente" required>
-            <mat-option [value]="true">Sí</mat-option>
-            <mat-option [value]="false">No</mat-option>
-          </mat-select>
-          <mat-error
-            *ngIf="formVacante.get('estudiaActualmente')?.hasError('required') && formVacante.get('estudiaActualmente')?.touched">Requerido</mat-error>
-        </mat-form-field>
-
-        <!-- Seleccione una oficina -->
-        <mat-form-field appearance="fill">
-          <mat-label>Seleccione una oficina</mat-label>
-          <mat-select formControlName="oficina" required>
-            <mat-option *ngFor="let oficina of oficinas" [value]="oficina">
-              {{ oficina }}
-            </mat-option>
-          </mat-select>
-          <mat-error *ngIf="formVacante.get('oficina')?.hasError('required') && formVacante.get('oficina')?.touched">
-            Seleccione una oficina.
-          </mat-error>
-        </mat-form-field>
-
-        <!-- Campo correo electrónico (solo usuario) -->
-        <mat-form-field appearance="fill">
-          <mat-label>Correo electrónico</mat-label>
-          <input matInput formControlName="correo_usuario" placeholder="Ej: sebstian088" autocomplete="off"
-            [pattern]="emailUserPattern" maxlength="64">
-          <span matSuffix>&#64;</span> <!-- <-- aquí, para mostrar @ -->
-          <mat-error
-            *ngIf="formVacante.get('correo_usuario')?.hasError('required') && formVacante.get('correo_usuario')?.touched">
-            El correo electrónico es obligatorio.
-          </mat-error>
-          <mat-error
-            *ngIf="formVacante.get('correo_usuario')?.hasError('pattern') && formVacante.get('correo_usuario')?.touched">
-            Ingrese solo el usuario, sin dominio.
-          </mat-error>
-        </mat-form-field>
-
-        <!-- Dominio (select) -->
-        <mat-form-field appearance="fill">
-          <mat-label>Dominio</mat-label>
-          <mat-select formControlName="correo_dominio" required>
-            <mat-option *ngFor="let dom of dominiosValidos" [value]="dom">
-              &#64;{{ dom }}
-            </mat-option>
-          </mat-select>
-          <mat-error
-            *ngIf="formVacante.get('correo_dominio')?.hasError('required') && formVacante.get('correo_dominio')?.touched">
-            Seleccione el dominio.
-          </mat-error>
-        </mat-form-field>
 
       </div>
       <button matButton="filled" type="submit" style="margin-top:10pt; width: 10%; float: right; border-radius: 5pt;">
