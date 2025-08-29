@@ -67,7 +67,7 @@ export class FormPreRegistrationVacancies implements OnInit {
   generos: any[] = ['M', 'F'];
 
   oficinas: string[] = [
-    'VIRTUAL', 'ADMINISTRATIVO', 'CARTAGENITA', 'FACA_PRIMERA', 'FACA_PRINCIPAL', 'FONTIBÓN',
+    'VIRTUAL', 'ADMINISTRATIVOS', 'CARTAGENITA', 'FACA_PRIMERA', 'FACA_PRINCIPAL', 'FONTIBÓN',
     'FORANEOS', 'FUNZA', 'MADRID', 'ROSAL', 'SOACHA', 'SUBA',
     'TOCANCIPÁ', 'ZIPAQUIRÁ', 'BRIGADA'
   ];
