@@ -5,8 +5,12 @@ import { DateAdapter, MAT_DATE_LOCALE, MAT_DATE_FORMATS } from '@angular/materia
 import { MomentDateAdapter } from '@angular/material-moment-adapter';
 import Swal from 'sweetalert2';
 import { CandidateS } from '../../../../../../shared/services/candidate-s/candidate-s';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, map, Observable, startWith } from 'rxjs';
 import { LoginS } from '../../../../../auth/service/login-s';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
+import { HttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
 
 export const MY_DATE_FORMATS = {
   parse: {
@@ -24,7 +28,9 @@ export const MY_DATE_FORMATS = {
   selector: 'app-form-pre-registration-vacancies',
   imports: [
     SharedModule,
-    FormsModule
+    FormsModule,
+    MatDividerModule,
+    MatAutocompleteModule
   ],
   templateUrl: './form-pre-registration-vacancies.html',
   styleUrl: './form-pre-registration-vacancies.css',
@@ -42,6 +48,10 @@ export class FormPreRegistrationVacancies implements OnInit {
   mostrarCamposAdicionales: boolean = false; // Controla la visibilidad de los campos adicionales
   otroExperienciaControl = new FormControl('', [Validators.maxLength(64)]); // Control para el campo "Otro" de experiencia
   emailUserPattern = '^[^@\\s]+$'; // No admite @ ni espacios
+  allCities: string[] = [];
+  filteredCities$!: Observable<string[]>;
+  filteredCitiesNacimiento$!: Observable<string[]>;
+  readonly SEED_EXP_COUNT = 3;
 
   dominiosValidos: string[] = [
     'GMAIL.COM', 'HOTMAIL.COM', 'YAHOO.COM', 'ICLOUD.COM', 'OUTLOOK.COM',
@@ -53,9 +63,75 @@ export class FormPreRegistrationVacancies implements OnInit {
   ];
 
   escolaridades = [
-    'Preescolar', 'Primaria', 'Secundaria', 'Media', 'Técnica', 'Tecnológica', 'Universitaria'
+    {
+      esco: 'EDUCACIÓN BÁSICA PRIMARIA',
+      descripcion: 'Educación básica primaria — Grados 1 a 5',
+    },
+    {
+      esco: 'EDUCACIÓN BÁSICA SECUNDARIA',
+      descripcion: 'Educación básica secundaria — Grados 6 a 9',
+    },
+    {
+      esco: 'EDUCACIÓN MEDIA ACADÉMICA',
+      descripcion: 'Educación media académica — Grados 10 y 11',
+    },
+    {
+      esco: 'EDUCACIÓN TÉCNICA',
+      descripcion: 'Educación técnica — Formación técnica laboral',
+    },
+    {
+      esco: 'EDUCACIÓN TECNOLÓGICA',
+      descripcion: 'Educación tecnológica — Nivel tecnológico',
+    },
+    {
+      esco: 'EDUCACIÓN PROFESIONAL',
+      descripcion: 'Educación profesional — Pregrado universitario',
+    },
   ];
 
+  //  Lista estado civil
+  estadosCiviles: any[] = [
+    {
+      codigo: 'SO',
+      descripcion: 'SO (Soltero)',
+    },
+    {
+      codigo: 'UL',
+      descripcion: 'UL (Unión Libre) ',
+    },
+    {
+      codigo: 'CA',
+      descripcion: 'CA (Casado)',
+    },
+    {
+      codigo: 'SE',
+      descripcion: 'SE (Separado)',
+    },
+    {
+      codigo: 'VI',
+      descripcion: 'VI (Viudo)',
+    },
+  ];
+
+  haceCuantoViveEnlaZona: any[] = [
+    'MENOS DE UN MES',
+    'UN MES',
+    'MÁS DE 2 MESES',
+    'MÁS DE 6 MESES',
+  ];
+  meses = Array.from({ length: 11 }, (_, i) => i + 1);  // 1..11
+  anios = Array.from({ length: 80 }, (_, i) => i + 1);  // 1..80
+
+  get tiempoResidenciaParsed() {
+    const v = this.formVacante.value.tiempoResidencia as string | null;
+    if (!v) return null;
+    if (v === 'LIFETIME') return { unit: 'LIFETIME', quantity: null, label: 'Toda la vida' };
+    const [u, q] = v.split(':');
+    const n = Number(q);
+    if (u === 'M') return { unit: 'MONTH', quantity: n, label: `${n} ${n === 1 ? 'mes' : 'meses'}` };
+    if (u === 'Y') return { unit: 'YEAR', quantity: n, label: `${n} ${n === 1 ? 'año' : 'años'}` };
+    return null;
+  }
 
   // Arreglo para el tipo de cedula
   tipoDocs: any[] = [
@@ -92,11 +168,11 @@ export class FormPreRegistrationVacancies implements OnInit {
 
   constructor(
     private fb: FormBuilder,
+    private http: HttpClient,
     private candidateService: CandidateS,
     private authService: LoginS,
+    private router: Router
   ) {
-
-
     this.formVacante = this.fb.group({
       tipoDoc: ['', Validators.required],
       numero_de_documento: [
@@ -180,8 +256,11 @@ export class FormPreRegistrationVacancies implements OnInit {
       hijos: this.fb.array([]),                   // arreglo dinámico
       tiempoResidencia: ['', Validators.required],
       proyeccion1Ano: ['', Validators.required],
+      escolaridad: [null, Validators.required],
+      estudiaActualmente: [null, Validators.required],
       // --- Experiencias laborales (arreglo dinámico)
       experiencias: this.fb.array([]),
+      empresaDondeTrabajo: ['']
     });
 
 
@@ -214,6 +293,12 @@ export class FormPreRegistrationVacancies implements OnInit {
   }
 
   ngOnInit(): void {
+    this.loadCities();
+    this.setupAutocomplete();
+    this.setupAutocompleteNacimiento();
+    // Crea 3 tarjetas opcionales por defecto
+    this.seedExperiencias();
+
     // Tipo experiencia cambia
     this.formVacante.get('tipoExperienciaFlores')?.valueChanges.subscribe(value => {
       if (value === 'OTROS') {
@@ -241,7 +326,67 @@ export class FormPreRegistrationVacancies implements OnInit {
     });
   }
 
+  get municipioCtrl() {
+    return this.formVacante.get('municipioExpedicion')!;
+  }
 
+  get lugarNacimientoCtrl() {
+    return this.formVacante.get('lugarNacimiento')!;
+  }
+
+
+  private loadCities(): void {
+    // ⚠️ Ruta pública. Si aún no sirve /files/utils, mira nota al final.
+    this.http
+      .get<Array<{ id: number; departamento: string; ciudades: string[] }>>('files/utils/colombia.json')
+      .pipe(
+        map(list => {
+          const set = new Set<string>();
+          list.forEach(d => d.ciudades?.forEach(c => set.add(c)));
+          // Orden alfabético en español, ignorando tildes/mayúsculas
+          return Array.from(set).sort((a, b) =>
+            a.localeCompare(b, 'es', { sensitivity: 'base' })
+          );
+        })
+      )
+      .subscribe(ciudades => this.allCities = ciudades);
+  }
+
+  private setupAutocomplete(): void {
+    this.filteredCities$ = this.municipioCtrl.valueChanges.pipe(
+      startWith(this.municipioCtrl.value || ''),
+      map(value => this.filterCities(String(value ?? '')))
+    );
+  }
+
+  // Búsqueda insensitive a tildes y mayúsculas
+  private filterCities(value: string): string[] {
+    const norm = (s: string) =>
+      s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+
+    const q = norm(value);
+    if (!q) return this.allCities.slice(0, 50);
+
+    return this.allCities
+      .filter(c => norm(c).includes(q))
+      .slice(0, 50); // limita resultados
+  }
+
+  onMunicipioSelected(event: MatAutocompleteSelectedEvent): void {
+    this.municipioCtrl.setValue(event.option.value);
+  }
+
+
+  private setupAutocompleteNacimiento(): void {
+    this.filteredCitiesNacimiento$ = this.lugarNacimientoCtrl.valueChanges.pipe(
+      startWith(this.lugarNacimientoCtrl.value || ''),
+      map(value => this.filterCities(String(value ?? '')))
+    );
+  }
+
+  onLugarNacimientoSelected(event: MatAutocompleteSelectedEvent): void {
+    this.lugarNacimientoCtrl.setValue(event.option.value);
+  }
 
   // ------- Hijos
   get hijosFA(): FormArray {
@@ -251,8 +396,6 @@ export class FormPreRegistrationVacancies implements OnInit {
   private buildHijoGroup(): FormGroup {
     return this.fb.group({
       edad: [null, [Validators.required, Validators.min(0), Validators.max(99)]],
-      escolaridad: [null, Validators.required],
-      estudiaActualmente: [null, Validators.required] // true/false
     });
   }
 
@@ -270,18 +413,13 @@ export class FormPreRegistrationVacancies implements OnInit {
   }
 
   addExperiencia(): void {
-    this.experienciasFA.push(this.fb.group({
-      empresa: ['', [Validators.required, Validators.maxLength(120)]],
-      laboresRealizadas: ['', [Validators.required, Validators.maxLength(800)]],
-      tiempoEnEmpresa: ['', [Validators.required, Validators.maxLength(80)]],  // p.ej. "8 meses", "2 años"
-      laboresPrincipales: ['', [Validators.required, Validators.maxLength(800)]],
-    }));
+    this.experienciasFA.push(this.buildExperienciaGroup(true)); // <-- estas sí con required
   }
 
   removeExperiencia(i: number): void {
+    if (i < this.SEED_EXP_COUNT) return; // No permite borrar las 3 primeras
     this.experienciasFA.removeAt(i);
   }
-
 
   // En tu componente:
   // En tu componente
@@ -293,6 +431,12 @@ export class FormPreRegistrationVacancies implements OnInit {
 
     if (this.formVacante.invalid) {
       this.formVacante.markAllAsTouched();
+      Swal.fire('Error', 'Por favor complete todos los campos requeridos.', 'error');
+      // que campos estan incompletos
+      const errores = Object.keys(this.formVacante.controls)
+        .filter(key => this.formVacante.get(key)?.invalid)
+        .map(key => `- ${key}`).join('\n');
+      Swal.fire('Campos incompletos', errores, 'warning');
       return;
     }
 
@@ -353,28 +497,59 @@ export class FormPreRegistrationVacancies implements OnInit {
 
       // -------------------------------------------------
       // 7) Guardar info personal primero (puede responder 409)
+      //    → Mostrar info de turnos: pendientes_delante / mi_posicion
       // -------------------------------------------------
       try {
-        await firstValueFrom(this.candidateService.guardarInfoPersonal(formValue));
+        const resp: any = await firstValueFrom(this.candidateService.guardarInfoPersonal(formValue));
+        // Éxito (201): el backend devuelve { registro, turnos }
+        const t = resp?.turnos;
+        if (t) {
+          await Swal.fire({
+            icon: 'info',
+            title: `Tu turno en ${t.oficina || formValue.oficina}`,
+            html: `
+            <div style="text-align:left">
+              <div><b>Fecha:</b> ${t.fecha ?? '—'}</div>
+              <div><b>Pendientes hoy:</b> ${t.pendientes_hoy ?? '—'}</div>
+              <div><b>Pendientes delante de ti:</b> <b>${t.pendientes_delante ?? 0}</b></div>
+              <div><b>Tu posición:</b> <b>${t.mi_posicion ?? 1}</b></div>
+            </div>
+          `,
+            confirmButtonText: 'Entendido'
+          });
+        }
       } catch (error: any) {
         const status = error?.status;
-        const errDetail = error?.error?.detail;
+        const payload = error?.error;
 
         if (status === 409) {
+          // Conflicto (registro reciente): backend también devuelve { registro, turnos }
+          const t = payload?.turnos;
           const numero = formValue?.numero_de_documento;
           const oficina = formValue?.oficina;
+
           await Swal.fire({
             icon: 'warning',
             title: 'Registro reciente',
-            text: errDetail || `Ya existe un registro reciente para la cédula ${numero} en ${oficina}. Por favor espere su turno.`,
+            html: t ? `
+            <div style="text-align:left">
+              <div>Ya existe un registro reciente para la cédula <b>${numero}</b> en <b>${t.oficina || oficina}</b>.</div>
+              <hr/>
+              <div><b>Fecha:</b> ${t.fecha ?? '—'}</div>
+              <div><b>Pendientes hoy:</b> ${t.pendientes_hoy ?? '—'}</div>
+              <div><b>Pendientes delante de ti:</b> <b>${t.pendientes_delante ?? 0}</b></div>
+              <div><b>Tu posición:</b> <b>${t.mi_posicion ?? 1}</b></div>
+            </div>
+          ` : (payload?.detail || `Ya existe un registro reciente para la cédula ${numero} en ${oficina}.`),
+            confirmButtonText: 'Entendido'
           });
-          return;
+          return; // 🔴 No seguimos con registro/candidato si ya hay turno reciente
         }
 
         await Swal.fire({
           icon: 'error',
           title: 'Error',
-          text: errDetail || 'No se pudo guardar la información personal.',
+          text: payload?.detail || 'No se pudo guardar la información personal.',
         });
         return;
       }
@@ -408,11 +583,14 @@ export class FormPreRegistrationVacancies implements OnInit {
         text: 'Tu información ha sido guardada correctamente.',
       });
 
-      this.formVacante.reset();
+      this.router.navigateByUrl('/formulario', { skipLocationChange: true }).then(() => {
+        this.router.navigate(["/formulario/formulario-pre-registro-vacantes"]);
+      });
     } finally {
       this.isSubmitting = false;
     }
   }
+
 
 
 
@@ -432,16 +610,25 @@ export class FormPreRegistrationVacancies implements OnInit {
     if (errors.numero_de_documento) {
       errorMessages.push('Ya existe un usuario con este número de documento.');
     }
-
-    // Ignorar el error del username
-    // Puedes agregar más campos según tus necesidades
-
-    // Unir todos los mensajes de error en una sola cadena
     return errorMessages.join('\n');
   }
 
+  // Construye un group de experiencia; si required=false no pone Validators.required
+  private buildExperienciaGroup(required = true): FormGroup {
+    return this.fb.group({
+      empresa: ['', required ? [Validators.required, Validators.maxLength(120)] : [Validators.maxLength(120)]],
+      labores: ['', required ? [Validators.required, Validators.maxLength(800)] : [Validators.maxLength(800)]],
+      tiempo: ['', required ? [Validators.required, Validators.maxLength(80)] : [Validators.maxLength(80)]],
+      labores_principales: ['', required ? [Validators.required, Validators.maxLength(800)] : [Validators.maxLength(800)]],
+    });
+  }
 
-
+  private seedExperiencias(n = this.SEED_EXP_COUNT): void {
+    const fa = this.experienciasFA;
+    while (fa.length < n) {
+      fa.push(this.buildExperienciaGroup(false)); // <-- OPCIONALES (sin required)
+    }
+  }
 
 
 }
