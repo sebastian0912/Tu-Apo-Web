@@ -12,6 +12,49 @@ import { MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/ma
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 
+// Etiquetas legibles para cada control del formulario
+export const LABELS: Record<string, string> = {
+  tipoDoc: 'Tipo de documento',
+  numero_de_documento: 'Número de documento',
+  primerApellido: 'Primer apellido',
+  segundoApellido: 'Segundo apellido',
+  primerNombre: 'Primer nombre',
+  segundoNombre: 'Segundo nombre',
+  fechaNacimiento: 'Fecha de nacimiento',
+  lugarNacimiento: 'Lugar de nacimiento',
+  fechaExpedicion: 'Fecha de expedición',
+  municipioExpedicion: 'Municipio de expedición',
+
+  barrio: 'Barrio',
+  numeroCelular: 'Número de celular',
+  numeroWhatsapp: 'Número de WhatsApp',
+  genero: 'Género',
+  experienciaFlores: '¿Ha trabajado en flores?',
+  tipoExperienciaFlores: 'Tipo de experiencia en flores',
+  otroExperiencia: 'Otro (experiencia en flores)',
+  oficina: 'Oficina',
+  brigadaDe: 'Brigada (si aplica)',
+
+  correo_usuario: 'Usuario del correo',
+  correo_dominio: 'Dominio del correo',
+
+  estadoCivil: 'Estado civil',
+  conQuienViveChecks: '¿Con quién vive?',
+  tieneHijos: '¿Tiene hijos?',
+  cuidadorHijos: 'Quién cuida a los hijos',
+  numeroHijos: 'Número de hijos',
+  hijos: 'Hijos',
+
+  tiempoResidencia: 'Tiempo de residencia',
+  proyeccion1Ano: 'Proyección a 1 año',
+  escolaridad: 'Escolaridad',
+  estudiaActualmente: '¿Estudia actualmente?',
+
+  experiencias: 'Experiencias laborales',
+  empresaDondeTrabajo: 'Empresa donde trabajó/trabaja'
+};
+
+
 export const MY_DATE_FORMATS = {
   parse: {
     dateInput: 'D/M/YYYY',
@@ -143,7 +186,7 @@ export class FormPreRegistrationVacancies implements OnInit {
   generos: any[] = ['M', 'F'];
 
   oficinas: string[] = [
-    'VIRTUAL', 'ADMINISTRATIVOS', 'CARTAGENITA', 'FACA_PRIMERA', 'FACA_PRINCIPAL', 'FONTIBÓN',
+    'VIRTUAL', 'ADMINISTRATIVO', 'CARTAGENITA', 'FACA_PRIMERA', 'FACA_PRINCIPAL', 'FONTIBÓN',
     'FORANEOS', 'FUNZA', 'MADRID', 'ROSAL', 'SOACHA', 'SUBA',
     'TOCANCIPÁ', 'ZIPAQUIRÁ', 'BRIGADA'
   ];
@@ -425,89 +468,106 @@ export class FormPreRegistrationVacancies implements OnInit {
   // En tu componente
   isSubmitting = false;
 
-  async onSubmit() {
-    // Evita doble envío
-    if (this.isSubmitting) return;
+async onSubmit() {
+  // Evita doble envío
+  if (this.isSubmitting) return;
 
-    if (this.formVacante.invalid) {
-      this.formVacante.markAllAsTouched();
-      Swal.fire('Error', 'Por favor complete todos los campos requeridos.', 'error');
-      // que campos estan incompletos
-      const errores = Object.keys(this.formVacante.controls)
-        .filter(key => this.formVacante.get(key)?.invalid)
-        .map(key => `- ${key}`).join('\n');
-      Swal.fire('Campos incompletos', errores, 'warning');
+  // ===== Mostrar campos incompletos usando LABELS =====
+  if (this.formVacante.invalid) {
+    this.formVacante.markAllAsTouched();
+
+    const errores = Object.keys(this.formVacante.controls)
+      .filter(key => this.formVacante.get(key)?.invalid)
+      .map(key => `- ${LABELS[key] ?? key}`)
+      .join('\n');
+
+    await Swal.fire('Campos incompletos', errores || 'Por favor completa los campos marcados.', 'warning');
+    return;
+  }
+
+  this.isSubmitting = true;
+
+  try {
+    const formValue: any = { ...this.formVacante.value };
+    console.log('Formulario enviado:', formValue);
+
+    // 1) Validaciones básicas de correo (solo usuario, sin @ ni espacios)
+    if (/@|\s/.test(formValue.correo_usuario)) {
+      await Swal.fire('Error', 'El usuario del correo no debe incluir @, espacios ni el dominio.', 'error');
+      return;
+    }
+    if (!formValue.correo_dominio) {
+      await Swal.fire('Error', 'Debe seleccionar un dominio para el correo.', 'error');
       return;
     }
 
-    this.isSubmitting = true;
+    // 2) Armar correo completo
+    formValue.correo_electronico = `${formValue.correo_usuario}@${formValue.correo_dominio}`;
+    delete formValue.correo_usuario;
+    delete formValue.correo_dominio;
 
+    // 3) Normalizar oficina (incluida brigada)
+    const rawOficina = String(formValue.oficina || '').trim();
+    if (rawOficina === 'BRIGADA' && formValue.brigadaDe) {
+      formValue.oficina = `BRIGADA DE ${String(formValue.brigadaDe).toUpperCase().trim()}`;
+    } else {
+      formValue.oficina = rawOficina;
+    }
+    delete formValue.brigadaDe;
+
+    // 4) Fechas a YYYY-MM-DD
+    const normDate = (v: any) => {
+      if (!v) return v;
+      if (v instanceof Date) return v.toISOString().slice(0, 10);
+      if (typeof v === 'string') return v.length > 10 ? v.slice(0, 10) : v;
+      return v;
+    };
+    formValue.fechaNacimiento = normDate(formValue.fechaNacimiento);
+    formValue.fechaExpedicion = normDate(formValue.fechaExpedicion);
+
+    // 5) Usuario/clave y nombres
+    formValue.username = formValue.correo_electronico;
+    formValue.password = String(formValue.numero_de_documento).trim();
+    formValue.primer_apellido = formValue.primerApellido;
+    formValue.primer_nombre  = formValue.primerNombre;
+
+    // 6) Si experiencia = OTROS, usar el texto ingresado
+    if (
+      formValue.experienciaFlores === 'Sí' &&
+      formValue.tipoExperienciaFlores === 'OTROS' &&
+      this.otroExperienciaControl?.value
+    ) {
+      formValue.tipoExperienciaFlores = String(this.otroExperienciaControl.value).trim();
+    }
+
+    // 7) Campos condicionales (hijos): validar antes de enviar
+    if (formValue.tieneHijos === true) {
+      if (!String(formValue.cuidadorHijos || '').trim()) {
+        await Swal.fire('Falta información', `- ${LABELS['cuidadorHijos']}: es obligatorio cuando "${LABELS['tieneHijos']}" es "Sí".`, 'warning');
+        return;
+      }
+      const nH = Number(formValue.numeroHijos ?? 0);
+      if (!nH || nH < 1) {
+        await Swal.fire('Falta información', `- ${LABELS['numeroHijos']}: debe ser al menos 1 cuando "${LABELS['tieneHijos']}" es "Sí".`, 'warning');
+        return;
+      }
+    }
+
+    // -------------------------------------------------
+    // 8) Guardar info personal primero
+    //    BACKEND espera 'numero' → mapeamos desde numero_de_documento
+    //    Puede responder 201 ó 409 (proceso activo)
+    // -------------------------------------------------
+    formValue.numero = formValue.numero_de_documento; // <- IMPORTANTE para tu serializer de InfoPersonal
     try {
-      const formValue: any = { ...this.formVacante.value };
-      console.log('Formulario enviado:', formValue);
-
-      // 1) Validaciones básicas de correo
-      if (/@|\s/.test(formValue.correo_usuario)) {
-        await Swal.fire('Error', 'El usuario del correo no debe incluir el símbolo @ ni espacios ni el dominio.', 'error');
-        return;
-      }
-      if (!formValue.correo_dominio) {
-        await Swal.fire('Error', 'Debe seleccionar un dominio para el correo.', 'error');
-        return;
-      }
-
-      // 2) Armar el correo completo
-      formValue.correo_electronico = `${formValue.correo_usuario}@${formValue.correo_dominio}`;
-      delete formValue.correo_usuario;
-      delete formValue.correo_dominio;
-
-      // 3) Normalizar oficina (incluida brigada)
-      const rawOficina = String(formValue.oficina || '').trim();
-      if (rawOficina === 'BRIGADA' && formValue.brigadaDe) {
-        formValue.oficina = `BRIGADA DE ${String(formValue.brigadaDe).toUpperCase().trim()}`;
-      } else {
-        formValue.oficina = rawOficina;
-      }
-      delete formValue.brigadaDe;
-
-      // 4) Fechas a YYYY-MM-DD
-      const normDate = (v: any) => {
-        if (!v) return v;
-        if (v instanceof Date) return v.toISOString().slice(0, 10);
-        if (typeof v === 'string') return v.length > 10 ? v.slice(0, 10) : v;
-        return v;
-      };
-      formValue.fechaNacimiento = normDate(formValue.fechaNacimiento);
-      formValue.fechaExpedicion = normDate(formValue.fechaExpedicion);
-
-      // 5) Usuario/clave y nombres
-      formValue.username = formValue.correo_electronico;
-      formValue.password = String(formValue.numero_de_documento).trim();
-      formValue.primer_apellido = formValue.primerApellido;
-      formValue.primer_nombre = formValue.primerNombre;
-
-      // 6) Si experiencia = OTROS, usar el texto ingresado
-      if (
-        formValue.experienciaFlores === 'Sí' &&
-        formValue.tipoExperienciaFlores === 'OTROS' &&
-        this.otroExperienciaControl?.value
-      ) {
-        formValue.tipoExperienciaFlores = String(this.otroExperienciaControl.value).trim();
-      }
-
-      // -------------------------------------------------
-      // 7) Guardar info personal primero (puede responder 409)
-      //    → Mostrar info de turnos: pendientes_delante / mi_posicion
-      // -------------------------------------------------
-      try {
-        const resp: any = await firstValueFrom(this.candidateService.guardarInfoPersonal(formValue));
-        // Éxito (201): el backend devuelve { registro, turnos }
-        const t = resp?.turnos;
-        if (t) {
-          await Swal.fire({
-            icon: 'info',
-            title: `Tu turno en ${t.oficina || formValue.oficina}`,
-            html: `
+      const resp: any = await firstValueFrom(this.candidateService.guardarInfoPersonal(formValue));
+      // Éxito (201): el backend devuelve { registro, turnos }
+      const t = resp?.turnos;
+      if (t) {
+        await Swal.fire({
+          icon: 'info',
+          title: `Tu turno en ${t.oficina || formValue.oficina}`,
+          html: `
             <div style="text-align:left">
               <div><b>Fecha:</b> ${t.fecha ?? '—'}</div>
               <div><b>Pendientes hoy:</b> ${t.pendientes_hoy ?? '—'}</div>
@@ -515,81 +575,90 @@ export class FormPreRegistrationVacancies implements OnInit {
               <div><b>Tu posición:</b> <b>${t.mi_posicion ?? 1}</b></div>
             </div>
           `,
-            confirmButtonText: 'Entendido'
-          });
-        }
-      } catch (error: any) {
-        const status = error?.status;
-        const payload = error?.error;
+          confirmButtonText: 'Entendido'
+        });
+      }
+    } catch (error: any) {
+      const status = error?.status;
+      const payload = error?.error;
 
-        if (status === 409) {
-          // Conflicto (registro reciente): backend también devuelve { registro, turnos }
-          const t = payload?.turnos;
-          const numero = formValue?.numero_de_documento;
-          const oficina = formValue?.oficina;
-
-          await Swal.fire({
-            icon: 'warning',
-            title: 'Registro reciente',
-            html: t ? `
-            <div style="text-align:left">
-              <div>Ya existe un registro reciente para la cédula <b>${numero}</b> en <b>${t.oficina || oficina}</b>.</div>
-              <hr/>
-              <div><b>Fecha:</b> ${t.fecha ?? '—'}</div>
-              <div><b>Pendientes hoy:</b> ${t.pendientes_hoy ?? '—'}</div>
-              <div><b>Pendientes delante de ti:</b> <b>${t.pendientes_delante ?? 0}</b></div>
-              <div><b>Tu posición:</b> <b>${t.mi_posicion ?? 1}</b></div>
-            </div>
-          ` : (payload?.detail || `Ya existe un registro reciente para la cédula ${numero} en ${oficina}.`),
-            confirmButtonText: 'Entendido'
-          });
-          return; // 🔴 No seguimos con registro/candidato si ya hay turno reciente
-        }
+      if (status === 409) {
+        // PROCESO ACTIVO (tu backend nuevo)
+        const t   = payload?.turnos;
+        const reg = payload?.registro;
+        const numero   = formValue?.numero_de_documento;
+        const oficina  = reg?.oficina || formValue?.oficina;
+        const estado   = reg?.estado || 'En proceso';
+        const contratado = reg?.contratado ? 'Sí' : 'No';
+        const fecha    = t?.fecha ?? (reg?.created_at?.slice?.(0,10) ?? '—');
 
         await Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: payload?.detail || 'No se pudo guardar la información personal.',
+          icon: 'warning',
+          title: 'Proceso activo',
+          html: `
+            <div style="text-align:left">
+              <div>La cédula <b>${numero}</b> ya tiene un proceso activo con nosotros en <b>${oficina || '—'}</b>.</div>
+              <div><b>Estado:</b> ${estado} · <b>Contratado:</b> ${contratado}</div>
+              ${t ? `
+                <hr/>
+                <div><b>Fecha:</b> ${fecha}</div>
+                <div><b>Pendientes hoy:</b> ${t.pendientes_hoy ?? '—'}</div>
+                <div><b>Pendientes delante de ti:</b> <b>${t.pendientes_delante ?? 0}</b></div>
+                <div><b>Tu posición:</b> <b>${t.mi_posicion ?? 1}</b></div>
+              ` : ''}
+              ${payload?.detail ? `<hr/><div style="margin-top:8px">${payload.detail}</div>` : ''}
+            </div>
+          `,
+          confirmButtonText: 'Entendido'
         });
-        return;
+        return; // 🔴 No continuar si hay proceso activo
       }
-
-      // -------------------------------------------------
-      // 8) Intentar registro de usuario PERO ignorar errores
-      // -------------------------------------------------
-      try {
-        const response = await this.authService.register(formValue);
-        console.log('Registro usuario (ignorar errores) -> respuesta:', response);
-      } catch (err) {
-        // Ignorar cualquier error de register
-        console.warn('register() falló, se continúa igual.', err);
-      }
-
-      // -------------------------------------------------
-      // 9) Crear/actualizar candidato SIEMPRE (tras info personal)
-      //    Mayúsculas en strings excepto correo y username
-      // -------------------------------------------------
-      Object.keys(formValue).forEach(key => {
-        if (key !== 'correo_electronico' && key !== 'username' && typeof formValue[key] === 'string') {
-          formValue[key] = formValue[key].toUpperCase();
-        }
-      });
-
-      await firstValueFrom(this.candidateService.crearActualizarCandidato(formValue));
 
       await Swal.fire({
-        icon: 'success',
-        title: 'Registro Exitoso',
-        text: 'Tu información ha sido guardada correctamente.',
+        icon: 'error',
+        title: 'Error',
+        text: payload?.detail || 'No se pudo guardar la información personal.',
       });
-
-      this.router.navigateByUrl('/formulario', { skipLocationChange: true }).then(() => {
-        this.router.navigate(["/formulario/formulario-pre-registro-vacantes"]);
-      });
-    } finally {
-      this.isSubmitting = false;
+      return;
     }
+
+    // -------------------------------------------------
+    // 9) Intentar registro de usuario (ignorar errores)
+    // -------------------------------------------------
+    try {
+      const response = await this.authService.register(formValue);
+      console.log('Registro usuario (ignorar errores) -> respuesta:', response);
+    } catch (err) {
+      console.warn('register() falló, se continúa igual.', err);
+    }
+
+    // -------------------------------------------------
+    // 10) Crear/actualizar candidato SIEMPRE (tras info personal)
+    //     Mayúsculas en strings excepto correo, username y password
+    // -------------------------------------------------
+    const skipUpper = new Set(['correo_electronico', 'username', 'password']);
+    Object.keys(formValue).forEach(key => {
+      if (typeof formValue[key] === 'string' && !skipUpper.has(key)) {
+        formValue[key] = formValue[key].toUpperCase();
+      }
+    });
+
+    await firstValueFrom(this.candidateService.crearActualizarCandidato(formValue));
+
+    await Swal.fire({
+      icon: 'success',
+      title: 'Registro Exitoso',
+      text: 'Tu información ha sido guardada correctamente.',
+    });
+
+    this.router.navigateByUrl('/formulario', { skipLocationChange: true }).then(() => {
+      this.router.navigate(['/formulario/formulario-pre-registro-vacantes']);
+    });
+  } finally {
+    this.isSubmitting = false;
   }
+}
+
 
 
 
