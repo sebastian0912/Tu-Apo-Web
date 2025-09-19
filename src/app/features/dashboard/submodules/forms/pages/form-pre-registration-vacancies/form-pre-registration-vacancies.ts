@@ -196,6 +196,7 @@ export class FormPreRegistrationVacancies implements OnInit {
     'ABUELO',
     'ABUELA',
     'PAREJA',
+    'HIJOS',
     'PAPÁ',
     'MAMÁ',
     'HERMANO',
@@ -206,7 +207,7 @@ export class FormPreRegistrationVacancies implements OnInit {
     'PRIMA',
     'SOBRINO',
     'SOBRINA',
-    'SOLO'
+    'SOLO',
   ];
 
   constructor(
