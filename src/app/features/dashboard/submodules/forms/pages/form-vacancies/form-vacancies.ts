@@ -1603,7 +1603,7 @@ export class FormVacancies {
               icon: 'success',
               confirmButtonText: 'Aceptar',
             });
-            //this.llenarFormularioConDatos(response);
+            this.llenarFormularioConDatos(response);
           },
           error: (error) => {
             console.error(error);
