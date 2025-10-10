@@ -1,0 +1,111 @@
+/* Página centrada y limpia */
+.firma-page {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  gap: 20px;
+  padding: 24px;
+  background: #f8fafc;
+}
+
+/* Tarjeta del buscador */
+.finder-card, .sign-card {
+  width: min(880px, 92vw);
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.08);
+  padding: 20px 22px;
+}
+
+.title {
+  margin: 0 0 12px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Layout del buscador */
+.cajabusqueda {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.cedula-field { width: 100%; }
+.boton { height: 48px; }
+
+/* Tarjeta de firma */
+.sign-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.sign-header h2 {
+  margin: 4px 0;
+  font-weight: 700;
+}
+.hint {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Contenedor del canvas (controla el ancho) */
+.canvas-wrap {
+  position: relative;
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+/* Canvas con bordes suaves */
+.sig-canvas {
+  display: block;
+  width: 100%;
+  border-radius: 8px;
+  background: #fbfbfb;
+  touch-action: none; /* mejora input táctil */
+}
+
+/* Toolbar de acciones */
+.sign-toolbar {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.sign-toolbar .spacer {
+  flex: 1;
+}
+
+/* Overlay orientación en móvil retrato */
+.orient-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,.9);
+  border-radius: 12px;
+  text-align: center;
+  color: #0f172a;
+  padding: 16px;
+  font-weight: 600;
+}
+.orient-overlay mat-icon {
+  font-size: 32px;
+  width: 32px; height: 32px;
+  color: #3f51b5;
+}
+
+/* Responsivo */
+@media (max-width: 768px) {
+  .cajabusqueda {
+    grid-template-columns: 1fr;
+  }
+}

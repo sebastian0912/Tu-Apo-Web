@@ -4,6 +4,11 @@ import { Observable } from 'rxjs/internal/Observable';
 import { HttpClient } from '@angular/common/http';
 import { map, catchError } from 'rxjs';
 
+export interface UploadFotoResponse {
+  ok: boolean;
+  id: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -55,5 +60,12 @@ export class CandidateS {
   // Crear o actualizar candidato
   crearActualizarCandidato(data: any): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/contratacion/candidato/`, data);
+  }
+
+  subirFirmaBase64(pk: number | string, firmaBase64: string): Observable<UploadFotoResponse> {
+    const url = `${this.apiUrl}/contratacion/candidatos/${pk}/firma-solicitante/`;
+    const body = { firma_base64: firmaBase64 };
+    // Sin headers explícitos: HttpClient envía JSON por defecto
+    return this.http.post<UploadFotoResponse>(url, body);
   }
 }
