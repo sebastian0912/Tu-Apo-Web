@@ -866,11 +866,11 @@ export class FormVacancies {
         camisa: this.formHojaDeVida2.value.tallaCamisa, // Cambiado a "camisa"
         calzado: this.formHojaDeVida2.value.tallaCalzado, // Cambiado a "calzado"
 
-        nombreConyugue: this.formHojaDeVida2.value.nombresConyuge, // Cambiado de "nombresConyuge" a "nombreConyugue"
-        apellidoConyugue: this.formHojaDeVida2.value.apellidosConyuge, // Cambiado de "apellidosConyuge" a "apellidoConyugue"
+        nombreConyugue: this.formHojaDeVida2.value.nombresConyuge ?? '', // Cambiado de "nombresConyuge" a "nombreConyugue"
+        apellidoConyugue: this.formHojaDeVida2.value.apellidosConyuge ?? '', // Cambiado de "apellidosConyuge" a "apellidoConyugue"
         numDocIdentidadConyugue:
           this.formHojaDeVida2.value.documentoIdentidadConyuge ?? '', // Cambiado a "numDocIdentidadConyugue"
-        viveConElConyugue: this.formHojaDeVida2.value.viveConyuge, // Cambiado de "viveConyuge" a "viveConElConyugue"
+        viveConElConyugue: this.formHojaDeVida2.value.viveConyuge ?? '', // Cambiado de "viveConyuge" a "viveConElConyugue"
         direccionConyugue: this.formHojaDeVida2.value.direccionConyuge ?? '',
         telefonoConyugue: this.formHojaDeVida2.value.telefonoConyuge ?? '',
         barrioMunicipioConyugue: this.formHojaDeVida2.value.barrioConyuge ?? '', // Cambiado de "barrioConyuge" a "barrioMunicipioConyugue"
