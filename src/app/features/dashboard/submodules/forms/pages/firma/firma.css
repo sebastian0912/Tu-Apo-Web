@@ -1,0 +1,178 @@
+/* Página centrada y limpia */
+.firma-page {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  gap: 20px;
+  padding: 24px;
+  background: #f8fafc;
+}
+
+/* Tarjetas principales */
+.finder-card,
+.sign-card {
+  width: min(880px, 92vw);
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid rgba(2, 8, 23, 0.06);
+  box-shadow: 0 8px 30px rgba(2, 8, 23, 0.08);
+  padding: 20px 22px;
+  position: relative;
+  overflow: hidden;
+  animation: fadeIn 0.25s ease-out both;
+}
+
+.title {
+  margin: 0 0 12px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: .2px;
+}
+
+/* Layout del buscador */
+.cajabusqueda {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.cedula-field { width: 100%; }
+.boton { height: 48px; }
+
+/* Tarjeta de firma */
+.sign-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.sign-header h2 {
+  margin: 4px 0;
+  font-weight: 700;
+  color: #0f172a;
+}
+.hint {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Contenedor del canvas (controla el ancho) */
+.canvas-wrap {
+  position: relative;
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+/* Canvas con bordes suaves */
+.sig-canvas {
+  display: block;
+  width: 100%;
+  border-radius: 8px;
+  background: #fbfbfb;
+  touch-action: none; /* mejora input táctil */
+}
+
+/* Toolbar de acciones */
+.sign-toolbar {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.sign-toolbar .spacer { flex: 1; }
+
+/* Overlay orientación en móvil retrato */
+.orient-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  text-align: center;
+  color: #0f172a;
+  padding: 16px;
+  font-weight: 600;
+}
+.orient-overlay mat-icon {
+  font-size: 32px;
+  width: 32px;
+  height: 32px;
+  color: #3f51b5;
+}
+
+/* Resultado (tarjeta con nombre + cédula) */
+.resultado {
+  margin-top: 12px;
+  padding: 0 12px;
+  display: flex;
+  justify-content: center;
+}
+
+.res-card {
+  width: 100%;
+  max-width: 560px;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid rgba(2, 8, 23, 0.06);
+  box-shadow: 0 8px 30px rgba(2, 8, 23, 0.08);
+  position: relative;
+  overflow: hidden;
+  animation: fadeIn 0.25s ease-out both;
+}
+
+/* Barra de acento superior */
+.res-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 4px;
+  background: linear-gradient(90deg, #3f51b5, #22c55e);
+}
+
+/* Tipografía Material (MDC y legacy) */
+.res-card .mat-mdc-card-title,
+.res-card .mat-card-title {
+  font-weight: 700;
+  font-size: clamp(18px, 2.4vw, 22px);
+  line-height: 1.2;
+  letter-spacing: .2px;
+}
+
+.res-card .mat-mdc-card-subtitle,
+.res-card .mat-card-subtitle {
+  color: #64748b;
+  font-size: clamp(13px, 2vw, 14px);
+  margin-top: 2px;
+}
+
+/* Hover/focus sutil */
+.res-card:hover {
+  box-shadow: 0 10px 36px rgba(2, 8, 23, 0.12);
+}
+.res-card:focus-within {
+  outline: 2px solid rgba(63, 81, 181, 0.15);
+  outline-offset: 2px;
+}
+
+/* Animación de entrada */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsivo */
+@media (max-width: 768px) {
+  .cajabusqueda {
+    grid-template-columns: 1fr;
+  }
+}
