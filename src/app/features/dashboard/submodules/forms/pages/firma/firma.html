@@ -1,58 +1,57 @@
 <div class="firma-page" [formGroup]="form">
-    <!-- Buscador -->
-    <mat-card class="finder-card">
-        <h1 class="title">Buscar candidato</h1>
+  <!-- Buscador -->
+  <mat-card class="finder-card">
+    <h1 class="title">Buscar candidato</h1>
 
-        <div class="cajabusqueda">
-            <mat-form-field appearance="fill" class="cedula-field">
-                <mat-label>Escriba el número de cédula a buscar</mat-label>
-                <input matInput type="text" formControlName="numeroCedula" placeholder="Ej: 10058478963"
-                    inputmode="numeric" (keyup.enter)="buscarCedula()" />
-                <mat-error *ngIf="f.numeroCedula.hasError('required')">La cédula es obligatoria.</mat-error>
-                <mat-error *ngIf="f.numeroCedula.hasError('pattern')">Solo dígitos (5–15).</mat-error>
-            </mat-form-field>
+    <div class="cajabusqueda">
+      <mat-form-field appearance="fill" class="cedula-field">
+        <mat-label>Escriba el número de cédula a buscar</mat-label>
+        <input matInput type="text" formControlName="numeroCedula" placeholder="Ej: 10058478963" inputmode="numeric"
+          (keyup.enter)="buscarCedula()" />
+        <mat-error *ngIf="f.numeroCedula.hasError('required')">La cédula es obligatoria.</mat-error>
+        <mat-error *ngIf="f.numeroCedula.hasError('pattern')">Solo dígitos (5–15).</mat-error>
+      </mat-form-field>
+      <p></p>
 
-            <button type="button" class="boton" mat-flat-button color="primary" (click)="buscarCedula()"
-                [disabled]="form.invalid || searching">
-                {{ searching ? 'Buscando…' : 'Buscar' }}
-            </button>
-        </div>
+      <button type="button" class="boton" mat-flat-button color="primary" (click)="buscarCedula()"
+        [disabled]="form.invalid || searching">
+        {{ searching ? 'Buscando…' : 'Buscar' }}
+      </button>
+    </div>
+    <div *ngIf="nombreCompleto" class="resultado">
+      <mat-card class="res-card">
+        <mat-card-title>{{ nombreCompleto }}</mat-card-title>
+        <mat-card-subtitle>Cédula: {{ form.value.numeroCedula }}</mat-card-subtitle>
+      </mat-card>
+    </div>
 
-        <div *ngIf="nombreCompleto" class="resultado">
-            <mat-card class="res-card">
-                <mat-card-title>{{ nombreCompleto }}</mat-card-title>
-                <mat-card-subtitle>Cédula: {{ form.value.numeroCedula }}</mat-card-subtitle>
-            </mat-card>
-        </div>
+  </mat-card>
 
-    </mat-card>
+  <!-- Firma -->
+  <mat-card class="sign-card">
+    <div class="sign-header">
+      <h2>Firma del solicitante</h2>
+      <span class="hint">Use el dedo o el mouse. En móvil, gire el dispositivo a horizontal para más espacio.</span>
+    </div>
 
-    <!-- Firma -->
-    <mat-card class="sign-card">
-        <div class="sign-header">
-            <h2>Firma del solicitante</h2>
-            <span class="hint">Use el dedo o el mouse. En móvil, gire el dispositivo a horizontal para más
-                espacio.</span>
-        </div>
+    <!-- Aviso orientación (móvil retrato) -->
+    <div class="orient-overlay" *ngIf="showRotateHint">
+      <mat-icon>screen_rotation</mat-icon>
+      <div>Gira tu dispositivo a horizontal para firmar cómodamente</div>
+    </div>
 
-        <!-- Aviso orientación (móvil retrato) -->
-        <div class="orient-overlay" *ngIf="showRotateHint">
-            <mat-icon>screen_rotation</mat-icon>
-            <div>Gira tu dispositivo a horizontal para firmar cómodamente</div>
-        </div>
+    <div class="canvas-wrap">
+      <canvas #sigCanvas class="sig-canvas"></canvas>
+    </div>
 
-        <div class="canvas-wrap">
-            <canvas #sigCanvas class="sig-canvas"></canvas>
-        </div>
-
-        <div class="sign-toolbar">
-            <button mat-stroked-button (click)="undo()" [disabled]="!canUndo">Deshacer</button>
-            <button mat-stroked-button (click)="clear()" [disabled]="isEmpty">Borrar</button>
-            <span class="spacer"></span>
-            <button mat-flat-button color="primary" (click)="guardarFirma()" [disabled]="isEmpty || saving">
-                {{ saving ? 'Guardando…' : 'Guardar firma' }}
-            </button>
-            <button mat-button (click)="descargarPNG()" [disabled]="isEmpty">Descargar PNG</button>
-        </div>
-    </mat-card>
+    <div class="sign-toolbar">
+      <button mat-stroked-button (click)="undo()" [disabled]="!canUndo">Deshacer</button>
+      <button mat-stroked-button (click)="clear()" [disabled]="isEmpty">Borrar</button>
+      <span class="spacer"></span>
+      <button mat-flat-button color="primary" (click)="guardarFirma()" [disabled]="isEmpty || saving">
+        {{ saving ? 'Guardando…' : 'Guardar firma' }}
+      </button>
+      <button mat-button (click)="descargarPNG()" [disabled]="isEmpty">Descargar PNG</button>
+    </div>
+  </mat-card>
 </div>

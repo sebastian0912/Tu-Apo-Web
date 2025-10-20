@@ -8,13 +8,18 @@
   background: #f8fafc;
 }
 
-/* Tarjeta del buscador */
-.finder-card, .sign-card {
+/* Tarjetas principales */
+.finder-card,
+.sign-card {
   width: min(880px, 92vw);
-  background: #fff;
+  background: #ffffff;
   border-radius: 16px;
-  box-shadow: 0 4px 14px rgba(0,0,0,.08);
+  border: 1px solid rgba(2, 8, 23, 0.06);
+  box-shadow: 0 8px 30px rgba(2, 8, 23, 0.08);
   padding: 20px 22px;
+  position: relative;
+  overflow: hidden;
+  animation: fadeIn 0.25s ease-out both;
 }
 
 .title {
@@ -22,6 +27,7 @@
   font-size: 20px;
   font-weight: 700;
   color: #0f172a;
+  letter-spacing: .2px;
 }
 
 /* Layout del buscador */
@@ -45,6 +51,7 @@
 .sign-header h2 {
   margin: 4px 0;
   font-weight: 700;
+  color: #0f172a;
 }
 .hint {
   font-size: 12px;
@@ -57,7 +64,7 @@
   width: 100%;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
-  background: #fff;
+  background: #ffffff;
   padding: 8px;
   box-sizing: border-box;
 }
@@ -78,9 +85,7 @@
   gap: 10px;
   align-items: center;
 }
-.sign-toolbar .spacer {
-  flex: 1;
-}
+.sign-toolbar .spacer { flex: 1; }
 
 /* Overlay orientación en móvil retrato */
 .orient-overlay {
@@ -90,7 +95,7 @@
   display: grid;
   place-items: center;
   gap: 8px;
-  background: rgba(255,255,255,.9);
+  background: rgba(255, 255, 255, 0.9);
   border-radius: 12px;
   text-align: center;
   color: #0f172a;
@@ -99,8 +104,70 @@
 }
 .orient-overlay mat-icon {
   font-size: 32px;
-  width: 32px; height: 32px;
+  width: 32px;
+  height: 32px;
   color: #3f51b5;
+}
+
+/* Resultado (tarjeta con nombre + cédula) */
+.resultado {
+  margin-top: 12px;
+  padding: 0 12px;
+  display: flex;
+  justify-content: center;
+}
+
+.res-card {
+  width: 100%;
+  max-width: 560px;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid rgba(2, 8, 23, 0.06);
+  box-shadow: 0 8px 30px rgba(2, 8, 23, 0.08);
+  position: relative;
+  overflow: hidden;
+  animation: fadeIn 0.25s ease-out both;
+}
+
+/* Barra de acento superior */
+.res-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 4px;
+  background: linear-gradient(90deg, #3f51b5, #22c55e);
+}
+
+/* Tipografía Material (MDC y legacy) */
+.res-card .mat-mdc-card-title,
+.res-card .mat-card-title {
+  font-weight: 700;
+  font-size: clamp(18px, 2.4vw, 22px);
+  line-height: 1.2;
+  letter-spacing: .2px;
+}
+
+.res-card .mat-mdc-card-subtitle,
+.res-card .mat-card-subtitle {
+  color: #64748b;
+  font-size: clamp(13px, 2vw, 14px);
+  margin-top: 2px;
+}
+
+/* Hover/focus sutil */
+.res-card:hover {
+  box-shadow: 0 10px 36px rgba(2, 8, 23, 0.12);
+}
+.res-card:focus-within {
+  outline: 2px solid rgba(63, 81, 181, 0.15);
+  outline-offset: 2px;
+}
+
+/* Animación de entrada */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* Responsivo */
