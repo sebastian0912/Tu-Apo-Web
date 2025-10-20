@@ -612,7 +612,7 @@ async onSubmit() {
           `,
           confirmButtonText: 'Entendido'
         });
-        return; // 🔴 No continuar si hay proceso activo
+        return;
       }
 
       await Swal.fire({

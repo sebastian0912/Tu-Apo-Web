@@ -286,7 +286,6 @@ export class FormVacancies {
       malentendido: new FormControl('', Validators.required),
       actividadesDi: new FormControl('', Validators.required),
       fuenteVacante: new FormControl('', Validators.required),
-      como_es_su_relacion_familiar: new FormControl('', Validators.required),
       experienciaSignificativa: new FormControl('', Validators.required),
       motivacion: new FormControl('', Validators.required),
 
@@ -398,476 +397,7 @@ export class FormVacancies {
     URL.revokeObjectURL(url);
   }
 
-  async fillForm() {
-    console.log(this.formHojaDeVida2.value);
 
-    const pdfUrl = '../../assets/Archivos/minerva.pdf';
-    const arrayBuffer = await fetch(pdfUrl).then((res) => res.arrayBuffer());
-    const pdfDoc = await PDFDocument.load(arrayBuffer);
-
-    const form = pdfDoc.getForm();
-
-    let date: Date = new Date();
-
-    // campotexto 0: dia, 1: mes, 2: año del dia
-    form
-      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[0]')
-      .setText(date.getDate().toString());
-    form
-      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[1]')
-      .setText((date.getMonth() + 1).toString());
-    form
-      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[2]')
-      .setText(date.getFullYear().toString());
-    // Ejemplo de cómo actualizar campos específicos
-    form
-      .getTextField('topmostSubform[0].Page1[0].CampoTexto1[0]')
-      .setText('HOJA DE VIDA');
-    form
-      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[5]')
-      .setText(
-        this.formHojaDeVida2.value.pApellido +
-        ' ' +
-        this.formHojaDeVida2.value.sApellido
-      );
-    form
-      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[6]')
-      .setText(
-        this.formHojaDeVida2.value.pNombre +
-        ' ' +
-        this.formHojaDeVida2.value.sNombre
-      );
-    if (this.formHojaDeVida2.value.departamento === 'Venezuela') {
-      form
-        .getTextField('topmostSubform[0].Page1[0].CampoTexto2[12]')
-        .setText('Venezolana');
-    }
-    else {
-      form
-        .getTextField('topmostSubform[0].Page1[0].CampoTexto2[12]')
-        .setText('Colombiana');
-    }
-
-
-    form
-      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[7]')
-      .setText(this.formHojaDeVida2.value.direccionResidencia);
-
-    form
-      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[8]')
-      .setText(this.formHojaDeVida2.value.ciudad);
-    form
-      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[9]')
-      .setText(this.formHojaDeVida2.value.numCelular);
-    form
-      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[10]')
-      .setText(this.formHojaDeVida2.value.numCelular);
-    form
-      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[11]')
-      .setText(this.formHojaDeVida2.value.correo);
-    form
-      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[16]')
-      .setText(String(this.formHojaDeVida2.value.numeroCedula));
-    if (this.formHojaDeVida2.value.tipoDoc === 'CC') {
-      form
-        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[2]')
-        .check();
-    }
-    if (this.formHojaDeVida2.value.tipoDoc === 'CE') {
-      form
-        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[3]')
-        .check();
-    }
-    if (this.formHojaDeVida2.value.tieneVehiculo == "SI") {
-      form
-        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[4]')
-        .check();
-
-      form
-        .getTextField('topmostSubform[0].Page1[0].CampoTexto2[21]')
-        .setText(String(this.formHojaDeVida2.value.licenciaConduccion));
-
-      form
-        .getTextField('topmostSubform[0].Page1[0].CampoTexto2[22]')
-        .setText(String(this.formHojaDeVida2.value.categoriaLicencia));
-    }
-    else {
-      form
-        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[5]')
-        .check();
-    }
-
-    if (this.formHojaDeVida2.value.estaTrabajando == "SI") {
-      form
-        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[6]')
-        .check();
-      form
-        .getTextField('topmostSubform[0].Page1[0].CampoTexto2[23]')
-        .setText(this.formHojaDeVida2.value.empresaActual);
-
-      if (this.formHojaDeVida2.value.tipoTrabajo == "Empleado") {
-        form
-          .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[8]')
-          .check();
-
-        form
-          .getTextField('topmostSubform[0].Page1[0].CampoTexto2[24]')
-          .setText(this.formHojaDeVida2.value.tipoContrato);
-      }
-      else {
-        form
-          .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[9]')
-          .check();
-      }
-    }
-    else {
-      form
-        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[7]')
-        .check();
-    }
-
-    if (this.formHojaDeVida2.value.trabajoAntes == "SI") {
-      form
-        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[10]')
-        .check();
-    }
-    else {
-      form
-        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[11]')
-        .check();
-    }
-
-    if (this.formHojaDeVida2.value.solicitoAntes == "SI") {
-      form
-        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[12]')
-        .check();
-    }
-    else {
-      form
-        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[13]')
-        .check();
-    }
-
-
-    if (this.formHojaDeVida2.value.tipoVivienda2.startsWith("ARRIENDO")) {
-      form
-        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[25]')
-        .check();
-    }
-    // Propia
-    else if (this.formHojaDeVida2.value.tipoVivienda2.startsWith("PROPIA")) {
-      form
-        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[26]')
-        .check();
-    }
-    else {
-      form
-        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[24]')
-        .check();
-    }
-
-
-
-
-    form
-      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[17]')
-      .setText(this.formHojaDeVida2.value.municipioExpedicionCC);
-    form
-      .getTextField('topmostSubform[0].Page1[0].CampoTexto2[14]')
-      .setText(this.formHojaDeVida2.value.estadoCivil);
-
-
-    // Como conoce la vacante
-    // Si fuenteVacante comienza con REFERIDO se debe marcar la casilla topmostSubform[0].Page1[0].CasillaVerificación1[18]
-
-    if (this.formHojaDeVida2.value.fuenteVacante == 'REFERIDO (AMIGO, FAMILIAR, CONOCIDO)') {
-      form
-        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[20]')
-        .check();
-    }
-    else {
-      form
-        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[18]')
-        .check();
-    }
-
-
-
-
-    form
-      .getTextField('topmostSubform[0].Page2[0].CampoTexto2[0]')
-      .setText(
-        this.formHojaDeVida2.value.nombresConyuge +
-        ' ' +
-        this.formHojaDeVida2.value.apellidosConyuge
-      );
-    form
-      .getTextField('topmostSubform[0].Page2[0].CampoTexto2[1]')
-      .setText(this.formHojaDeVida2.value.ocupacionConyuge);
-    form
-      .getTextField('topmostSubform[0].Page2[0].CampoTexto2[4]')
-      .setText(this.formHojaDeVida2.value.direccionConyuge);
-    form
-      .getTextField('topmostSubform[0].Page2[0].CampoTexto2[5]')
-      .setText(this.formHojaDeVida2.value.telefonoConyuge);
-
-    // foto
-    /*
-        const base64Image = this.guardarObjeti3;
-        const imageBytes = this.base64ToUint8Array(base64Image);
-        const format = this.getImageFormat(base64Image);
-
-        const x = 175 * 2.83465;
-        let y = (297 - 51.9 - 40) * 2.83465;
-        const width = 30 * 2.83465;
-        const height = 41 * 2.83465;
-        y -= 51; // Mover la imagen 30 puntos más abajo como ejemplo
-
-        let image!: any;
-        if (format === 'jpeg') {
-          image = await pdfDoc.embedJpg(imageBytes);
-        } else if (format === 'png') {
-          image = await pdfDoc.embedPng(imageBytes);
-        }
-
-        const page = pdfDoc.getPage(0);
-        page.drawImage(image, { x, y, width, height });
-    */
-    // info padre
-    form
-      .getTextField('topmostSubform[0].Page2[0].CampoTexto2[10]')
-      .setText(this.formHojaDeVida2.value.nombrePadre);
-    form
-      .getTextField('topmostSubform[0].Page2[0].CampoTexto2[11]')
-      .setText(this.formHojaDeVida2.value.ocupacionPadre);
-    form
-      .getTextField('topmostSubform[0].Page2[0].CampoTexto2[12]')
-      .setText(this.formHojaDeVida2.value.telefonoPadre);
-
-    // info madre
-    form
-      .getTextField('topmostSubform[0].Page2[0].CampoTexto2[16]')
-      .setText(this.formHojaDeVida2.value.nombreMadre);
-    form
-      .getTextField('topmostSubform[0].Page2[0].CampoTexto2[17]')
-      .setText(this.formHojaDeVida2.value.ocupacionMadre);
-    form
-      .getTextField('topmostSubform[0].Page2[0].CampoTexto2[13]')
-      .setText(this.formHojaDeVida2.value.telefonoMadre);
-
-    if (this.formHojaDeVida2.value.tieneHermanos === 'SI') {
-      const hermanos = this.formHojaDeVida2.get('hermanos')?.value;
-
-      // Iterar sobre cada hermano del FormArray
-      hermanos.forEach((hermano: any, index: number) => {
-        let nombreIndex = 18; // Base para el nombre
-        let profesionIndex = 20; // Base para la profesión
-        let telefonoIndex = 14; // Base para el teléfono
-
-        // Ajustar los índices según el hermano (index)
-        if (index === 1) {
-          nombreIndex = 21; // Índice del nombre para el hermano 2
-          profesionIndex = 19; // Índice de la profesión para el hermano 2
-          telefonoIndex = 15; // Índice del teléfono para el hermano 2
-        }
-
-        // Imprimir las posiciones para depuración
-        // Llenar los campos en el PDF
-        form
-          .getTextField(`topmostSubform[0].Page2[0].CampoTexto2[${nombreIndex}]`)
-          .setText(hermano.nombre || '');
-        form
-          .getTextField(`topmostSubform[0].Page2[0].CampoTexto2[${profesionIndex}]`)
-          .setText(hermano.profesion || '');
-        form
-          .getTextField(`topmostSubform[0].Page2[0].CampoTexto2[${telefonoIndex}]`)
-          .setText(hermano.telefono || '');
-      });
-    }
-
-
-
-
-
-    // si this.formHojaDeVida2.value.tipoVivienda2 contiene la palabra propia
-    if (this.formHojaDeVida2.value.tipoVivienda2.includes('Propia')) {
-      form
-        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[26]')
-        .check();
-    }
-    // si this.formHojaDeVida2.value.tipoVivienda2 contiene la palabra arrendada
-    if (this.formHojaDeVida2.value.tipoVivienda2.includes('Arriendo')) {
-      form
-        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[25]')
-        .check();
-    }
-    // si this.formHojaDeVida2.value.tipoVivienda2 contiene la palabra familiar
-    if (this.formHojaDeVida2.value.tipoVivienda2.includes('Familiar')) {
-      form
-        .getCheckBox('topmostSubform[0].Page1[0].CasillaVerificación1[24]')
-        .check();
-    }
-
-
-
-    // informacion empresa
-    form
-      .getTextField('topmostSubform[0].Page3[0].CampoTexto2[0]')
-      .setText(this.formHojaDeVida2.value.nombreEmpresa1);
-    form
-      .getTextField('topmostSubform[0].Page3[0].CampoTexto2[1]')
-      .setText(this.formHojaDeVida2.value.direccionEmpresa1);
-    form
-      .getTextField('topmostSubform[0].Page3[0].CampoTexto2[2]')
-      .setText(this.formHojaDeVida2.value.telefonosEmpresa1);
-    form
-      .getTextField('topmostSubform[0].Page3[0].CampoTexto2[3]')
-      .setText(this.formHojaDeVida2.value.cargoEmpresa1);
-    form
-      .getTextField('topmostSubform[0].Page3[0].CampoTexto2[4]')
-      .setText(this.formHojaDeVida2.value.nombreJefe1);
-    // fecha asi 2024-03-12T05:00:00.000Z se debe cambiar a 12/03/2024 para separar por / y poder usar
-    // si contiene - se debe cambiar a / para poder usar
-    if (this.formHojaDeVida2.value.fechaRetiro1.includes('-')) {
-      let fecha = this.formHojaDeVida2.value.fechaRetiro1;
-      let fechaArray = fecha.split('-');
-      let fechaRetiro = fechaArray[2].split('T');
-      let fechaRetiroFinal =
-        fechaRetiro[0] + '/' + fechaArray[1] + '/' + fechaArray[0];
-      // dia en topmostSubform[0].Page3[0].CampoTexto2[8]
-      form
-        .getTextField('topmostSubform[0].Page3[0].CampoTexto2[8]')
-        .setText(fechaRetiro[0]);
-      // mes en topmostSubform[0].Page3[0].CampoTexto2[9]
-      form
-        .getTextField('topmostSubform[0].Page3[0].CampoTexto2[9]')
-        .setText(fechaArray[1]);
-      // año en topmostSubform[0].Page3[0].CampoTexto2[10]
-      form
-        .getTextField('topmostSubform[0].Page3[0].CampoTexto2[10]')
-        .setText(fechaArray[0]);
-
-      form
-        .getTextField('topmostSubform[0].Page3[0].CampoTexto2[19]')
-        .setText(this.formHojaDeVida2.value.motivoRetiro1);
-    }
-    /*
-        // informacion empresa
-        form
-          .getTextField('topmostSubform[0].Page3[0].CampoTexto2[21]')
-          .setText(this.formHojaDeVida2.value.nombreEmpresa2);
-        form
-          .getTextField('topmostSubform[0].Page3[0].CampoTexto2[41]')
-          .setText(this.formHojaDeVida2.value.direccionEmpresa2);
-        form
-          .getTextField('topmostSubform[0].Page3[0].CampoTexto2[40]')
-          .setText(this.formHojaDeVida2.value.telefonosEmpresa2);
-        form
-          .getTextField('topmostSubform[0].Page3[0].CampoTexto2[38]')
-          .setText(this.formHojaDeVida2.value.cargoTrabajador2);
-        form
-          .getTextField('topmostSubform[0].Page3[0].CampoTexto2[39]')
-          .setText(this.formHojaDeVida2.value.nombreJefe2);
-        // fecha asi 2024-03-12T05:00:00.000Z se debe cambiar a 12/03/2024 para separar por / y poder usar
-        // si contiene - se debe cambiar a / para poder usar
-        if (this.formHojaDeVida2.value.fechaRetiro2.includes('-')) {
-          let fecha2 = this.formHojaDeVida2.value.fechaRetiro2;
-          let fechaArray2 = fecha2.split('-');
-          let fechaRetiro2 = fechaArray2[2].split('T');
-          let fechaRetiroFinal2 =
-            fechaRetiro2[0] + '/' + fechaArray2[1] + '/' + fechaArray2[0];
-          // dia en topmostSubform[0].Page3[0].CampoTexto2[8]
-          form
-            .getTextField('topmostSubform[0].Page3[0].CampoTexto2[33]')
-            .setText(fechaRetiro2[0]);
-          // mes en topmostSubform[0].Page3[0].CampoTexto2[9]
-          form
-            .getTextField('topmostSubform[0].Page3[0].CampoTexto2[34]')
-            .setText(fechaArray2[1]);
-          // año en topmostSubform[0].Page3[0].CampoTexto2[10]
-          form
-            .getTextField('topmostSubform[0].Page3[0].CampoTexto2[35]')
-            .setText(fechaArray2[0]);
-        }
-        form
-          .getTextField('topmostSubform[0].Page3[0].CampoTexto2[23]')
-          .setText(this.formHojaDeVida2.value.motivoRetiro2);
-    */
-    // refencias personales
-    form
-      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[0]')
-      .setText(this.formHojaDeVida2.value.nombreReferenciaPersonal1);
-    form
-      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[9]')
-      .setText(this.formHojaDeVida2.value.telefonoReferencia1);
-    form
-      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[4]')
-      .setText(this.formHojaDeVida2.value.ocupacionReferencia1);
-    form
-      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[6]')
-      .setText(this.formHojaDeVida2.value.direccionReferenciaPersonal1);
-
-
-    form
-      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[1]')
-      .setText(this.formHojaDeVida2.value.nombreReferenciaPersonal2);
-    form
-      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[10]')
-      .setText(this.formHojaDeVida2.value.telefonoReferencia2);
-    form
-      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[3]')
-      .setText(this.formHojaDeVida2.value.ocupacionReferencia2);
-    form
-      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[7]')
-      .setText(this.formHojaDeVida2.value.direccionReferenciaPersonal2);
-
-    // refencias familiares
-    form
-      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[2]')
-      .setText(this.formHojaDeVida2.value.nombreReferenciaFamiliar1);
-    form
-      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[11]')
-      .setText(this.formHojaDeVida2.value.telefonoReferenciaFamiliar1);
-    form
-      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[5]')
-      .setText(this.formHojaDeVida2.value.ocupacionReferenciaFamiliar1);
-    form
-      .getTextField('topmostSubform[0].Page4[0].CampoTexto2[8]')
-      .setText(this.formHojaDeVida2.value.direccionReferenciaFamiliar1);
-
-    // Bloquear todos los campos del formulario
-    const fields = form.getFields();
-    fields.forEach((field) => {
-      field.enableReadOnly(); // Habilita el modo de solo lectura para el campo
-    });
-
-    const pdfBytes = await pdfDoc.save();
-
-    // Agregar la marca de agua
-    const watermarkText = "TUAPO HV GENERADA"; // Define tu texto de marca de agua
-    const watermarkedPdfBytes = await this.addWatermarkToPdf(pdfBytes, watermarkText);
-
-    // Convertir el Uint8Array con marca de agua en un Blob.
-    const blob = new Blob([watermarkedPdfBytes], { type: 'application/pdf' });
-
-    // Convertir el Blob en un File.
-    const file = new File([blob], 'Hoja de vida generada con marca de agua.pdf', { type: 'application/pdf' });
-
-    // Asignar el File al objeto uploadedFiles.
-    this.uploadedFiles['hojaDeVidaGenerada'] = { file: file, fileName: 'Hoja de vida generada con marca de agua.pdf' };
-
-    // Función para normalizar texto
-    function normalizeText(text: string): string {
-      return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
-    }
-
-    // Descargar el PDF con marca de agua en el cliente
-    this.downloadPDF(
-      watermarkedPdfBytes,
-      `Minerva-${normalizeText(this.formHojaDeVida2.value.pApellido)}-${normalizeText(this.formHojaDeVida2.value.sApellido)}-${normalizeText(this.formHojaDeVida2.value.pNombre)}-${normalizeText(this.formHojaDeVida2.value.sNombre)}.pdf`
-    );
-
-  }
 
   // Función para agregar una marca de agua al PDF
   async addWatermarkToPdf(pdfBytes: Uint8Array, watermarkText: string): Promise<Uint8Array> {
@@ -958,16 +488,23 @@ export class FormVacancies {
   }
 
   downloadPDF(pdfBytes: Uint8Array, filename: string) {
-    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-    const url = window.URL.createObjectURL(blob);
-    const downloadLink = document.createElement('a');
-    downloadLink.href = url;
-    downloadLink.download = filename;
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    document.body.removeChild(downloadLink);
-    window.URL.revokeObjectURL(url);
+    // Asegurar un ArrayBuffer “puro” y del rango correcto
+    const ab = pdfBytes.buffer as ArrayBuffer;
+    const slice = ab.slice(pdfBytes.byteOffset, pdfBytes.byteOffset + pdfBytes.byteLength);
+
+    const blob = new Blob([slice], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
+    document.body.appendChild(a); // mejora compatibilidad iOS/Safari
+    a.click();
+    document.body.removeChild(a);
+
+    URL.revokeObjectURL(url);
   }
+
 
   // Función que escucha los cambios de cualquier campo del formulario y guarda en localStorage
   guardarCambiosEnLocalStorage(form: FormGroup, key: string): void {
@@ -1234,7 +771,6 @@ export class FormVacancies {
       'porqueLofelicitarian',
       'malentendido',
       'actividadesDi',
-      'como_es_su_relacion_familiar',
       'experienciaSignificativa',
       'motivacion',
     ];
@@ -1415,7 +951,6 @@ export class FormVacancies {
           this.formHojaDeVida2.value.caracteristicasVivienda,
         malentendido: this.formHojaDeVida2.value.malentendido ?? '',
         hijos: this.formHojaDeVida2.value.hijos,
-        como_es_su_relacion_familiar: this.formHojaDeVida2.value.como_es_su_relacion_familiar,
         experienciaLaboral: this.formHojaDeVida2.value.experienciaLaboral,
         porqueLofelicitarian: this.formHojaDeVida2.value.porqueLofelicitarian ?? '',
         areaCultivoPoscosecha: this.formHojaDeVida2.value.areaCultivoPoscosecha ?? '',
@@ -1459,7 +994,7 @@ export class FormVacancies {
 
       // Si hay opción de generar hoja de vida
       if (this.formHojaDeVida2.value.deseaGenerar) {
-        this.fillForm();
+        // this.fillForm();
       }
 
       // Mostrar loader de carga
@@ -1603,7 +1138,7 @@ export class FormVacancies {
               icon: 'success',
               confirmButtonText: 'Aceptar',
             });
-            //this.llenarFormularioConDatos(response);
+            this.llenarFormularioConDatos(response);
           },
           error: (error) => {
             console.error(error);
@@ -1829,8 +1364,6 @@ export class FormVacancies {
           expectativasVidaChecks: datosHoja.expectativas_de_vida ? datosHoja.expectativas_de_vida.split(',').map((item: string) => item.trim()) : [],
           personas_a_cargo: datosHoja.personas_a_cargo ? datosHoja.personas_a_cargo.split(',').map((item: string) => item.trim()) : [],
 
-
-          como_es_su_relacion_familiar: datosHoja.como_es_su_relacion_familiar !== '-' ? datosHoja.como_es_su_relacion_familiar : '',
           porqueLofelicitarian: datosHoja.porqueLofelicitarian !== '-' ? datosHoja.porqueLofelicitarian : '',
           malentendido: datosHoja.malentendido !== '-' ? datosHoja.malentendido : '',
           actividadesDi: datosHoja.actividadesDi !== '-' ? datosHoja.actividadesDi : '',

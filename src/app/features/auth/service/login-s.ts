@@ -9,14 +9,14 @@ import { firstValueFrom } from 'rxjs';
 })
 export class LoginS {
 
-  private apiUrl = environment.apiUrl;
+  private apiUrl = `${environment.apiUrl}/gestion_admin/auth`;
 
   constructor(private http: HttpClient, @Inject(PLATFORM_ID) private platformId: Object) { }
 
   // Login
-  async login(email: string, password: string): Promise<any> {
-    return await firstValueFrom(
-      this.http.post(`${this.apiUrl}/usuarios/ingresar`, { email, password })
+  async login(login: string, password: string): Promise<{ token: string; user: any }> {
+    return firstValueFrom(
+      this.http.post<{ token: string; user: any }>(`${this.apiUrl}/login/`, { login, password })
     );
   }
 

@@ -14,11 +14,11 @@
       <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="form">
         <mat-form-field class="textbox" appearance="outline">
           <mat-label>Correo electrónico</mat-label>
-          <input matInput type="email" formControlName="email" required />
-          <mat-error *ngIf="loginForm.get('email')?.hasError('required')">
+          <input matInput type="login" formControlName="login" required />
+          <mat-error *ngIf="loginForm.get('login')?.hasError('required')">
             El correo electrónico es obligatorio
           </mat-error>
-          <mat-error *ngIf="loginForm.get('email')?.hasError('email')">
+          <mat-error *ngIf="loginForm.get('login')?.hasError('login')">
             Correo electrónico no válido
           </mat-error>
         </mat-form-field>
