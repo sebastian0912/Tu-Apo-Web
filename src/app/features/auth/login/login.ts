@@ -102,12 +102,7 @@ export class Login implements OnInit {
 
       // 3) Obtener datos extendidos del usuario (si falla, uso el del login)
       let user = resp?.user ?? null;
-      try {
-        const u = await this.loginS.getUserData();
-        if (u) user = u;
-      } catch {
-        // Silencioso: si falla, seguimos con resp.user
-      }
+    
 
       if (!user) {
         throw { message: 'No se pudo obtener el usuario', code: 'NO_USER' };
