@@ -10,6 +10,7 @@ import { degrees, PDFCheckBox, PDFDocument, PDFTextField, rgb, StandardFonts } f
 import { DocumentManagementS } from '../../../../../../shared/services/document-management-s/document-management-s';
 import { CandidateS } from '../../../../../../shared/services/candidate-s/candidate-s';
 import { PoliciesModal } from '../../components/policies-modal/policies-modal';
+import { ActivatedRoute } from '@angular/router';
 
 export const MY_DATE_FORMATS = {
   parse: {
@@ -76,6 +77,8 @@ export class FormVacancies {
     "hojaDeVida": 28,
     hojaDeVidaGenerada: 28,
   };
+  oficinaBloqueada = false;
+
 
   constructor(
     private http: HttpClient,
@@ -83,6 +86,7 @@ export class FormVacancies {
     private dialog: MatDialog,
     private gestionDocumentosService: DocumentManagementS,
     private candidateS: CandidateS,
+    private route: ActivatedRoute
   ) {
 
     // Llamada a la función para inicializar el formulario con base en el número de hijos
@@ -318,7 +322,15 @@ export class FormVacancies {
       direccionReferenciaFamiliar1: new FormControl('', Validators.required),
 
     }), { validators: this.validar };
+    this.route.queryParamMap.subscribe(params => {
+      const oficinaParam = (params.get('oficina') || '').toUpperCase().trim();
 
+      // Solo aplicamos si el valor del link es una oficina válida
+      if (oficinaParam && this.oficinas.includes(oficinaParam)) {
+        this.formHojaDeVida2.get('oficina')?.setValue(oficinaParam);
+        this.oficinaBloqueada = true;
+      }
+    });
     this.escucharNumeroDeHijos();
 
     // Escucha cambios en escolaridad
@@ -854,6 +866,7 @@ export class FormVacancies {
           this.formHojaDeVida2.value.telefonoFamiliarEmergencia,
         ocupacionFamiliarEmergencia:
           this.formHojaDeVida2.value.ocupacionFamiliar_Emergencia,
+
         oficina: this.formHojaDeVida2.value.oficina,
 
         escolaridad: this.formHojaDeVida2.value.escolaridad,
