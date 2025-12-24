@@ -8,7 +8,44 @@ import { environment } from '../../../../../../../environments/environment.devel
 export class RegistroProcesoContratacion {
   private apiUrl = environment.apiUrl?.replace(/\/$/, '');
 
-  constructor(private http: HttpClient, @Inject(PLATFORM_ID) private platformId: Object) {}
+  constructor(private http: HttpClient, @Inject(PLATFORM_ID) private platformId: Object) { }
+
+  /**
+   * GET /gestion_contratacion/candidatos/exists/?tipo_doc=CC&numero_documento=123&oficina=SUBA
+   * Retorna:
+   *  - { exists: false }
+   *  - { exists: true, turnos: { oficina, fecha, turno, pendientes_hoy, pendientes_delante, mi_posicion } }
+   */
+  existsCandidato(tipoDoc: string, numeroDocumento: string, oficina?: string): Observable<any> {
+    const tipo = String(tipoDoc ?? '').trim().toUpperCase();
+    const numero = String(numeroDocumento ?? '').trim();
+    const ofi = String(oficina ?? '').trim();
+
+    // si falta tipo o doc -> respuesta consistente con backend
+    if (!tipo || !numero) return of({ exists: false });
+
+    const url = `${this.apiUrl}/gestion_contratacion/candidatos/exists/`;
+
+    const params: any = {
+      tipo_doc: tipo,
+      numero_documento: numero,
+    };
+    if (ofi) params.oficina = ofi;
+
+    return this.http.get<any>(url, { params }).pipe(
+      map((resp: any) => {
+        // compatibilidad: si backend viejo devuelve boolean
+        if (typeof resp === 'boolean') return { exists: resp };
+        if (resp && typeof resp === 'object') return { exists: !!resp.exists, turnos: resp.turnos ?? null };
+        return { exists: false };
+      }),
+      catchError((err) => {
+        // no revientes la UI: deja continuar
+        return of({ exists: false });
+      }),
+    );
+  }
+
 
   guardarInfoPersonal(form: any): Observable<any> {
     const payload = this.buildCandidatoPayload(form);
@@ -31,25 +68,25 @@ export class RegistroProcesoContratacion {
     const get = (a: string, b?: string) => (f?.[a] ?? (b ? f?.[b] : undefined));
 
     const candidatoBase = this.clean({
-      tipo_doc:         get('tipo_doc', 'tipoDoc'),
+      tipo_doc: get('tipo_doc', 'tipoDoc'),
       numero_documento: get('numero_documento', 'numero_de_documento'),
-      primer_nombre:    get('primer_nombre', 'primerNombre'),
-      segundo_nombre:   get('segundo_nombre', 'segundoNombre'),
-      primer_apellido:  get('primer_apellido', 'primerApellido'),
+      primer_nombre: get('primer_nombre', 'primerNombre'),
+      segundo_nombre: get('segundo_nombre', 'segundoNombre'),
+      primer_apellido: get('primer_apellido', 'primerApellido'),
       segundo_apellido: get('segundo_apellido', 'segundoApellido'),
-      sexo:             get('sexo', 'genero'),
+      sexo: get('sexo', 'genero'),
       fecha_nacimiento: this.toYYYYMMDD(get('fecha_nacimiento', 'fechaNacimiento')),
-      estado_civil:     get('estado_civil', 'estadoCivil'),
+      estado_civil: get('estado_civil', 'estadoCivil'),
     });
 
     const contacto = this.nonEmpty({
-      email:    get('correo_electronico'),
-      celular:  get('celular', 'numeroCelular'),
+      email: get('correo_electronico'),
+      celular: get('celular', 'numeroCelular'),
       whatsapp: get('whatsapp', 'numeroWhatsapp'),
     });
 
     const residencia = this.nonEmpty({
-      barrio:           get('barrio'),
+      barrio: get('barrio'),
       hace_cuanto_vive: get('hace_cuanto_vive', 'tiempoResidencia'),
     });
 
@@ -61,8 +98,8 @@ export class RegistroProcesoContratacion {
 
     const info_cc = this.nonEmpty({
       fecha_expedicion: this.toYYYYMMDD(get('fecha_expedicion', 'fechaExpedicion')),
-      mpio_expedicion:  get('mpio_expedicion', 'municipioExpedicion'),
-      mpio_nacimiento:  get('mpio_nacimiento', 'lugarNacimiento'),
+      mpio_expedicion: get('mpio_expedicion', 'municipioExpedicion'),
+      mpio_nacimiento: get('mpio_nacimiento', 'lugarNacimiento'),
     });
 
     const experienciaFlores = get('experienciaFlores');
@@ -81,7 +118,7 @@ export class RegistroProcesoContratacion {
 
     const experiencia_resumen = this.nonEmpty({
       tiene_experiencia,
-      area_experiencia:        area,
+      area_experiencia: area,
       area_cultivo_poscosecha: area,
     });
 
@@ -92,9 +129,9 @@ export class RegistroProcesoContratacion {
     const experienciasSrc = Array.isArray(get('experiencias')) ? get('experiencias') : [];
     const experiencias = experienciasSrc
       .map((e: any) => this.clean({
-        empresa:             e?.empresa,
-        tiempo_trabajado:    e?.tiempo_trabajado ?? e?.tiempo,
-        labores_realizadas:  e?.labores_realizadas ?? e?.labores,
+        empresa: e?.empresa,
+        tiempo_trabajado: e?.tiempo_trabajado ?? e?.tiempo,
+        labores_realizadas: e?.labores_realizadas ?? e?.labores,
         labores_principales: e?.labores_principales,
       }))
       .filter((e: any) => !!e.empresa);
@@ -111,10 +148,10 @@ export class RegistroProcesoContratacion {
 
     const entrevistas = this.compact([
       this.nonEmpty({
-        oficina:                   get('oficina'),
-        como_se_proyecta:          get('como_se_proyecta', 'proyeccion1Ano'),
+        oficina: get('oficina'),
+        como_se_proyecta: get('como_se_proyecta', 'proyeccion1Ano'),
         cuenta_experiencia_flores: tiene_experiencia ? 'SI' : 'NO',
-        tipo_experiencia_flores:   area,
+        tipo_experiencia_flores: area,
       }),
     ]);
 
