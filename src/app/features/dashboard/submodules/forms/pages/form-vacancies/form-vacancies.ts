@@ -608,8 +608,6 @@ export class FormVacancies implements OnInit, AfterViewInit, OnDestroy {
   ) {
     this.isBrowser = isPlatformBrowser(this.platformId);
 
-    const addrOpt = [Validators.minLength(6), Validators.maxLength(120), Validators.pattern(this.ADDRESS_RX)];
-    const addrReq = [Validators.required, ...addrOpt];
 
     this.formHojaDeVida2 = new FormGroup(
       {
@@ -803,21 +801,7 @@ export class FormVacancies implements OnInit, AfterViewInit, OnDestroy {
       { validators: this.groupCrossValidator() }
     );
 
-    this.formHojaDeVida2.get('viveConyuge')?.valueChanges.subscribe((v) => {
-      const dir = this.formHojaDeVida2.get('direccionConyuge');
-      if (!dir) return;
 
-      const addrOpt2 = [Validators.minLength(6), Validators.maxLength(120), Validators.pattern(this.ADDRESS_RX)];
-      const val = String(v ?? '').toUpperCase().trim();
-
-      if (val === 'SI') {
-        dir.setValidators([Validators.required, ...addrOpt2]);
-      } else {
-        dir.clearValidators();
-        dir.setValue('', { emitEvent: false });
-      }
-      dir.updateValueAndValidity({ emitEvent: false });
-    });
 
     this.route.queryParamMap.subscribe((params) => {
       const oficinaParam = (params.get('oficina') || '').toUpperCase().trim();
