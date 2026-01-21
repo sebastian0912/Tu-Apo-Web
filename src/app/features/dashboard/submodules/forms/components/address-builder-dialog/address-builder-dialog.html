@@ -1,0 +1,385 @@
+<div class="ab-shell">
+  <!-- Header -->
+  <div class="ab-header">
+    <div class="ab-head-txt">
+      <div class="ab-title">Constructor de dirección</div>
+      <div class="ab-subtitle">
+        Formato DIAN: <b>MAYÚSCULAS</b>, sin símbolos (# - , .), solo espacios.
+      </div>
+    </div>
+
+    <div class="ab-header-actions">
+      <button
+        mat-stroked-button
+        type="button"
+        class="ab-clear-all"
+        matTooltip="Limpiar todo"
+        (click)="clearAll()">
+        <mat-icon>restart_alt</mat-icon>
+        Limpiar
+      </button>
+
+      <button mat-icon-button type="button" class="ab-close" aria-label="Cerrar" (click)="cancelar()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+  </div>
+
+  <!-- Mode Switch -->
+  <div class="ab-modes">
+    <button
+      mat-stroked-button
+      type="button"
+      class="ab-mode-btn"
+      [class.is-active]="modeCtrl.value === 'guided'"
+      (click)="setMode('guided')">
+      <mat-icon>tune</mat-icon>
+      Asistente
+    </button>
+
+    <button
+      mat-stroked-button
+      type="button"
+      class="ab-mode-btn"
+      [class.is-active]="modeCtrl.value === 'paste'"
+      (click)="setMode('paste')">
+      <mat-icon>content_paste</mat-icon>
+      Pegar y limpiar
+    </button>
+
+    <button
+      mat-stroked-button
+      type="button"
+      class="ab-mode-btn"
+      [class.is-active]="modeCtrl.value === 'other'"
+      (click)="setMode('other')">
+      <mat-icon>forest</mat-icon>
+      Rural u otra
+    </button>
+  </div>
+
+  <!-- Preview -->
+  <div class="ab-preview">
+    <div class="ab-preview-top">
+      <div class="ab-preview-label">Dirección (DIAN)</div>
+
+      @if (preview$ | async; as p) {
+        <button mat-stroked-button type="button" class="ab-copy" (click)="copiar(p)" [disabled]="!p">
+          <mat-icon>content_copy</mat-icon>
+          Copiar
+        </button>
+      }
+    </div>
+
+    @if (preview$ | async; as preview) {
+      <div class="ab-preview-value" [class.is-empty]="!preview">
+        {{ preview || 'AQUÍ VERÁS LA DIRECCIÓN FINAL' }}
+      </div>
+    }
+
+    <div class="ab-hint">
+      Ejemplos: <b>CL 12 33 24</b> · <b>CR 35 B 25 53</b> · <b>DG 65 SUR 69 13</b>
+    </div>
+  </div>
+
+  <mat-divider></mat-divider>
+
+  <!-- BODY -->
+  <div class="ab-body">
+    <!-- Guided -->
+    @if (modeCtrl.value === 'guided') {
+      <form class="ab-form" [formGroup]="guided">
+        <div class="ab-section">
+          <div class="ab-section-head">
+            <div class="ab-section-title">
+              <mat-icon>signpost</mat-icon>
+              Vía principal
+            </div>
+
+            <button mat-stroked-button type="button" class="ab-mini-clear" (click)="clearGuided()">
+              <mat-icon>cleaning_services</mat-icon>
+              Limpiar asistente
+            </button>
+          </div>
+
+          <div class="ab-pills">
+            @for (t of viaTypes; track t) {
+              <button
+                mat-stroked-button
+                type="button"
+                class="ab-pill"
+                [class.is-active]="guided.controls.viaType.value === t"
+                (click)="pickViaType(t)">
+                {{ t }}
+              </button>
+            }
+          </div>
+
+          <div class="ab-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Número</mat-label>
+              <input
+                matInput
+                inputmode="numeric"
+                autocomplete="off"
+                formControlName="viaNum"
+                (input)="onNumInput('viaNum', $event)"
+                placeholder="Ej: 71" />
+
+              @if (guided.controls.viaNum.value) {
+                <button mat-icon-button matSuffix type="button" (click)="clearControl('viaNum')" aria-label="Limpiar">
+                  <mat-icon>close</mat-icon>
+                </button>
+              }
+
+              @if (guided.controls.viaNum.touched && guided.controls.viaNum.invalid) {
+                <mat-hint class="ab-error">Requerido (solo números).</mat-hint>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Letra (opcional)</mat-label>
+              <input
+                matInput
+                maxlength="1"
+                autocomplete="off"
+                formControlName="viaLetter"
+                (input)="onLetterInput('viaLetter', $event)"
+                placeholder="Ej: C" />
+
+              @if (guided.controls.viaLetter.value) {
+                <button mat-icon-button matSuffix type="button" (click)="clearControl('viaLetter')" aria-label="Limpiar">
+                  <mat-icon>close</mat-icon>
+                </button>
+              }
+
+              <mat-hint>Una sola letra</mat-hint>
+            </mat-form-field>
+          </div>
+
+          <div class="ab-row">
+            <button
+              mat-stroked-button
+              type="button"
+              class="ab-bis"
+              [class.is-active]="guided.controls.viaBis.value"
+              (click)="toggleBis()">
+              <mat-icon>done</mat-icon>
+              BIS
+            </button>
+
+            <div class="ab-mini-label">Cuadrante (opcional):</div>
+
+            <div class="ab-pills ab-pills-mini">
+              <button
+                mat-stroked-button
+                type="button"
+                class="ab-pill ab-pill-mini ab-pill-clear"
+                [class.is-active]="!guided.controls.viaQuad.value"
+                (click)="clearQuad('viaQuad')">
+                SIN
+              </button>
+
+              @for (q of quads; track q) {
+                <button
+                  mat-stroked-button
+                  type="button"
+                  class="ab-pill ab-pill-mini"
+                  [class.is-active]="guided.controls.viaQuad.value === q"
+                  (click)="toggleQuad('viaQuad', q)">
+                  {{ q }}
+                </button>
+              }
+            </div>
+          </div>
+        </div>
+
+        <div class="ab-section">
+          <div class="ab-section-title">
+            <mat-icon>alt_route</mat-icon>
+            Vía secundaria
+          </div>
+
+          <div class="ab-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Número</mat-label>
+              <input
+                matInput
+                inputmode="numeric"
+                autocomplete="off"
+                formControlName="secNum"
+                (input)="onNumInput('secNum', $event)"
+                placeholder="Ej: 94" />
+
+              @if (guided.controls.secNum.value) {
+                <button mat-icon-button matSuffix type="button" (click)="clearControl('secNum')" aria-label="Limpiar">
+                  <mat-icon>close</mat-icon>
+                </button>
+              }
+
+              @if (guided.controls.secNum.touched && guided.controls.secNum.invalid) {
+                <mat-hint class="ab-error">Requerido (solo números).</mat-hint>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Letra (opcional)</mat-label>
+              <input
+                matInput
+                maxlength="1"
+                autocomplete="off"
+                formControlName="secLetter"
+                (input)="onLetterInput('secLetter', $event)"
+                placeholder="Ej: A" />
+
+              @if (guided.controls.secLetter.value) {
+                <button mat-icon-button matSuffix type="button" (click)="clearControl('secLetter')" aria-label="Limpiar">
+                  <mat-icon>close</mat-icon>
+                </button>
+              }
+
+              <mat-hint>Una sola letra</mat-hint>
+            </mat-form-field>
+          </div>
+
+          <div class="ab-row">
+            <div class="ab-mini-label">Cuadrante (opcional):</div>
+
+            <div class="ab-pills ab-pills-mini">
+              <button
+                mat-stroked-button
+                type="button"
+                class="ab-pill ab-pill-mini ab-pill-clear"
+                [class.is-active]="!guided.controls.secQuad.value"
+                (click)="clearQuad('secQuad')">
+                SIN
+              </button>
+
+              @for (q of quads; track q) {
+                <button
+                  mat-stroked-button
+                  type="button"
+                  class="ab-pill ab-pill-mini"
+                  [class.is-active]="guided.controls.secQuad.value === q"
+                  (click)="toggleQuad('secQuad', q)">
+                  {{ q }}
+                </button>
+              }
+            </div>
+          </div>
+        </div>
+
+        <div class="ab-section">
+          <div class="ab-section-title">
+            <mat-icon>pin</mat-icon>
+            Placa
+          </div>
+
+          <mat-form-field appearance="outline" class="ab-placa">
+            <mat-label>Número</mat-label>
+            <input
+              matInput
+              inputmode="numeric"
+              autocomplete="off"
+              formControlName="placaNum"
+              (input)="onNumInput('placaNum', $event)"
+              placeholder="Ej: 72" />
+
+            @if (guided.controls.placaNum.value) {
+              <button mat-icon-button matSuffix type="button" (click)="clearControl('placaNum')" aria-label="Limpiar">
+                <mat-icon>close</mat-icon>
+              </button>
+            }
+
+            @if (guided.controls.placaNum.touched && guided.controls.placaNum.invalid) {
+              <mat-hint class="ab-error">Requerido (solo números).</mat-hint>
+            }
+          </mat-form-field>
+        </div>
+      </form>
+    }
+
+    <!-- Paste -->
+    @if (modeCtrl.value === 'paste') {
+      <div class="ab-section">
+        <div class="ab-section-head">
+          <div class="ab-section-title">
+            <mat-icon>content_paste</mat-icon>
+            Pega la dirección como te la dieron
+          </div>
+
+          <button mat-stroked-button type="button" class="ab-mini-clear" (click)="clearPasted()">
+            <mat-icon>cleaning_services</mat-icon>
+            Limpiar
+          </button>
+        </div>
+
+        <mat-form-field appearance="outline" class="ab-wide">
+          <mat-label>Dirección original</mat-label>
+          <input
+            matInput
+            autocomplete="off"
+            [formControl]="pastedCtrl"
+            placeholder="Ej: CL 71C # 94A - 72, BRR La Clarita, Bogotá..." />
+
+          @if (pastedCtrl.value) {
+            <button mat-icon-button matSuffix type="button" (click)="clearPasted()" aria-label="Limpiar">
+              <mat-icon>close</mat-icon>
+            </button>
+          }
+
+          <mat-hint>La limpiamos y la dejamos sin símbolos, solo espacios.</mat-hint>
+        </mat-form-field>
+
+        <div class="ab-tip">
+          Si no queda bien, usa <b>Asistente</b> (es el más confiable).
+        </div>
+      </div>
+    }
+
+    <!-- Other / Rural -->
+    @if (modeCtrl.value === 'other') {
+      <div class="ab-section">
+        <div class="ab-section-head">
+          <div class="ab-section-title">
+            <mat-icon>forest</mat-icon>
+            Rural u otra (sin nomenclatura urbana)
+          </div>
+
+          <button mat-stroked-button type="button" class="ab-mini-clear" (click)="clearOther()">
+            <mat-icon>cleaning_services</mat-icon>
+            Limpiar
+          </button>
+        </div>
+
+        <mat-form-field appearance="outline" class="ab-wide">
+          <mat-label>Descripción</mat-label>
+          <input
+            matInput
+            autocomplete="off"
+            [formControl]="otherCtrl"
+            placeholder="Ej: VEREDA LA ESPERANZA KM 12 VIA ZIPAQUIRA" />
+
+          @if (otherCtrl.value) {
+            <button mat-icon-button matSuffix type="button" (click)="clearOther()" aria-label="Limpiar">
+              <mat-icon>close</mat-icon>
+            </button>
+          }
+
+          <mat-hint>Se normaliza a MAYÚSCULAS y sin caracteres especiales.</mat-hint>
+        </mat-form-field>
+      </div>
+    }
+  </div>
+
+  <!-- Actions -->
+  <div class="ab-actions">
+    <button mat-button type="button" (click)="cancelar()">Cancelar</button>
+
+    @if (preview$ | async; as p) {
+      <button mat-flat-button color="primary" type="button" (click)="aceptar(p)">
+        Usar esta dirección
+      </button>
+    }
+  </div>
+</div>

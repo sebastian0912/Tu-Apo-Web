@@ -67,7 +67,6 @@ export class FormTransferRequest {
         this.enviarDatos();
       },
       error: (error) => {
-        console.error('Error al enviar los datos:', error);
         Swal.fire({
           icon: 'error',
           title: 'Error',
@@ -115,7 +114,6 @@ export class FormTransferRequest {
           title: 'Error',
           text: 'Recuerde que solo se puede hacer una solicitud a la vez.'
         });
-        console.error('Error al enviar los datos:', error);
       }
     });
   }

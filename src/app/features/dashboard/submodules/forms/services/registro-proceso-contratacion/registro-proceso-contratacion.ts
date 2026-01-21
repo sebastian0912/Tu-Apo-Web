@@ -3,12 +3,175 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, throwError, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../../../../../../environments/environment.development';
+import { isPlatformBrowser } from '@angular/common';
+
+// =====================
+// Tipos Upsert
+// =====================
+export interface CandidatoUpsertPayload {
+  tipoDoc: string;
+  tipo_doc?: string;
+  numeroCedula: string;
+  numero_documento?: string;
+  
+  pApellido?: string;
+  sApellido?: string;
+  pNombre?: string;
+  sNombre?: string;
+  genero?: string;
+
+  correo?: string;
+  numCelular?: string;
+  numWha?: string;
+
+  departamento?: string;
+  ciudad?: string;
+  estadoCivil?: string;
+
+  direccionResidencia?: string;
+  barrio?: string;
+
+  fechaExpedicionCc?: string;
+  departamentoExpedicionCc?: string;
+  municipioExpedicionCc?: string;
+  lugarNacimientoDepartamento?: string;
+  lugarNacimientoMunicipio?: string;
+
+  rh?: string;
+  zurdoDiestro?: string;
+
+  tiempoResidenciaZona?: string;
+  lugarAnteriorResidencia?: string;
+  razonCambioResidencia?: string;
+  zonasConocidas?: string;
+  preferenciaResidencia?: string;
+
+  fechaNacimiento?: string;
+  estudiaActualmente?: string | boolean;
+
+  familiarEmergencia?: string;
+  parentescoFamiliarEmergencia?: string;
+  direccionFamiliarEmergencia?: string;
+  barrioFamiliarEmergencia?: string;
+  telefonoFamiliarEmergencia?: string;
+  ocupacionFamiliarEmergencia?: string;
+
+  oficina?: string;
+
+  escolaridad?: string;
+  estudiosExtra?: string;
+  nombreInstitucion?: string;
+  anoFinalizacion?: string; // ISO
+  tituloObtenido?: string;
+
+  chaqueta?: string | number;
+  pantalon?: string | number;
+  camisa?: string | number;
+  calzado?: string | number;
+
+  nombreConyugue?: string;
+  apellidoConyugue?: string;
+  numDocIdentidadConyugue?: string;
+  viveConElConyugue?: string;
+  direccionConyugue?: string;
+  telefonoConyugue?: string;
+  barrioMunicipioConyugue?: string;
+  ocupacionConyugue?: string;
+
+  nombrePadre?: string;
+  vivePadre?: boolean;
+  ocupacionPadre?: string;
+  direccionPadre?: string;
+  telefonoPadre?: string;
+  barrioPadre?: string;
+
+  nombreMadre?: string;
+  viveMadre?: boolean;
+  ocupacionMadre?: string;
+  direccionMadre?: string;
+  telefonoMadre?: string;
+  barrioMadre?: string;
+
+  nombreReferenciaPersonal1?: string;
+  telefonoReferenciaPersonal1?: string;
+  ocupacionReferenciaPersonal1?: string;
+  tiempoConoceReferenciaPersonal1?: string;
+  direccionReferenciaPersonal1?: string;
+
+  nombreReferenciaPersonal2?: string;
+  telefonoReferenciaPersonal2?: string;
+  ocupacionReferenciaPersonal2?: string;
+  tiempoConoceReferenciaPersonal2?: string;
+  direccionReferenciaPersonal2?: string;
+
+  nombreReferenciaFamiliar1?: string;
+  telefonoReferenciaFamiliar1?: string;
+  ocupacionReferenciaFamiliar1?: string;
+  parentescoReferenciaFamiliar1?: string;
+  tiempoConoceReferenciaFamiliar1?: string;
+  direccionReferenciaFamiliar1?: string;
+
+  nombreReferenciaFamiliar2?: string;
+  telefonoReferenciaFamiliar2?: string;
+  ocupacionReferenciaFamiliar2?: string;
+  parentescoReferenciaFamiliar2?: string;
+  tiempoConoceReferenciaFamiliar2?: string;
+  direccionReferenciaFamiliar2?: string;
+
+  nombreExpeLaboral1Empresa?: string;
+  direccionEmpresa1?: string;
+  telefonosEmpresa1?: string;
+  nombreJefeEmpresa1?: string;
+  fechaRetiroEmpresa1?: string;
+  motivoRetiroEmpresa1?: string;
+  cargoEmpresa1?: string;
+
+  empresas_laborado?: string;
+
+  familiaConUnSoloIngreso?: boolean;
+  numHabitaciones?: string | number;
+  numPersonasPorHabitacion?: string | number;
+  tipoVivienda2p?: string;
+  caracteristicasVivienda?: string;
+
+  experienciaLaboral?: boolean;
+
+  areaExperiencia?: string;
+  areaCultivoPoscosecha?: string;
+
+  laboresRealizadas?: string;
+  tiempoExperiencia?: string;
+
+  numHijosDependientes?: number;
+  cuidadorHijos?: string;
+
+
+  fuenteVacante?: string;
+  expectativasDeVida?: string;
+  servicios?: string;
+  tipoVivienda?: string;
+  personasConQuienConvive?: string;
+  personas_a_cargo?: string;
+
+  hijos?: any[];
+}
+
+export interface CandidatoUpsertResponse {
+  ok: boolean;
+  created: boolean;
+  candidato_id: number;
+  tipo_doc: string;
+  numero_documento: string;
+}
 
 @Injectable({ providedIn: 'root' })
 export class RegistroProcesoContratacion {
   private apiUrl = environment.apiUrl?.replace(/\/$/, '');
 
-  constructor(private http: HttpClient, @Inject(PLATFORM_ID) private platformId: Object) { }
+  constructor(
+    private http: HttpClient,
+    @Inject(PLATFORM_ID) private platformId: Object
+  ) { }
 
   /**
    * GET /gestion_contratacion/candidatos/exists/?tipo_doc=CC&numero_documento=123&oficina=SUBA
@@ -21,151 +184,297 @@ export class RegistroProcesoContratacion {
     const numero = String(numeroDocumento ?? '').trim();
     const ofi = String(oficina ?? '').trim();
 
-    // si falta tipo o doc -> respuesta consistente con backend
     if (!tipo || !numero) return of({ exists: false });
 
     const url = `${this.apiUrl}/gestion_contratacion/candidatos/exists/`;
 
-    const params: any = {
-      tipo_doc: tipo,
-      numero_documento: numero,
-    };
+    const params: any = { tipo_doc: tipo, numero_documento: numero };
     if (ofi) params.oficina = ofi;
 
     return this.http.get<any>(url, { params }).pipe(
       map((resp: any) => {
-        // compatibilidad: si backend viejo devuelve boolean
         if (typeof resp === 'boolean') return { exists: resp };
         if (resp && typeof resp === 'object') return { exists: !!resp.exists, turnos: resp.turnos ?? null };
         return { exists: false };
       }),
-      catchError((err) => {
-        // no revientes la UI: deja continuar
-        return of({ exists: false });
-      }),
+      catchError(() => of({ exists: false })),
     );
   }
 
+  /**
+   * ✅ NUEVO: usa el endpoint idempotente del backend
+   * POST /gestion_contratacion/candidatos/upsert/
+   * - Crea o actualiza sin duplicar.
+   */
+  crearActualizarCandidato(form: any): Observable<CandidatoUpsertResponse> {
+    const payload = this.buildUpsertPayload(form);
 
-  guardarInfoPersonal(form: any): Observable<any> {
-    const payload = this.buildCandidatoPayload(form);
-    // ⬇️ MAYÚSCULAS excepto email/correo_electronico y password
-    const upperPayload = this.uppercaseDeepExcept(payload, new Set(['email', 'correo_electronico', 'password']));
+    // ⬇️ MAYÚSCULAS excepto correo
+    const upperPayload = this.uppercaseDeepExcept(payload, new Set(['correo']));
+
     const url = `${this.apiUrl}/gestion_contratacion/candidatos/`;
 
-    return this.http.post(url, upperPayload).pipe(
+    if (!isPlatformBrowser(this.platformId)) {
+      return of({
+        ok: false,
+        created: false,
+        candidato_id: 0,
+        tipo_doc: String(payload.tipoDoc ?? ''),
+        numero_documento: String(payload.numeroCedula ?? ''),
+      });
+    }
+
+    return this.http.post<CandidatoUpsertResponse>(url, upperPayload).pipe(
       map((resp) => resp),
       catchError((err) => throwError(() => err))
     );
   }
 
-  crearActualizarCandidato(_form: any): Observable<any> {
-    return of({ ok: true });
+
+  formulario_vacantes(datos: any): Observable<any> {
+    const url = `${this.apiUrl}/contratacion/subirParte2`;
+    return this.http.post(url, datos);
   }
 
-  // ================== MAPEOS ==================
-  private buildCandidatoPayload(f: any) {
-    const get = (a: string, b?: string) => (f?.[a] ?? (b ? f?.[b] : undefined));
+  /**
+   * ✅ NUEVO: crear o actualizar (idempotente)
+   * - Intenta primero: /gestion_contratacion/upsert_forms/
+   * - Si el backend responde 404/405, hace fallback a: /contratacion/subirParte2
+   *
+   * IMPORTANTE:
+   * - Uppercase profundo EXCEPTO correo.
+   * - En fallback, normaliza ok según la respuesta real.
+   */
+  crearActualizarCandidato2(formOrPayload: any): Observable<CandidatoUpsertResponse> {
+    // Si ya viene con tipoDoc/numeroCedula lo tratamos como payload directo.
+    const isPayload =
+      formOrPayload &&
+      typeof formOrPayload === 'object' &&
+      ('tipoDoc' in formOrPayload) &&
+      ('numeroCedula' in formOrPayload);
 
-    const candidatoBase = this.clean({
-      tipo_doc: get('tipo_doc', 'tipoDoc'),
-      numero_documento: get('numero_documento', 'numero_de_documento'),
-      primer_nombre: get('primer_nombre', 'primerNombre'),
-      segundo_nombre: get('segundo_nombre', 'segundoNombre'),
-      primer_apellido: get('primer_apellido', 'primerApellido'),
-      segundo_apellido: get('segundo_apellido', 'segundoApellido'),
-      sexo: get('sexo', 'genero'),
-      fecha_nacimiento: this.toYYYYMMDD(get('fecha_nacimiento', 'fechaNacimiento')),
-      estado_civil: get('estado_civil', 'estadoCivil'),
-    });
+    const payload = isPayload ? (formOrPayload as CandidatoUpsertPayload) : this.buildUpsertPayload(formOrPayload);
 
-    const contacto = this.nonEmpty({
-      email: get('correo_electronico'),
-      celular: get('celular', 'numeroCelular'),
-      whatsapp: get('whatsapp', 'numeroWhatsapp'),
-    });
-
-    const residencia = this.nonEmpty({
-      barrio: get('barrio'),
-      hace_cuanto_vive: get('hace_cuanto_vive', 'tiempoResidencia'),
-    });
-
-    const personasVive = get('personas_con_quien_convive', 'conQuienViveChecks');
-    const vivienda = this.nonEmpty({
-      personas_con_quien_convive: Array.isArray(personasVive) ? personasVive.join(', ') : personasVive,
-      responsable_hijos: get('cuidadorHijos') ? String(get('cuidadorHijos')) : undefined,
-    });
-
-    const info_cc = this.nonEmpty({
-      fecha_expedicion: this.toYYYYMMDD(get('fecha_expedicion', 'fechaExpedicion')),
-      mpio_expedicion: get('mpio_expedicion', 'municipioExpedicion'),
-      mpio_nacimiento: get('mpio_nacimiento', 'lugarNacimiento'),
-    });
-
-    const experienciaFlores = get('experienciaFlores');
-    const tiene_experiencia = typeof experienciaFlores === 'string'
-      ? experienciaFlores === 'Sí'
-      : !!get('tiene_experiencia');
-
-    let area: string | null =
-      get('area_cultivo_poscosecha') ??
-      get('area_experiencia') ??
-      get('tipoExperienciaFlores') ?? null;
-
-    if (get('tipoExperienciaFlores') === 'OTROS' && get('otroExperiencia')) {
-      area = String(get('otroExperiencia'));
+    // Normaliza correo siempre a minúscula
+    if (payload?.correo != null) {
+      payload.correo = String(payload.correo).trim().toLowerCase();
     }
 
-    const experiencia_resumen = this.nonEmpty({
-      tiene_experiencia,
-      area_experiencia: area,
-      area_cultivo_poscosecha: area,
-    });
+    // ⬇️ MAYÚSCULAS excepto correo
+    const upperPayload = this.uppercaseDeepExcept(payload, new Set(['correo']));
 
-    const formaciones = get('nivel')
-      ? [{ nivel: get('nivel'), institucion: null, titulo_obtenido: null, anio_finalizacion: null }]
-      : undefined;
+    const urlUpsert = `${this.apiUrl}/gestion_contratacion/upsert_forms/`;
 
-    const experienciasSrc = Array.isArray(get('experiencias')) ? get('experiencias') : [];
-    const experiencias = experienciasSrc
-      .map((e: any) => this.clean({
-        empresa: e?.empresa,
-        tiempo_trabajado: e?.tiempo_trabajado ?? e?.tiempo,
-        labores_realizadas: e?.labores_realizadas ?? e?.labores,
-        labores_principales: e?.labores_principales,
-      }))
-      .filter((e: any) => !!e.empresa);
+    if (!isPlatformBrowser(this.platformId)) {
+      return of({
+        ok: false,
+        created: false,
+        candidato_id: 0,
+        tipo_doc: String(payload.tipoDoc ?? ''),
+        numero_documento: String(payload.numeroCedula ?? ''),
+      });
+    }
 
-    const hijosSrc = Array.isArray(get('hijos')) ? get('hijos') : [];
-    const hijos = hijosSrc
-      .map((h: any) =>
-        this.clean({
-          numero_de_documento: h?.numero_de_documento ?? h?.numeroDocumento ?? h?.doc,
-          fecha_nac: this.toYYYYMMDD(h?.fecha_nac ?? h?.fechaNacimiento),
-        })
-      )
-      .filter((h: any) => !!h.numero_de_documento && !!h.fecha_nac);
+    return this.http.post<CandidatoUpsertResponse>(urlUpsert, upperPayload).pipe(
+      map((resp) => resp),
+      catchError((err) => {
+        const st = err?.status;
 
-    const entrevistas = this.compact([
-      this.nonEmpty({
-        oficina: get('oficina'),
-        como_se_proyecta: get('como_se_proyecta', 'proyeccion1Ano'),
-        cuenta_experiencia_flores: tiene_experiencia ? 'SI' : 'NO',
-        tipo_experiencia_flores: area,
-      }),
-    ]);
+        // ✅ fallback automático al endpoint viejo (si upsert aún no está disponible)
+        if (st === 404 || st === 405) {
+          return this.formulario_vacantes(upperPayload).pipe(
+            map((respOld: any) => {
+              // Detecta éxito real según tu endpoint viejo (ajusta si tu backend retorna diferente)
+              const ok =
+                respOld?.ok === true ||
+                !!respOld?.message ||
+                respOld?.success === true;
 
-    const payload: any = this.clean({
-      ...candidatoBase,
-      contacto,
-      residencia,
-      vivienda,
-      info_cc,
-      experiencia_resumen,
-      formaciones,
-      experiencias: experiencias.length ? experiencias : undefined,
-      hijos: hijos.length ? hijos : undefined,
-      entrevistas,
+              return {
+                ok,
+                created: !!respOld?.created, // si no existe, queda false
+                candidato_id: respOld?.candidato_id ?? respOld?.id ?? 0,
+                tipo_doc: String(payload.tipoDoc ?? ''),
+                numero_documento: String(payload.numeroCedula ?? ''),
+              } as CandidatoUpsertResponse;
+            }),
+            catchError((err2) => throwError(() => err2))
+          );
+        }
+
+        return throwError(() => err);
+      })
+    );
+  }
+
+  /**
+   * ✅ Mantengo tu método (por si todavía lo llamas desde algún lado),
+   * pero ahora delega al upsert para no duplicar.
+   */
+  guardarInfoPersonal(form: any): Observable<CandidatoUpsertResponse> {
+    return this.crearActualizarCandidato(form);
+  }
+
+  // ================== MAPEOS (FORM -> UpsertPayload) ==================
+  private buildUpsertPayload(f: any): CandidatoUpsertPayload {
+    const get = (a: string, b?: string) => (f?.[a] ?? (b ? f?.[b] : undefined));
+
+    const payload: CandidatoUpsertPayload = this.clean({
+      // identidad
+      tipoDoc: String(get('tipoDoc', 'tipo_doc') ?? '').trim().toUpperCase(),
+      tipo_doc: String(get('tipoDoc', 'tipo_doc') ?? '').trim().toUpperCase(),
+      numeroCedula: String(get('numeroCedula', 'numero_documento') ?? '').trim(),
+      numero_documento: String(get('numeroCedula', 'numero_documento') ?? '').trim(),
+
+      // nombres
+      pApellido: get('pApellido', 'primer_apellido'),
+      sApellido: get('sApellido', 'segundo_apellido'),
+      pNombre: get('pNombre', 'primer_nombre'),
+      sNombre: get('sNombre', 'segundo_nombre'),
+      genero: get('genero', 'sexo'),
+
+      // contacto
+      correo: get('correo', 'correo_electronico'),
+      numCelular: get('numCelular', 'celular'),
+      numWha: get('numWha', 'whatsapp'),
+
+      // ubicación
+      departamento: get('departamento'),
+      ciudad: get('ciudad', 'municipio'),
+      estadoCivil: get('estadoCivil', 'estado_civil'),
+
+      // residencia
+      direccionResidencia: get('direccionResidencia', 'direccion'),
+      barrio: get('barrio'),
+      tiempoResidenciaZona: get('tiempoResidenciaZona', 'hace_cuanto_vive'),
+      lugarAnteriorResidencia: get('lugarAnteriorResidencia', 'lugar_anterior'),
+      razonCambioResidencia: get('razonCambioResidencia', 'razon_mudanza'),
+      zonasConocidas: get('zonasConocidas', 'zonas_del_pais'),
+      preferenciaResidencia: get('preferenciaResidencia', 'donde_le_gustaria_vivir'),
+
+      // cc
+      fechaExpedicionCc: this.toYYYYMMDD(get('fechaExpedicionCc', 'fecha_expedicion')),
+      departamentoExpedicionCc: get('departamentoExpedicionCc', 'depto_expedicion'),
+      municipioExpedicionCc: get('municipioExpedicionCc', 'mpio_expedicion'),
+      lugarNacimientoDepartamento: get('lugarNacimientoDepartamento', 'depto_nacimiento'),
+      lugarNacimientoMunicipio: get('lugarNacimientoMunicipio', 'mpio_nacimiento'),
+
+      rh: get('rh'),
+      zurdoDiestro: get('zurdoDiestro', 'zurdo_diestro'),
+
+      // fecha nacimiento
+      fechaNacimiento: this.toYYYYMMDD(get('fechaNacimiento', 'fecha_nacimiento')),
+
+      // vivienda
+      familiaConUnSoloIngreso: get('familiaConUnSoloIngreso', 'familia_un_solo_ingreso'),
+      numHabitaciones: get('numHabitaciones', 'num_habitaciones'),
+      numPersonasPorHabitacion: get('numPersonasPorHabitacion', 'personas_por_habitacion'),
+      tipoVivienda: get('tipoVivienda', 'tipo_vivienda'),
+      caracteristicasVivienda: get('caracteristicasVivienda', 'caracteristicas_vivienda'),
+      servicios: get('servicios'),
+      estudiaActualmente: get('estudiaActualmente', 'estudia_actualmente'),
+      cuidadorHijos: get('cuidadorHijos', 'responsable_hijos'),
+      personasConQuienConvive: get('personasConQuienConvive', 'personas_con_quien_convive'),
+      expectativasDeVida: get('expectativasDeVida', 'expectativas_de_vida'),
+      numHijosDependientes: get('numHijosDependientes', 'num_hijos_dependen_economicamente'),
+
+      // oficina / vacante
+      oficina: get('oficina'),
+      fuenteVacante: get('fuenteVacante', 'como_se_entero'),
+
+      // formación
+      escolaridad: get('escolaridad', 'nivel'),
+      nombreInstitucion: get('nombreInstitucion', 'institucion'),
+      tituloObtenido: get('tituloObtenido', 'titulo_obtenido'),
+      anoFinalizacion: get('anoFinalizacion', 'anio_finalizacion'),
+      estudiosExtra: get('estudiosExtra'),
+
+      // dotación
+      chaqueta: get('chaqueta'),
+      pantalon: get('pantalon'),
+      camisa: get('camisa'),
+      calzado: get('calzado'),
+
+      // experiencia
+      experienciaLaboral: get('experienciaLaboral', 'tiene_experiencia'),
+      areaExperiencia: get('areaExperiencia', 'area_experiencia'),
+      tiempoExperiencia: get('tiempoExperiencia'),
+
+      // evaluación
+      personas_a_cargo: get('personas_a_cargo'),
+
+      // familiar emergencia
+      familiarEmergencia: get('familiarEmergencia'),
+      parentescoFamiliarEmergencia: get('parentescoFamiliarEmergencia'),
+      direccionFamiliarEmergencia: get('direccionFamiliarEmergencia'),
+      barrioFamiliarEmergencia: get('barrioFamiliarEmergencia'),
+      telefonoFamiliarEmergencia: get('telefonoFamiliarEmergencia'),
+      ocupacionFamiliarEmergencia: get('ocupacionFamiliarEmergencia'),
+
+      // conyugue
+      nombreConyugue: get('nombreConyugue'),
+      apellidoConyugue: get('apellidoConyugue'),
+      numDocIdentidadConyugue: get('numDocIdentidadConyugue'),
+      viveConElConyugue: get('viveConElConyugue'),
+      direccionConyugue: get('direccionConyugue'),
+      telefonoConyugue: get('telefonoConyugue'),
+      barrioMunicipioConyugue: get('barrioMunicipioConyugue'),
+      ocupacionConyugue: get('ocupacionConyugue'),
+
+      // padre
+      nombrePadre: get('nombrePadre'),
+      vivePadre: get('vivePadre'),
+      ocupacionPadre: get('ocupacionPadre'),
+      direccionPadre: get('direccionPadre'),
+      telefonoPadre: get('telefonoPadre'),
+      barrioPadre: get('barrioPadre'),
+
+      // madre
+      nombreMadre: get('nombreMadre'),
+      viveMadre: get('viveMadre'),
+      ocupacionMadre: get('ocupacionMadre'),
+      direccionMadre: get('direccionMadre'),
+      telefonoMadre: get('telefonoMadre'),
+      barrioMadre: get('barrioMadre'),
+
+      // referencias
+      nombreReferenciaPersonal1: get('nombreReferenciaPersonal1'),
+      telefonoReferenciaPersonal1: get('telefonoReferenciaPersonal1'),
+      ocupacionReferenciaPersonal1: get('ocupacionReferenciaPersonal1'),
+      tiempoConoceReferenciaPersonal1: get('tiempoConoceReferenciaPersonal1'),
+      direccionReferenciaPersonal1: get('direccionReferenciaPersonal1'),
+
+      nombreReferenciaPersonal2: get('nombreReferenciaPersonal2'),
+      telefonoReferenciaPersonal2: get('telefonoReferenciaPersonal2'),
+      ocupacionReferenciaPersonal2: get('ocupacionReferenciaPersonal2'),
+      tiempoConoceReferenciaPersonal2: get('tiempoConoceReferenciaPersonal2'),
+      direccionReferenciaPersonal2: get('direccionReferenciaPersonal2'),
+
+      nombreReferenciaFamiliar1: get('nombreReferenciaFamiliar1'),
+      telefonoReferenciaFamiliar1: get('telefonoReferenciaFamiliar1'),
+      ocupacionReferenciaFamiliar1: get('ocupacionReferenciaFamiliar1'),
+      parentescoReferenciaFamiliar1: get('parentescoReferenciaFamiliar1'),
+      tiempoConoceReferenciaFamiliar1: get('tiempoConoceReferenciaFamiliar1'),
+      direccionReferenciaFamiliar1: get('direccionReferenciaFamiliar1'),
+
+      nombreReferenciaFamiliar2: get('nombreReferenciaFamiliar2'),
+      telefonoReferenciaFamiliar2: get('telefonoReferenciaFamiliar2'),
+      ocupacionReferenciaFamiliar2: get('ocupacionReferenciaFamiliar2'),
+      parentescoReferenciaFamiliar2: get('parentescoReferenciaFamiliar2'),
+      tiempoConoceReferenciaFamiliar2: get('tiempoConoceReferenciaFamiliar2'),
+      direccionReferenciaFamiliar2: get('direccionReferenciaFamiliar2'),
+
+      // experiencia laboral 1
+      nombreExpeLaboral1Empresa: get('nombreExpeLaboral1Empresa'),
+      direccionEmpresa1: get('direccionEmpresa1'),
+      telefonosEmpresa1: get('telefonosEmpresa1'),
+      nombreJefeEmpresa1: get('nombreJefeEmpresa1'),
+      fechaRetiroEmpresa1: this.toYYYYMMDD(get('fechaRetiroEmpresa1')),
+      motivoRetiroEmpresa1: get('motivoRetiroEmpresa1'),
+      cargoEmpresa1: get('cargoEmpresa1'),
+
+      // legacy extra
+      empresas_laborado: get('empresas_laborado'),
     });
 
     return payload;
@@ -179,22 +488,16 @@ export class RegistroProcesoContratacion {
     const walk = (val: any, keyHint?: string): any => {
       if (val == null) return val;
 
-      // si esta clave debe respetarse, devuelve tal cual el string
       if (typeof val === 'string') {
         if (keyHint && skip.has(keyHint.toLowerCase())) return val;
         return val.toLocaleUpperCase('es-CO');
       }
 
-      if (Array.isArray(val)) {
-        return val.map((v) => walk(v));
-      }
+      if (Array.isArray(val)) return val.map((v) => walk(v));
 
       if (typeof val === 'object') {
         const out: any = {};
-        for (const [k, v] of Object.entries(val)) {
-          // pasa el nombre de la clave como pista para decidir si se omite upper
-          out[k] = walk(v, k);
-        }
+        for (const [k, v] of Object.entries(val)) out[k] = walk(v, k);
         return out;
       }
 
@@ -212,18 +515,6 @@ export class RegistroProcesoContratacion {
       out[k] = v;
     });
     return out as T;
-  }
-
-  /** Devuelve `undefined` si el objeto no tiene claves con valor definido */
-  private nonEmpty<T extends object | null | undefined>(obj: T): T | undefined {
-    if (!obj || typeof obj !== 'object') return undefined;
-    const entries = Object.entries(obj as any).filter(([, v]) => v !== undefined);
-    return entries.length ? Object.fromEntries(entries) as any : undefined;
-  }
-
-  /** Filtra nulos/undefined del array */
-  private compact<T>(arr: (T | null | undefined)[]): T[] {
-    return (arr || []).filter(Boolean) as T[];
   }
 
   /** Asegura formato YYYY-MM-DD para Date|string */

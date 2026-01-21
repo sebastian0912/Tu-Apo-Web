@@ -22,7 +22,7 @@ import {
   Validators,
 } from '@angular/forms';
 
-import { DateAdapter, MAT_DATE_FORMATS, MAT_DATE_LOCALE } from '@angular/material/core';
+import { DateAdapter, MAT_DATE_FORMATS, MAT_DATE_LOCALE, MatNativeDateModule } from '@angular/material/core';
 import { StepperSelectionEvent } from '@angular/cdk/stepper';
 
 import { MatCardModule } from '@angular/material/card';
@@ -36,16 +36,15 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
 
 import Swal from 'sweetalert2';
 import { firstValueFrom, map, Observable, startWith } from 'rxjs';
 
 import { SharedModule } from '../../../../../../shared/shared-module';
 import { LoginS } from '../../../../../auth/service/login-s';
-import { RegistroProcesoContratacion } from '../../services/registro-proceso-contratacion/registro-proceso-contratacion';
 
 import colombia from '../../../../../../data/colombia.json';
+import { CandidateS } from '../../../../../../shared/services/candidate-s/candidate-s';
 
 export const MY_DATE_FORMATS = {
   parse: { dateInput: 'D/M/YYYY' },
@@ -55,6 +54,15 @@ export const MY_DATE_FORMATS = {
     dateA11yLabel: 'LL',
     monthYearA11yLabel: 'MMMM YYYY',
   },
+};
+
+type TurnosInfo = {
+  oficina?: string;
+  fecha?: string;
+  turno?: number | string;
+  pendientes_hoy?: number;
+  pendientes_delante?: number;
+  mi_posicion?: number | string;
 };
 
 @Component({
@@ -78,7 +86,7 @@ export const MY_DATE_FORMATS = {
     MatNativeDateModule,
   ],
   templateUrl: './form-pre-registration-vacancies.html',
-  styleUrl: './form-pre-registration-vacancies.css',
+  styleUrls: ['./form-pre-registration-vacancies.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [
     { provide: MAT_DATE_LOCALE, useValue: 'es-CO' },
@@ -91,14 +99,39 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
 
   private readonly isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined';
 
+  /**
+   * ✅ SweetAlert “safe”
+   * - didDestroy: corre al final del ciclo de vida (mejor que didClose/willClose para no romper encadenados)
+   * - NO cerramos ni removemos contenedores desde hooks
+   */
+  private readonly swal = Swal.mixin({
+    heightAuto: false,
+    scrollbarPadding: false,
+    returnFocus: false,
+    didDestroy: () => this.releaseLocksOnly(),
+  });
+
   // ===== UI: búsqueda =====
   searchForm: FormGroup;
   isSearching = false;
   foundCandidate: any = null;
 
-  // ===== oficina por URL (persistente aunque resetees el form) =====
-  private officeFromQuery?: string;   // valor exacto (ej: 'SUBA')
-  private brigadaFromQuery?: string;  // ej: 'ZIPAQUIRÁ' si viene ?brigada=
+  // estados UI
+  turnos: TurnosInfo | null = null;
+  existsCandidate = false;
+  isPrefilling = false;
+  searchError: string | null = null;
+
+  private lastSearch?: {
+    tipo: string;
+    numeroDigits: string;
+    numeroForRequest: string;
+    oficinaForRequest: string;
+  };
+
+  // ===== oficina por URL =====
+  private officeFromQuery?: string;
+  private brigadaFromQuery?: string;
 
   private _showForm = false;
   get showForm(): boolean {
@@ -107,10 +140,17 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
   set showForm(v: boolean) {
     this._showForm = v;
 
-    // si se oculta el formulario, reseteamos SIN perder la oficina de URL
     if (!v) {
       this.foundCandidate = null;
 
+      // reset UI estados
+      this.turnos = null;
+      this.existsCandidate = false;
+      this.isPrefilling = false;
+      this.searchError = null;
+      this.lastSearch = undefined;
+
+      // reset form principal
       this.formVacante.reset();
       this.experienciasFA.clear();
       this.hijosFA.clear();
@@ -120,7 +160,7 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
       this.formVacante.get('tipo_doc')?.enable({ emitEvent: false });
       this.formVacante.get('numero_documento')?.enable({ emitEvent: false });
 
-      // Oficina: si viene por URL => set + disable (NO se pierde)
+      // Oficina fija por URL si existe
       if (this.officeFromQuery) {
         this.formVacante.get('oficina')?.setValue(this.officeFromQuery, { emitEvent: false });
         this.formVacante.get('oficina')?.disable({ emitEvent: false });
@@ -135,9 +175,10 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
       }
 
       this.refreshSteps();
+      this.resetStepperToFirst();
     }
 
-    this.cdr.markForCheck();
+    this.markUi();
   }
 
   // ===== Form principal =====
@@ -156,7 +197,7 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
   step3Ctrl = new FormGroup({});
   step4Ctrl = new FormGroup({});
   step5Ctrl = new FormGroup({});
-  step6Ctrl = new FormGroup({}); // Historial laboral
+  step6Ctrl = new FormGroup({});
 
   emailUserPattern = '^[^@\\s]+$';
   otroExperienciaControl = new FormControl('', [Validators.maxLength(64)]);
@@ -195,12 +236,12 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
   ];
 
   escolaridades = [
-    { esco: 'EDUCACIÓN BÁSICA PRIMARIA', descripcion: 'Educación básica primaria — Grados 1 a 5' },
-    { esco: 'EDUCACIÓN BÁSICA SECUNDARIA', descripcion: 'Educación básica secundaria — Grados 6 a 9' },
-    { esco: 'EDUCACIÓN MEDIA ACADÉMICA', descripcion: 'Educación media académica — Grados 10 y 11' },
-    { esco: 'EDUCACIÓN TÉCNICA', descripcion: 'Educación técnica — Formación técnica laboral' },
-    { esco: 'EDUCACIÓN TECNOLÓGICA', descripcion: 'Educación tecnológica — Nivel tecnológico' },
-    { esco: 'EDUCACIÓN PROFESIONAL', descripcion: 'Educación profesional — Pregrado universitario' },
+    { value: 'SIN_ESTUDIOS', label: 'SIN ESTUDIOS' },
+    { value: 'OTROS', label: 'OTROS' },
+    ...Array.from({ length: 11 }, (_, i) => {
+      const g = String(11 - i);
+      return { value: g, label: g };
+    }),
   ];
 
   estadosCiviles: any[] = [
@@ -210,9 +251,6 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
     { codigo: 'SE', descripcion: 'SE (Separado)' },
     { codigo: 'VI', descripcion: 'VI (Viudo)' },
   ];
-
-  meses = Array.from({ length: 12 }, (_, i) => i + 1);
-  anios = Array.from({ length: 80 }, (_, i) => i + 1);
 
   tipoDocs: any[] = [
     { abbreviation: 'CC', description: 'Cédula de Ciudadanía (CC)' },
@@ -256,25 +294,73 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
     'SOBRINO',
     'SOBRINA',
     'SOLO',
+    'HIJOS',
   ];
 
-  // Stepper refs
-  @ViewChild('stepper') stepperRef?: MatStepper;
-  @ViewChild('stepperHost') stepperHost!: ElementRef<HTMLDivElement>;
+  CUIDADOR_HIJOS = [
+    "DUEÑA APARTAMENTO",
+    "NIÑERA",
+    "AMIG@S",
+    "UNIVERSIDAD",
+    "COLEGIO",
+    "FAMILIAR",
+    "SON INDEPENDIENTES",
+    "JARDÍN",
+    "AMIGOS",
+    "PAREJA O ESPOSA",
+    "YO",
+  ]
+
+  tiemposZona = [
+    { value: 'TODO LA VIDA', label: 'TODO LA VIDA' },
+    { value: 'MAS DE 6 MESES', label: 'MAS DE 6 MESES' },
+    { value: 'MAS DE 2 MESES', label: 'MAS DE 2 MESES' },
+    { value: 'UN MES', label: 'UN MES' },
+    { value: 'MENOS DE UN MES', label: 'MENOS DE UN MES' },
+  ];
+
+  // =========================
+  // ✅ Stepper refs (con setter para *ngIf)
+  // =========================
+  private pendingStepperReset = false;
+
+  stepperRef?: MatStepper;
+
+  @ViewChild('stepper')
+  set stepperSetter(v: MatStepper | undefined) {
+    this.stepperRef = v;
+    if (!v) return;
+
+    queueMicrotask(() => {
+      this.totalSteps = (v.steps?.length as number) || this.totalSteps;
+
+      if (this.pendingStepperReset) {
+        v.selectedIndex = 0;
+        this.currentStepIndex = 0;
+        this.pendingStepperReset = false;
+      } else {
+        this.currentStepIndex = v.selectedIndex ?? 0;
+      }
+
+      this.refreshSteps();
+      this.markUi();
+    });
+  }
+
+  // ⚠️ opcional por si el host también vive dentro del *ngIf
+  @ViewChild('stepperHost') stepperHost?: ElementRef<HTMLDivElement>;
 
   constructor(
     private fb: FormBuilder,
-    private candidateService: RegistroProcesoContratacion,
+    private candidateService: CandidateS,
     private authService: LoginS,
     private dateAdapter: DateAdapter<Date>,
     private route: ActivatedRoute,
   ) {
     this.dateAdapter.setLocale('es-CO');
 
-    // 🔒 evita que SweetAlert deje el body bloqueado si el componente se destruye
-    this.destroyRef.onDestroy(() => {
-      this.forceReleaseSwalLock();
-    });
+    // 🔥 Si se destruye el componente, ahí sí hacemos release “fuerte”
+    this.destroyRef.onDestroy(() => this.forceReleaseSwalLock());
 
     // ===== Form buscador =====
     this.searchForm = this.fb.group({
@@ -290,7 +376,10 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
       // Paso 1
       oficina: ['', Validators.required],
       tipo_doc: ['', Validators.required],
-      numero_documento: ['', [Validators.required, Validators.pattern(/^\d+$/), Validators.minLength(6), Validators.maxLength(15)]],
+      numero_documento: [
+        '',
+        [Validators.required, Validators.pattern(/^\d+$/), Validators.minLength(6), Validators.maxLength(15)],
+      ],
       fecha_expedicion: ['', Validators.required],
       mpio_expedicion: ['', Validators.required],
 
@@ -337,7 +426,6 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
       brigadaDe: [''],
     });
 
-    // ===== Reglas condicionales: hijos =====
     this.formVacante
       .get('tieneHijos')
       ?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
@@ -360,7 +448,7 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
         num?.updateValueAndValidity({ emitEvent: false });
 
         this.refreshSteps();
-        this.cdr.markForCheck();
+        this.markUi();
       });
 
     this.formVacante
@@ -369,12 +457,11 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
       .subscribe((n: number) => {
         const parsed = Number(n) || 0;
         this.setHijosCount(parsed);
-        this.cdr.markForCheck();
+        this.markUi();
       });
   }
 
   ngOnInit(): void {
-    // ✅ primero lee oficina de URL y la “fija”
     this.hydrateOfficeFromQuery();
 
     this.loadCities();
@@ -383,7 +470,6 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
 
     this.seedExperiencias();
 
-    // Experiencia flores -> validadores condicionales
     this.formVacante
       .get('experienciaFlores')
       ?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
@@ -404,7 +490,7 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
         }
 
         this.refreshSteps();
-        this.cdr.markForCheck();
+        this.markUi();
       });
 
     this.formVacante
@@ -417,19 +503,25 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
           this.otroExperienciaControl.setValue('');
           this.otroExperienciaControl.clearValidators();
         }
-        this.otroExperienciaControl.updateValueAndValidity({ emitEvent: false });
 
+        this.otroExperienciaControl.updateValueAndValidity({ emitEvent: false });
         this.refreshSteps();
-        this.cdr.markForCheck();
+        this.markUi();
       });
 
-    // ===== Validadores de pasos (stepper lineal) =====
     this.step1Ctrl.setValidators(
       this.makeValidator(['oficina', 'tipo_doc', 'numero_documento', 'fecha_expedicion', 'mpio_expedicion']),
     );
 
     this.step2Ctrl.setValidators(
-      this.makeValidator(['primer_apellido', 'primer_nombre', 'fecha_nacimiento', 'mpio_nacimiento', 'sexo', 'estado_civil']),
+      this.makeValidator([
+        'primer_apellido',
+        'primer_nombre',
+        'fecha_nacimiento',
+        'mpio_nacimiento',
+        'sexo',
+        'estado_civil',
+      ]),
     );
 
     this.step3Ctrl.setValidators(
@@ -449,8 +541,7 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
       this.makeValidator(['tieneHijos'], () => {
         const tiene = this.formVacante.get('tieneHijos')?.value === true;
         if (!tiene) return true;
-        const baseOk = this.areValid(['cuidadorHijos', 'numeroHijos']);
-        return baseOk && this.hijosFA.valid;
+        return this.areValid(['cuidadorHijos', 'numeroHijos']) && this.hijosFA.valid;
       }),
     );
 
@@ -470,7 +561,7 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
 
     this.formVacante.statusChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       this.refreshSteps();
-      this.cdr.markForCheck();
+      this.markUi();
     });
 
     this.refreshSteps();
@@ -481,159 +572,401 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
       if (!this.stepperRef) return;
       this.currentStepIndex = this.stepperRef.selectedIndex ?? 0;
       this.totalSteps = (this.stepperRef.steps?.length as number) || this.totalSteps;
-      this.cdr.detectChanges();
+      this.markUi();
     });
   }
 
   // =========================
-  // ✅ FIX: liberar bloqueo de SweetAlert2
+  // UI helpers (OnPush)
   // =========================
-  private forceReleaseSwalLock(): void {
+  private markUi(): void {
+    this.cdr.markForCheck();
+    queueMicrotask(() => {
+      try {
+        this.cdr.detectChanges();
+      } catch {
+        // noop
+      }
+    });
+  }
+
+  private resetStepperToFirst(): void {
+    queueMicrotask(() => {
+      if (this.stepperRef) {
+        this.stepperRef.selectedIndex = 0;
+        this.currentStepIndex = 0;
+        this.totalSteps = (this.stepperRef.steps?.length as number) || this.totalSteps;
+      } else {
+        this.pendingStepperReset = true;
+        this.currentStepIndex = 0;
+      }
+      this.refreshSteps();
+      this.markUi();
+    });
+  }
+
+  /**
+   * ✅ Release “suave”:
+   * SOLO quita locks de scroll (cdk / swal) sin cerrar popups ni borrar overlays.
+   */
+  private releaseLocksOnly(): void {
     if (!this.isBrowser) return;
 
-    try {
-      // Si el modal está visible, ciérralo
-      const anySwal: any = Swal as any;
-      if (typeof anySwal.isVisible === 'function' && anySwal.isVisible()) {
-        anySwal.close();
-      } else {
-        // por si acaso
-        anySwal.close?.();
-      }
-    } catch {
-      // noop
-    }
+    const html = document.documentElement;
+    const body = document.body;
 
-    // elimina cualquier container pegado
-    try {
-      document.querySelectorAll('.swal2-container').forEach((el) => el.remove());
-    } catch {
-      // noop
-    }
+    const classes = [
+      'swal2-shown',
+      'swal2-height-auto',
+      'swal2-no-backdrop',
+      'swal2-toast-shown',
+      'cdk-global-scrollblock',
+    ];
 
-    // limpia clases/estilos que bloquean scroll/click
     try {
-      document.body.classList.remove(
-        'swal2-shown',
-        'swal2-height-auto',
-        'swal2-no-backdrop',
-        'swal2-toast-shown',
-      );
-      document.body.style.removeProperty('overflow');
-      document.body.style.removeProperty('padding-right');
+      classes.forEach((c) => html.classList.remove(c));
+      classes.forEach((c) => body.classList.remove(c));
+
+      const props = ['overflow', 'padding-right', 'height', 'position', 'top', 'left', 'right', 'bottom', 'width'];
+      props.forEach((p) => html.style.removeProperty(p));
+      props.forEach((p) => body.style.removeProperty(p));
+
+      body.style.removeProperty('pointer-events');
     } catch {
       // noop
     }
   }
 
-  // ===== Handler búsqueda (con Swal mostrando turnos SIEMPRE que vengan) =====
+  /**
+   * ✅ Release “fuerte” (solo para casos extremos / destroy)
+   */
+  private forceReleaseSwalLock(): void {
+    if (!this.isBrowser) return;
+
+    try {
+      const anySwal: any = Swal as any;
+      if (typeof anySwal.isVisible === 'function' && anySwal.isVisible()) anySwal.close();
+    } catch {
+      // noop
+    }
+
+    this.releaseLocksOnly();
+
+    try {
+      const anySwal: any = Swal as any;
+      const visible = typeof anySwal.isVisible === 'function' ? anySwal.isVisible() : false;
+      if (!visible) {
+        document.querySelectorAll('.swal2-container').forEach((el) => el.remove());
+      }
+    } catch {
+      // noop
+    }
+  }
+
+  // =========================
+  // Helpers: turnos html
+  // =========================
+  private safe(v: any): string {
+    return v === null || v === undefined || v === '' ? '-' : String(v);
+  }
+
+  private buildTurnosHtml(turnos: TurnosInfo | null): string {
+    if (!turnos) return '';
+    return `
+      <div style="margin-top:10px; padding:12px; border:1px solid rgba(0,0,0,.12); border-radius:12px;">
+        <div style="font-weight:700; margin-bottom:8px;">Turno asignado</div>
+        <div><b>Oficina:</b> ${this.safe(turnos.oficina)}</div>
+        <div><b>Fecha:</b> ${this.safe(turnos.fecha)}</div>
+        <div><b>Turno:</b> ${this.safe(turnos.turno)}</div>
+        <div><b>Pendientes hoy:</b> ${this.safe(turnos.pendientes_hoy ?? 0)}</div>
+        <div><b>Pendientes delante:</b> ${this.safe(turnos.pendientes_delante ?? 0)}</div>
+        <div><b>Mi posición:</b> ${this.safe(turnos.mi_posicion)}</div>
+      </div>
+    `;
+  }
+
+  // =========================
+  // Auto-fields + locks
+  // =========================
+  private applyAutoFields(tipo: string, numeroDigits: string): void {
+    this.formVacante.get('tipo_doc')?.setValue(tipo, { emitEvent: false });
+    this.formVacante.get('numero_documento')?.setValue(numeroDigits, { emitEvent: false });
+
+    this.formVacante.get('tipo_doc')?.disable({ emitEvent: false });
+    this.formVacante.get('numero_documento')?.disable({ emitEvent: false });
+
+    if (this.officeFromQuery) {
+      this.formVacante.get('oficina')?.setValue(this.officeFromQuery, { emitEvent: false });
+      this.formVacante.get('oficina')?.disable({ emitEvent: false });
+      this.lockedOffice = this.officeFromQuery;
+
+      if (this.officeFromQuery === 'BRIGADA' && this.brigadaFromQuery) {
+        this.formVacante.get('brigadaDe')?.setValue(this.brigadaFromQuery, { emitEvent: false });
+      }
+    }
+  }
+
+  // =========================
+  // Candidate fetch helper
+  // =========================
+  private async tryFetchCandidate(tipo: string, numeroForRequest: string, oficina: string): Promise<any | null> {
+    const svc: any = this.candidateService as any;
+    const candidates = [
+      'getCandidato',
+      'getCandidate',
+      'obtenerCandidato',
+      'consultarCandidato',
+      'getInfoPersonal',
+      'getInfoPersonalByDoc',
+      'buscarCandidato',
+      'detailCandidato',
+      'getCandidatoByDoc',
+    ];
+
+    const callMaybe = async (fnName: string, args: any[]): Promise<any> => {
+      const out = svc[fnName](...args);
+      if (out && typeof out.subscribe === 'function') return await firstValueFrom(out);
+      return await out;
+    };
+
+    for (const name of candidates) {
+      if (typeof svc[name] !== 'function') continue;
+
+      try {
+        const r1 = await callMaybe(name, [tipo, numeroForRequest, oficina]);
+        return r1?.candidato ?? r1?.data ?? r1;
+      } catch { }
+
+      try {
+        const r2 = await callMaybe(name, [tipo, numeroForRequest]);
+        return r2?.candidato ?? r2?.data ?? r2;
+      } catch { }
+
+      try {
+        const r3 = await callMaybe(name, [{ tipo_doc: tipo, numero_documento: numeroForRequest, oficina }]);
+        return r3?.candidato ?? r3?.data ?? r3;
+      } catch { }
+    }
+
+    return null;
+  }
+
+  private async tryExistsCandidato(tipo: string, numeroForRequest: string, oficina: string): Promise<any> {
+    const svc: any = this.candidateService as any;
+    const fns = ['existsCandidato', 'existeCandidato', 'candidateExists', 'exists'];
+
+    const callMaybe = async (fnName: string, args: any[]): Promise<any> => {
+      const out = svc[fnName](...args);
+      if (out && typeof out.subscribe === 'function') return await firstValueFrom(out);
+      return await out;
+    };
+
+    for (const name of fns) {
+      if (typeof svc[name] !== 'function') continue;
+      try {
+        return await callMaybe(name, [tipo, numeroForRequest, oficina]);
+      } catch { }
+    }
+
+    for (const name of fns) {
+      if (typeof svc[name] !== 'function') continue;
+      try {
+        return await callMaybe(name, [{ tipo_doc: tipo, numero_documento: numeroForRequest, oficina }]);
+      } catch { }
+    }
+
+    throw new Error('No existe método existsCandidato en el servicio');
+  }
+
+  private pickAny(obj: any, keys: string[]): any {
+    for (const k of keys) {
+      const v = obj?.[k];
+      if (v !== undefined && v !== null && v !== '') return v;
+    }
+    return undefined;
+  }
+
+  // =========================
+  // Prefill form from candidate
+  // =========================
+  private prefillFormFromCandidate(data: any): void {
+    if (!data || typeof data !== 'object') return;
+
+    const normDateIn = (v: any) => {
+      if (!v) return v;
+      if (v instanceof Date) return v;
+      if (typeof v === 'string') return v.length > 10 ? v.slice(0, 10) : v;
+      return v;
+    };
+
+    const patch: any = {
+      fecha_expedicion: normDateIn(this.pickAny(data, ['fecha_expedicion', 'fechaExpedicion'])),
+      mpio_expedicion: this.pickAny(data, ['mpio_expedicion', 'municipio_expedicion', 'mpioExpedicion']),
+      primer_apellido: this.pickAny(data, ['primer_apellido', 'primerApellido']),
+      segundo_apellido: this.pickAny(data, ['segundo_apellido', 'segundoApellido']),
+      primer_nombre: this.pickAny(data, ['primer_nombre', 'primerNombre']),
+      segundo_nombre: this.pickAny(data, ['segundo_nombre', 'segundoNombre']),
+      fecha_nacimiento: normDateIn(this.pickAny(data, ['fecha_nacimiento', 'fechaNacimiento'])),
+      mpio_nacimiento: this.pickAny(data, ['mpio_nacimiento', 'municipio_nacimiento', 'mpioNacimiento']),
+      sexo: this.pickAny(data, ['sexo', 'genero']),
+      estado_civil: this.pickAny(data, ['estado_civil', 'estadoCivil']),
+      barrio: this.pickAny(data, ['barrio']),
+      celular: this.pickAny(data, ['celular', 'telefono', 'telefono_celular']),
+      whatsapp: this.pickAny(data, ['whatsapp']),
+      hace_cuanto_vive: this.pickAny(data, ['hace_cuanto_vive', 'haceCuantoVive']),
+      nivel: this.pickAny(data, ['nivel']),
+      estudiaActualmente: this.pickAny(data, ['estudiaActualmente', 'estudia_actualmente']),
+      proyeccion1Ano: this.pickAny(data, ['proyeccion1Ano', 'como_se_proyecta', 'comoSeProyecta']),
+      experienciaFlores: this.pickAny(data, ['experienciaFlores', 'tiene_experiencia', 'tieneExperiencia'])
+        ? 'Sí'
+        : this.pickAny(data, ['experienciaFlores']) || '',
+    };
+
+    const conviveRaw = this.pickAny(data, ['personas_con_quien_convive', 'personasConQuienConvive']);
+    if (typeof conviveRaw === 'string') {
+      patch.personas_con_quien_convive = conviveRaw
+        .split(',')
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+    } else if (Array.isArray(conviveRaw)) {
+      patch.personas_con_quien_convive = conviveRaw;
+    }
+
+    const mail = this.pickAny(data, ['correo_electronico', 'correoElectronico', 'email']);
+    if (typeof mail === 'string' && mail.includes('@')) {
+      const [u, d] = mail.split('@');
+      patch.correo_usuario = u || '';
+      patch.correo_dominio = d || '';
+    }
+
+    if (!this.officeFromQuery) {
+      const off = this.pickAny(data, ['oficina']);
+      if (off) patch.oficina = String(off).trim();
+    }
+
+    this.formVacante.patchValue(patch, { emitEvent: false });
+
+    const hijos = this.pickAny(data, ['hijos']) as any[];
+    if (Array.isArray(hijos) && hijos.length) {
+      this.formVacante.get('tieneHijos')?.setValue(true, { emitEvent: false });
+      this.formVacante.get('numeroHijos')?.setValue(hijos.length, { emitEvent: false });
+      this.setHijosCount(hijos.length);
+
+      hijos.forEach((h, idx) => {
+        const g = this.hijosFA.at(idx) as FormGroup;
+        if (!g) return;
+        g.patchValue(
+          {
+            numero_de_documento: String(h?.numero_de_documento ?? h?.numeroDocumento ?? '').replace(/\D+/g, ''),
+            fecha_nac: normDateIn(h?.fecha_nac ?? h?.fechaNac),
+          },
+          { emitEvent: false },
+        );
+      });
+    }
+
+    const exps = this.pickAny(data, ['experiencias', 'experiencia', 'historial_laboral']) as any[];
+    if (Array.isArray(exps) && exps.length) {
+      this.experienciasFA.clear();
+      exps.forEach((e) => {
+        this.experienciasFA.push(
+          this.fb.group({
+            empresa: [String(e?.empresa ?? ''), [Validators.maxLength(255)]],
+            tiempo_trabajado: [String(e?.tiempo_trabajado ?? e?.tiempoTrabajado ?? ''), [Validators.maxLength(50)]],
+            labores_realizadas: [
+              String(e?.labores_realizadas ?? e?.laboresRealizadas ?? ''),
+              [Validators.maxLength(255)],
+            ],
+            labores_principales: [
+              String(e?.labores_principales ?? e?.laboresPrincipales ?? ''),
+              [Validators.maxLength(255)],
+            ],
+          }),
+        );
+      });
+      this.seedExperiencias();
+    }
+  }
+
+  // =========================
+  // BÚSQUEDA
+  // =========================
   async onBuscar(): Promise<void> {
     if (this.isSearching) return;
 
-    // por si quedó un backdrop viejo
-    this.forceReleaseSwalLock();
+    this.releaseLocksOnly();
+
+    this.turnos = null;
+    this.existsCandidate = false;
+    this.isPrefilling = false;
+    this.searchError = null;
+    this.lastSearch = undefined;
 
     if (this.searchForm.invalid) {
       this.searchForm.markAllAsTouched();
-      await Swal.fire('Error', 'Completa tipo y número de documento para buscar.', 'error');
-      this.forceReleaseSwalLock();
+      await this.swal.fire({ icon: 'error', title: 'Error', text: 'Completa tipo y número de documento para buscar.' });
       return;
     }
 
     this.isSearching = true;
-    this.cdr.markForCheck();
+    this.markUi();
 
     try {
-      // loader (opcional pero recomendado para UX)
-      Swal.fire({
-        title: 'Buscando...',
-        text: 'Consultando tu documento y turno asignado.',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading(),
-      });
-
       const raw = this.searchForm.getRawValue() as any;
       const tipo = String(raw.tipo_doc || '').toUpperCase().trim();
       const numeroDigits = String(raw.numero_documento || '').replace(/\D+/g, '').trim();
       const numeroForRequest = this.normalizeDocForSubmit(tipo, numeroDigits);
 
-      // ✅ oficina para enviar al backend (prioridad: query -> form -> vacío)
       const oficinaForRequest =
         (this.officeFromQuery && String(this.officeFromQuery).trim()) ||
         (String(this.formVacante.get('oficina')?.value || '').trim() || '');
 
-      // Oculta form y resetea
-      this.showForm = false;
-      this.foundCandidate = null;
-      this.cdr.detectChanges();
+      this.lastSearch = { tipo, numeroDigits, numeroForRequest, oficinaForRequest };
 
-      // =========================
-      // exists ahora devuelve:
-      //  { exists:false }
-      //  { exists:true, turnos:{...} }
-      // =========================
+      this.showForm = false;
+
       let exists = false;
-      let turnos: any = null;
+      let turnos: TurnosInfo | null = null;
 
       try {
-        const resp: any = await firstValueFrom(
-          this.candidateService.existsCandidato(tipo, numeroForRequest, oficinaForRequest),
-        );
+        const resp: any = await this.tryExistsCandidato(tipo, numeroForRequest, oficinaForRequest);
         exists = !!resp?.exists;
-        turnos = resp?.turnos ?? null;
-      } catch (err) {
-        console.warn('[existsCandidato] Falló, se permitirá continuar:', err);
+        turnos = (resp?.turnos ?? null) as TurnosInfo | null;
+      } catch (err: any) {
+        console.warn('[existsCandidato] Falló:', err);
+        this.searchError = 'No se pudo consultar el documento. Intenta nuevamente.';
         exists = false;
         turnos = null;
-      } finally {
-        Swal.close(); // cierra loading
-        this.forceReleaseSwalLock();
       }
 
-      const safe = (v: any) => (v === null || v === undefined || v === '' ? '-' : String(v));
+      this.existsCandidate = exists;
+      this.turnos = turnos;
 
-      const turnosHtml = turnos
-        ? `
-        <div style="margin-top:10px; padding:12px; border:1px solid rgba(0,0,0,.12); border-radius:12px;">
-          <div style="font-weight:700; margin-bottom:8px;">Turno asignado</div>
-          <div><b>Oficina:</b> ${safe(turnos.oficina)}</div>
-          <div><b>Fecha:</b> ${safe(turnos.fecha)}</div>
-          <div><b>Turno:</b> ${safe(turnos.turno)}</div>
-          <div><b>Pendientes hoy:</b> ${safe(turnos.pendientes_hoy ?? 0)}</div>
-          <div><b>Pendientes delante:</b> ${safe(turnos.pendientes_delante ?? 0)}</div>
-          <div><b>Mi posición:</b> ${safe(turnos.mi_posicion)}</div>
-        </div>
-      `
-        : '';
+      const turnosHtml = this.buildTurnosHtml(turnos);
 
-      // =========================
-      // ✅ SIEMPRE que haya turnos => mostrarlo (exista o no, actualice o no)
-      // =========================
       if (turnos) {
-        await Swal.fire({
+        await this.swal.fire({
           icon: 'info',
           title: 'Tu turno',
           html: `<div style="text-align:left">${turnosHtml}</div>`,
           confirmButtonColor: '#8dd603',
           allowOutsideClick: false,
         });
-        this.forceReleaseSwalLock();
       }
 
-      // =========================
-      // SI EXISTE -> CONFIRMAR ACTUALIZACIÓN (mostrando turnos si vinieron)
-      // =========================
+      let candidateData: any | null = null;
+
       if (exists) {
-        const res = await Swal.fire({
+        const res = await this.swal.fire({
           icon: 'question',
           title: 'Documento encontrado',
           html: `
-          <div style="text-align:left">
-            Ya existe información asociada a este documento.<br/>
-            ¿Deseas <b>actualizarla</b>?
-            ${turnosHtml}
-          </div>
-        `,
+            <div style="text-align:left">
+              Ya existe información asociada a este documento.<br/>
+              ¿Deseas <b>actualizarla</b>?
+              ${turnosHtml}
+            </div>
+          `,
           showCancelButton: true,
           confirmButtonText: 'Sí, actualizar',
           cancelButtonText: 'No',
@@ -642,32 +975,25 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
           allowOutsideClick: false,
         });
 
-        this.forceReleaseSwalLock();
-
-        // NO quiere actualizar -> NO mostrar formulario, pero ya vio turnos arriba
         if (!res.isConfirmed) {
-          await Swal.fire({
+          await this.swal.fire({
             icon: 'success',
             title: 'Listo',
             html: `
-            <div style="text-align:left">
-              Tu información ya está registrada. Ya serás atendido, por favor espera.
-              ${turnosHtml}
-            </div>
-          `,
+              <div style="text-align:left">
+                Tu información ya está registrada. Ya serás atendido, por favor espera.
+                ${turnosHtml}
+              </div>
+            `,
             confirmButtonColor: '#8dd603',
             allowOutsideClick: false,
           });
 
-          this.forceReleaseSwalLock();
-
           this.showForm = false;
 
-          // por si quedaron deshabilitados de intentos previos
           this.formVacante.get('tipo_doc')?.enable({ emitEvent: false });
           this.formVacante.get('numero_documento')?.enable({ emitEvent: false });
 
-          // Reaplica oficina por URL si existe
           if (this.officeFromQuery) {
             this.formVacante.get('oficina')?.setValue(this.officeFromQuery, { emitEvent: false });
             this.formVacante.get('oficina')?.disable({ emitEvent: false });
@@ -675,64 +1001,46 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
           }
 
           this.refreshSteps();
-          this.cdr.detectChanges();
+          this.markUi();
           return;
         }
 
-        // SI quiere actualizar
-        this.foundCandidate = { exists: true, tipo_doc: tipo, numero_documento: numeroForRequest };
+        this.isPrefilling = true;
+        this.markUi();
+
+        try {
+          candidateData = await this.tryFetchCandidate(tipo, numeroForRequest, oficinaForRequest);
+        } catch (e) {
+          console.warn('[tryFetchCandidate] No se pudo traer data:', e);
+          candidateData = null;
+        } finally {
+          this.isPrefilling = false;
+          this.markUi();
+        }
+
+        this.foundCandidate = { exists: true, tipo_doc: tipo, numero_documento: numeroForRequest, data: candidateData };
       }
 
-      // =========================
-      // MOSTRAR FORMULARIO (si no existe, o existe y confirmó actualizar)
-      // =========================
       this.showForm = true;
 
-      // Precarga documento en el form principal
-      this.formVacante.get('tipo_doc')?.setValue(tipo, { emitEvent: false });
-      this.formVacante.get('numero_documento')?.setValue(numeroDigits, { emitEvent: false });
+      if (candidateData) this.prefillFormFromCandidate(candidateData);
 
-      // Bloquear doc para que no lo cambien después de buscar
-      this.formVacante.get('tipo_doc')?.disable({ emitEvent: false });
-      this.formVacante.get('numero_documento')?.disable({ emitEvent: false });
+      this.applyAutoFields(tipo, numeroDigits);
 
-      // ✅ Oficina: si viene por URL => set + disable SIEMPRE
-      if (this.officeFromQuery) {
-        this.formVacante.get('oficina')?.setValue(this.officeFromQuery, { emitEvent: false });
-        this.formVacante.get('oficina')?.disable({ emitEvent: false });
-        this.lockedOffice = this.officeFromQuery;
-
-        if (this.officeFromQuery === 'BRIGADA' && this.brigadaFromQuery) {
-          this.formVacante.get('brigadaDe')?.setValue(this.brigadaFromQuery, { emitEvent: false });
-        }
-      }
-
-      // Reinicia stepper al paso 0 y actualiza progreso
-      queueMicrotask(() => {
-        if (this.stepperRef) {
-          this.stepperRef.selectedIndex = 0;
-          this.currentStepIndex = 0;
-          this.totalSteps = (this.stepperRef.steps?.length as number) || this.totalSteps;
-        }
-        this.refreshSteps();
-        this.cdr.detectChanges();
-      });
+      this.refreshSteps();
+      this.resetStepperToFirst();
+      this.markUi();
     } finally {
       this.isSearching = false;
-      this.cdr.markForCheck();
-
-      // por si SweetAlert dejó algo pegado
-      this.forceReleaseSwalLock();
+      this.markUi();
+      this.releaseLocksOnly();
     }
   }
-
-
 
   // ===== Stepper events =====
   onStepChange(e: StepperSelectionEvent): void {
     this.currentStepIndex = e.selectedIndex;
 
-    // ✅ scroll horizontal al header del stepper (el contenedor real es .mat-horizontal-stepper-header-container)
     const host = this.stepperHost?.nativeElement;
     if (host) {
       const ctn = host.querySelector<HTMLElement>('.mat-horizontal-stepper-header-container');
@@ -741,7 +1049,7 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
       target?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
     }
 
-    this.cdr.markForCheck();
+    this.markUi();
   }
 
   scrollHeaders(direction: 1 | -1): void {
@@ -751,11 +1059,16 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
     ctn.scrollBy({ left: delta, behavior: 'smooth' });
   }
 
+  togglePasswordVisibility(): void {
+    this.hidePassword = !this.hidePassword;
+    this.markUi();
+  }
+
   // ===== Autocomplete ciudades =====
   private loadCities(): void {
     const list = colombia as Array<{ id: number; departamento: string; ciudades: string[] }>;
     const set = new Set<string>();
-    list.forEach((d) => d.ciudades?.forEach((c) => set.add(c)));
+    for (const d of list) for (const c of d.ciudades ?? []) set.add(c);
     this.allCities = Array.from(set).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
   }
 
@@ -822,14 +1135,14 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
   addExperiencia(): void {
     this.experienciasFA.push(this.buildExperienciaGroup(true));
     this.refreshSteps();
-    this.cdr.markForCheck();
+    this.markUi();
   }
 
   removeExperiencia(i: number): void {
     if (i < this.SEED_EXP_COUNT) return;
     this.experienciasFA.removeAt(i);
     this.refreshSteps();
-    this.cdr.markForCheck();
+    this.markUi();
   }
 
   private buildExperienciaGroup(required = true): FormGroup {
@@ -871,7 +1184,6 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
     this.step6Ctrl.updateValueAndValidity({ onlySelf: true, emitEvent: false });
   }
 
-  /** Normaliza número (solo dígitos) y añade 'X' al INICIO si tipo != CC */
   private normalizeDocForSubmit(tipo: string, raw: any): string {
     const digits = String(raw ?? '').replace(/\D+/g, '').trim();
     if (!digits) return digits;
@@ -885,10 +1197,26 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
     return /ya registrado/i.test(docMsg) || /ya registrado/i.test(mailMsg) || err?.status === 409;
   }
 
+  private toYmd(v: any): any {
+    if (!v) return v;
+    if (typeof v === 'string') return v.length > 10 ? v.slice(0, 10) : v;
+
+    if (v instanceof Date && !isNaN(v.getTime())) {
+      const y = v.getFullYear();
+      const m = String(v.getMonth() + 1).padStart(2, '0');
+      const d = String(v.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    return v;
+  }
+
+  // =========================
+  // SUBMIT (completo)
+  // =========================
   async onSubmit(): Promise<void> {
     if (this.isSubmitting) return;
 
-    // por si quedó un backdrop viejo
     this.forceReleaseSwalLock();
 
     if (this.formVacante.invalid) {
@@ -899,12 +1227,33 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
     }
 
     this.isSubmitting = true;
-    this.cdr.markForCheck();
+    this.markUi();
 
     try {
-      const formValue: any = { ...this.formVacante.getRawValue() };
+      const rawForm = this.formVacante.getRawValue() as any;
+      const formValue: any = { ...rawForm };
 
-      // (A) Correo
+      const tipoFromForm = (rawForm.tipo_doc ?? '').toString().trim();
+      const tipoFromSearch = (this.searchForm.get('tipo_doc')?.value ?? '').toString().trim();
+      const tipoSafe = (tipoFromForm || tipoFromSearch).toUpperCase().trim();
+
+      const numFromForm = (rawForm.numero_documento ?? '').toString().trim();
+      const numFromSearch = (this.searchForm.get('numero_documento')?.value ?? '').toString().trim();
+      const numSafeDigits = (numFromForm || numFromSearch).replace(/\D+/g, '').trim();
+
+      const oficinaFromForm = (rawForm.oficina ?? '').toString().trim();
+      const oficinaSafe = (oficinaFromForm || this.lockedOffice || this.officeFromQuery || '').toString().trim();
+
+      formValue.tipo_doc = tipoSafe;
+      formValue.numero_documento = numSafeDigits;
+      formValue.oficina = oficinaSafe;
+
+      const missingAuto = ['oficina', 'tipo_doc', 'numero_documento'].filter((k) => !String(formValue[k] ?? '').trim());
+      if (missingAuto.length) {
+        await Swal.fire('Error', `Faltan datos obligatorios: ${missingAuto.join(', ')}`, 'error');
+        return;
+      }
+
       if (/@|\s/.test(formValue.correo_usuario)) {
         await Swal.fire('Error', 'El usuario del correo no debe incluir @, espacios ni el dominio.', 'error');
         return;
@@ -920,7 +1269,6 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
 
       formValue.tipo_documento = String(formValue.tipo_doc || '').toUpperCase();
 
-      // (B) Oficina BRIGADA
       const rawOficina = String(formValue.oficina || '').trim();
       if (rawOficina === 'BRIGADA' && formValue.brigadaDe) {
         formValue.oficina = `BRIGADA DE ${String(formValue.brigadaDe).toUpperCase().trim()}`;
@@ -929,7 +1277,6 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
       }
       delete formValue.brigadaDe;
 
-      // (C) Fechas -> YYYY-MM-DD
       const normDate = (v: any) => {
         if (!v) return v;
         if (v instanceof Date) return v.toISOString().slice(0, 10);
@@ -939,22 +1286,27 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
       formValue.fecha_nacimiento = normDate(formValue.fecha_nacimiento);
       formValue.fecha_expedicion = normDate(formValue.fecha_expedicion);
 
-      // (D) Documento: prefijar X si no es CC
       formValue.numero_documento = this.normalizeDocForSubmit(
         String(formValue.tipo_doc || '').toUpperCase(),
         formValue.numero_documento,
       );
 
-      // (E) Convive: array -> string
+      // equivalentes
+      formValue.numeroCedula = formValue.numero_documento;
+      formValue.tipoDoc = formValue.tipo_doc;
+
       if (Array.isArray(formValue.personas_con_quien_convive)) {
-        formValue.personas_con_quien_convive = formValue.personas_con_quien_convive.filter((x: any) => !!x).join(', ');
+        formValue.personas_con_quien_convive = formValue.personas_con_quien_convive.filter(Boolean).join(', ');
       }
 
-      // (F) Proyección
+      // cuidadorHijos por responsable_hijos
+      formValue.vivienda ??= {};
+      formValue.vivienda.responsable_hijos = formValue.cuidadorHijos ?? null;
+      delete formValue.cuidadorHijos;
+
       formValue.como_se_proyecta = formValue.proyeccion1Ano;
       delete formValue.proyeccion1Ano;
 
-      // (G) Experiencia flores
       const tieneExp = formValue.experienciaFlores === 'Sí';
       formValue.tiene_experiencia = !!tieneExp;
 
@@ -971,7 +1323,6 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
       delete formValue.tipoExperienciaFlores;
       delete formValue.otroExperiencia;
 
-      // Filtrar experiencias vacías
       formValue.experiencias = (formValue.experiencias || []).filter((exp: any) => {
         if (!exp || typeof exp !== 'object') return false;
         const hasEmpresa = String(exp.empresa || '').trim().length > 0;
@@ -979,41 +1330,29 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
         return hasEmpresa || hasOtherData;
       });
 
-      // (H) Hijos
+      // ✅ HIJOS
       formValue.hijos = this.hijosFA.controls
         .map((c) => {
           const nd = String(c.get('numero_de_documento')?.value ?? '').replace(/\D+/g, '');
           const fn = c.get('fecha_nac')?.value;
-          return {
-            numero_de_documento: nd || undefined,
-            fecha_nac: normDate(fn),
-          };
+          return { numero_de_documento: nd || undefined, fecha_nac: normDate(fn) };
         })
         .filter((h) => !!h.fecha_nac);
 
-      // =========================
-      // 1) Registrar usuario (tolerante: Observable o Promise)
-      // =========================
       let registerAlreadyExists = false;
       try {
-        const dto = await this.authService.buildRegisterDto(formValue);
+        const registerSource =
+          typeof structuredClone === 'function' ? structuredClone(formValue) : JSON.parse(JSON.stringify(formValue));
+        const dto = await (this.authService as any).buildRegisterDto(registerSource);
 
-        const regAny: any = this.authService.register(dto);
-        if (regAny && typeof regAny.subscribe === 'function') {
-          await firstValueFrom(regAny);
-        } else {
-          await regAny;
-        }
+        const regAny: any = (this.authService as any).register(dto);
+        if (regAny && typeof regAny.subscribe === 'function') await firstValueFrom(regAny);
+        else await regAny;
       } catch (e: any) {
         registerAlreadyExists = this.isAlreadyRegisteredError(e);
-        if (!registerAlreadyExists) {
-          console.warn('Fallo de registro no esperado:', e);
-        }
+        if (!registerAlreadyExists) console.warn('Fallo de registro no esperado:', e);
       }
 
-      // =========================
-      // 2) Uppercase (except correo/username/password)
-      // =========================
       Object.keys(formValue).forEach((key) => {
         const isString = typeof formValue[key] === 'string';
         if (!isString) return;
@@ -1021,18 +1360,17 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
         formValue[key] = formValue[key].toUpperCase();
       });
 
-      // Limpieza UI-only
       delete formValue.tieneHijos;
       delete formValue.numeroHijos;
       delete formValue.estudiaActualmente;
 
-      // =========================
-      // 3) Guardar candidato y mostrar turnos
-      // =========================
       try {
-        const resp: any = await firstValueFrom(this.candidateService.guardarInfoPersonal(formValue));
+        console.log('Enviando formulario con payload:', formValue);
 
-        const t = resp?.turnos;
+        // ✅ CAMBIO: enviar DIRECTO a crearActualizarCandidato
+        const resp: any = await firstValueFrom(this.candidateService.crearActualizarCandidato(formValue));
+
+        const t = resp?.turnos as TurnosInfo | undefined;
         const numero = formValue?.numero_documento;
         const oficina = t?.oficina || formValue?.oficina || 'VIRTUAL';
 
@@ -1055,11 +1393,11 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
               <div style="text-align:left">
                 <div>Se registró la cédula <b>${numero}</b> en <b>${oficina}</b>.</div>
                 <hr/>
-                <div><b>Fecha:</b> ${t.fecha}</div>
-                <div><b>Turno asignado:</b> <b>${t.turno}</b></div>
-                <div><b>Pendientes hoy:</b> ${t.pendientes_hoy}</div>
-                <div><b>Pendientes delante de ti:</b> <b>${t.pendientes_delante}</b></div>
-                <div><b>Tu posición:</b> <b>${t.mi_posicion}</b></div>
+                <div><b>Fecha:</b> ${this.safe(t.fecha)}</div>
+                <div><b>Turno asignado:</b> <b>${this.safe(t.turno)}</b></div>
+                <div><b>Pendientes hoy:</b> ${this.safe(t.pendientes_hoy)}</div>
+                <div><b>Pendientes delante de ti:</b> <b>${this.safe(t.pendientes_delante)}</b></div>
+                <div><b>Tu posición:</b> <b>${this.safe(t.mi_posicion)}</b></div>
                 ${extraLogin}
               </div>
             `,
@@ -1080,7 +1418,7 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
       } catch (error: any) {
         const status = error?.status;
         const payload = error?.error;
-        const t = payload?.turnos;
+        const t = payload?.turnos as TurnosInfo | undefined;
 
         const numero = formValue?.numero_documento;
         const oficina = t?.oficina || formValue?.oficina || 'VIRTUAL';
@@ -1105,15 +1443,15 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
                 <div style="text-align:left">
                   <div>Ya existe un registro reciente para la cédula <b>${numero}</b> en <b>${oficina}</b>.</div>
                   <hr/>
-                  <div><b>Fecha:</b> ${t.fecha}</div>
-                  <div><b>Turno:</b> <b>${t.turno}</b></div>
-                  <div><b>Pendientes hoy:</b> ${t.pendientes_hoy}</div>
-                  <div><b>Pendientes delante de ti:</b> <b>${t.pendientes_delante}</b></div>
-                  <div><b>Tu posición:</b> <b>${t.mi_posicion}</b></div>
+                  <div><b>Fecha:</b> ${this.safe(t.fecha)}</div>
+                  <div><b>Turno:</b> <b>${this.safe(t.turno)}</b></div>
+                  <div><b>Pendientes hoy:</b> ${this.safe(t.pendientes_hoy)}</div>
+                  <div><b>Pendientes delante de ti:</b> <b>${this.safe(t.pendientes_delante)}</b></div>
+                  <div><b>Tu posición:</b> <b>${this.safe(t.mi_posicion)}</b></div>
                   ${extraLogin}
                 </div>
               `
-              : (payload?.detail || `Ya existe un registro reciente para la cédula ${numero} en ${oficina}.`),
+              : payload?.detail || `Ya existe un registro reciente para la cédula ${numero} en ${oficina}.`,
             confirmButtonText: 'Entendido',
           });
           return;
@@ -1127,27 +1465,9 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
       }
     } finally {
       this.isSubmitting = false;
-      this.cdr.markForCheck();
+      this.markUi();
       this.forceReleaseSwalLock();
     }
-  }
-
-  processErrors(errors: any): string {
-    const msgs: string[] = [];
-    if (errors?.correo_electronico) msgs.push('Ya existe un usuario con este correo electrónico.');
-    if (errors?.numero_documento) msgs.push('Ya existe un usuario con este número de documento.');
-    return msgs.join('\n');
-  }
-
-  get tiempoResidenciaParsed() {
-    const v = this.formVacante.value.hace_cuanto_vive as string | null;
-    if (!v) return null;
-    if (v === 'LIFETIME') return { unit: 'LIFETIME', quantity: null, label: 'Toda la vida' };
-    const [u, q] = v.split(':');
-    const n = Number(q);
-    if (u === 'M') return { unit: 'MONTH', quantity: n, label: `${n} ${n === 1 ? 'mes' : 'meses'}` };
-    if (u === 'Y') return { unit: 'YEAR', quantity: n, label: `${n} ${n === 1 ? 'año' : 'años'}` };
-    return null;
   }
 
   // ===== Query param oficina =====
@@ -1160,12 +1480,11 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
         this.officeFromQuery = undefined;
         this.brigadaFromQuery = undefined;
 
-        // ojo: si no viene oficina, queda editable (solo cuando el form esté visible)
         this.formVacante.get('oficina')?.enable({ emitEvent: false });
         this.lockedOffice = undefined;
 
         this.refreshSteps();
-        this.cdr.markForCheck();
+        this.markUi();
         return;
       }
 
@@ -1177,15 +1496,12 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
         this.officeFromQuery = match;
         this.lockedOffice = match;
 
-        // ✅ SIEMPRE set + disable
         this.formVacante.get('oficina')?.setValue(match, { emitEvent: false });
         this.formVacante.get('oficina')?.disable({ emitEvent: false });
 
         if (match === 'BRIGADA') {
           this.brigadaFromQuery = brigada || undefined;
-          if (brigada) {
-            this.formVacante.get('brigadaDe')?.setValue(brigada, { emitEvent: false });
-          }
+          if (brigada) this.formVacante.get('brigadaDe')?.setValue(brigada, { emitEvent: false });
         } else {
           this.brigadaFromQuery = undefined;
           this.formVacante.get('brigadaDe')?.setValue('', { emitEvent: false });
@@ -1193,7 +1509,7 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
       }
 
       this.refreshSteps();
-      this.cdr.markForCheck();
+      this.markUi();
     });
   }
 

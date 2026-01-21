@@ -69,7 +69,6 @@ export class CandidatoNewS {
       source.pipe(
         catchError((err: any) => {
           // Centraliza logging/transformación de errores
-          console.error('[CandidatoNewS] HTTP error:', err);
           return throwError(() => err);
         })
       );

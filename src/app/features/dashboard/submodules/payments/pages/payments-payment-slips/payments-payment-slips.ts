@@ -109,8 +109,6 @@ export class PaymentsPaymentSlips {
         });
         window.location.href = '';
       } else {
-        console.error('Error al realizar la petición HTTP GET o al manejar el JWT');
-        console.error(error);
         await Swal.fire({
           icon: 'error',
           title: 'Oops...',

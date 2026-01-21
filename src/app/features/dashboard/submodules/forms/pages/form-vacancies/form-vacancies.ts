@@ -1,21 +1,51 @@
-import { Component } from '@angular/core';
-import { SharedModule } from '../../../../../../shared/shared-module';
-import { FormArray, FormBuilder, FormControl, FormGroup, FormsModule, Validators } from '@angular/forms';
-import { DateAdapter, MAT_DATE_LOCALE, MAT_DATE_FORMATS } from '@angular/material/core';
-import { MomentDateAdapter } from '@angular/material-moment-adapter';
+import { RegistroProcesoContratacion } from './../../services/registro-proceso-contratacion/registro-proceso-contratacion';
+import {
+  Component,
+  Inject,
+  OnInit,
+  PLATFORM_ID,
+  AfterViewInit,
+  OnDestroy,
+  ViewChild,
+  ChangeDetectorRef,
+  inject,
+} from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { MatDialog } from '@angular/material/dialog';
+import {
+  AbstractControl,
+  FormArray,
+  FormBuilder,
+  FormControl,
+  FormGroup,
+  ValidationErrors,
+  Validators,
+  FormsModule,
+  ReactiveFormsModule,
+} from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
+
+import { DateAdapter, MAT_DATE_FORMATS, MAT_DATE_LOCALE } from '@angular/material/core';
+import { MomentDateAdapter } from '@angular/material-moment-adapter';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatStepper, MatStepperModule } from '@angular/material/stepper';
+
 import Swal from 'sweetalert2';
 import { degrees, PDFCheckBox, PDFDocument, PDFTextField, rgb, StandardFonts } from 'pdf-lib';
+import { firstValueFrom, Subject, merge } from 'rxjs';
+import { debounceTime, startWith, takeUntil } from 'rxjs/operators';
+
+import { SharedModule } from '../../../../../../shared/shared-module';
 import { DocumentManagementS } from '../../../../../../shared/services/document-management-s/document-management-s';
 import { CandidateS } from '../../../../../../shared/services/candidate-s/candidate-s';
 import { PoliciesModal } from '../../components/policies-modal/policies-modal';
-import { ActivatedRoute } from '@angular/router';
+import { ParametrizacionS } from '../../services/parametrizacion/parametrizacion-s';
+import { AddressBuilderDialog } from '../../components/address-builder-dialog/address-builder-dialog';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 export const MY_DATE_FORMATS = {
-  parse: {
-    dateInput: 'D/M/YYYY',
-  },
+  parse: { dateInput: 'D/M/YYYY' },
   display: {
     dateInput: 'D/M/YYYY',
     monthYearLabel: 'MMMM YYYY',
@@ -23,383 +53,1014 @@ export const MY_DATE_FORMATS = {
     monthYearA11yLabel: 'MMMM YYYY',
   },
 };
+
+type BulItem = {
+  id: string;
+  tabla: string;
+  datos: Record<string, any>;
+  activo: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+type Option = { value: string; viewValue: string };
+
 @Component({
   selector: 'app-form-vacancies',
+  standalone: true,
   imports: [
     SharedModule,
-    FormsModule
+    FormsModule,
+    ReactiveFormsModule,
+    MatProgressBarModule,
+    MatStepperModule,
+    MatDialogModule,
   ],
   templateUrl: './form-vacancies.html',
-  styleUrl: './form-vacancies.css',
+  styleUrls: ['./form-vacancies.css'],
   providers: [
     { provide: DateAdapter, useClass: MomentDateAdapter, deps: [MAT_DATE_LOCALE] },
     { provide: MAT_DATE_FORMATS, useValue: MY_DATE_FORMATS },
-    { provide: MAT_DATE_LOCALE, useValue: 'es-CO' }, // o 'es'
-  ]
+    { provide: MAT_DATE_LOCALE, useValue: 'es-CO' },
+  ],
 })
-export class FormVacancies {
-  [x: string]: any;
-  //datosHoja: HojaDeVida = new HojaDeVida();
+export class FormVacancies implements OnInit, AfterViewInit, OnDestroy {
+  @ViewChild('stepper') private stepper?: MatStepper;
+
+  // Cambia el nombre si quieres versionar
+  private readonly DRAFT_KEY_BASE = 'formVacanciesDraft:v1';
+  // ✅ Progreso estable del stepper (evita NG0100 si el HTML usa estas vars)
+  stepperTotal = 0;
+  stepperIndex = 0;
+  stepperProgress = 0;
+
+  private readonly destroy$ = new Subject<void>();
+
   formHojaDeVida2!: FormGroup;
-  datos: any; // Puedes tipar esto mejor según la estructura de tu JSON
+
+  datos: any;
   ciudadesResidencia: string[] = [];
   ciudadesExpedicionCC: string[] = [];
   ciudadesNacimiento: string[] = [];
-  // visualizaciones las capturas de la cedula
-  previsualizacion: string | undefined;
-  previsualizacion2: string | undefined;
-  previsualizacion3: string | undefined;
 
   guardarObjeti: string | undefined;
   guardarObjeti2: string | undefined;
   guardarObjeti3: string | undefined;
 
   firma: string | undefined;
-  mostrarFormulario: boolean = false;
-
   numeroCedula!: any;
 
   archivos: any = [];
-  mostrarCamposAdicionales: boolean = false; // Controla la visibilidad de los campos adicionales
+  mostrarCamposAdicionales = false;
 
-  title = 'Formulario';
   mostrarSubirHojaVida = false;
   mostrarCamposVehiculo = false;
   mostrarCamposTrabajo = false;
   mostrarParientes = false;
   mostrarDeportes = false;
-  mostrarCamposHermanos: boolean = false; // Controla si se muestran los campos de hermanos
+  mostrarCamposHermanos = false;
 
   categoriasLicencia = ['A1', 'A2', 'B1', 'B2', 'B3', 'C1', 'C2', 'C3'];
   tiposContrato = ['Fijo', 'Indefinido', 'Prestación de servicios', 'Obra o labor'];
-  uploadedFiles: { [key: string]: { file: File, fileName: string } } = {}; // Almacenar tanto el archivo como el nombre
+
+  uploadedFiles: { [key: string]: { file: File; fileName: string } } = {};
   typeMap: { [key: string]: number } = {
-    "hojaDeVida": 28,
+    hojaDeVida: 28,
     hojaDeVidaGenerada: 28,
   };
+
+  opcionesPromocion: string[] = [];
+  tipoDocs: Array<{ abbreviation: string; description: string }> = [];
+  generos: string[] = [];
+
+  haceCuantoViveEnlaZona: any[] = [];
+  estadosCiviles: Array<{ codigo: string; descripcion: string }> = [];
+  listadoDeNacionalidades: any[] = [];
+  listamanos: Array<{ mano: string; descripcion: string }> = [];
+
+  tiposVivienda: string[] = [];
+  tiposVivienda2: string[] = [];
+  caracteristicasVivienda: string[] = [];
+  comodidades: string[] = [];
+  expectativasVida: string[] = [];
+
+  listaEscolaridad: string[] = [];
+  listaEscoText: any[] = [];
+  tallas: string[] = [];
+  tallasCalzado: string[] = [];
+
+  listaParentescosFamiliares: string[] = [];
+  Ocupacion: string[] = [];
+
+  listaMotivosRetiro: any[] = [];
+  listaAreas: any[] = [];
+  listaCalificaciones: any[] = [];
+  listaDuracion: any[] = [];
+
+  listatiposVivienda: string[] = [];
+  listaPosiblesRespuestasConquienVive: string[] = [];
+  listaPersonasQueCuidan: string[] = [];
+  listaPosiblesRespuestasPersonasACargo: string[] = [];
+
+  opcionesDeExperiencia: any[] = [];
+  tiempoTrabajado: any[] = [];
+  cursosDespuesColegio: any[] = [];
+
+  // ✅ NUEVOS: vienen de catálogo bulk
+  areasExperiencia: string[] = []; // AREAS_EXPERIENCIA
+
+  listatiposdesangre: string[] = [];
+
   oficinaBloqueada = false;
 
+  // ✅ BULK
+  loadingCatalogos = false;
+
+  private readonly CATALOGOS = [
+    'SEXO',
+    'DOMINANCIA_MANUAL',
+    'PARENTESCOS_FAMILIARES',
+    'OCUPACIONES',
+    'CATALOGO_NIVELES_ESCOLARIDAD',
+    'TALLA_ROPA',
+    'TALLAS_CALZADO',
+    'CATALOGO_CON_QUIEN_VIVE',
+    'CATALOGO_PERSONAS_ACARGO',
+    'CATALOGO_TIPOS_VIVIENDA',
+    'CATALOGO_CARACTERISTICAS_VIVIENDA',
+    'CATALOGO_SERVICIOS',
+    'CATALOGO_MARKETING',
+    'ESTADOS_CIVILES',
+    'RH',
+    'TIPOS_IDENTIFICACION',
+
+    // ✅ AGREGADOS
+    'AREAS_EXPERIENCIA',
+    'TIEMPO_EXPERIENCIA',
+    'EXPECTATIVAS_VIDA',
+    'HACE_CUENTO_ZONA',
+    'CUIDADOR_HIJOS',
+    'ESTUDIOS',
+  ] as const;
+
+  // ✅ BULK llena esto
+  personasACargoOptions: string[] = [];
+
+  // ✅ patrón para direcciones (las llena el modal)
+  private readonly ADDRESS_RX = /^[A-Z0-9#\-./ ]{6,120}$/;
+
+  // -------------------------
+  // ✅ Etiquetas normalizadas (popup “Formulario incompleto”)
+  // -------------------------
+  private readonly FIELD_LABELS: Record<string, string> = {
+    tipoDoc: 'Tipo de documento',
+    numeroCedula: 'Número de documento de identidad',
+    pApellido: 'Primer apellido',
+    sApellido: 'Segundo apellido',
+    pNombre: 'Primer nombre',
+    sNombre: 'Segundo nombre',
+    genero: 'Sexo',
+    correo: 'Correo electrónico',
+    numCelular: 'Número de celular',
+    numWha: 'Número de WhatsApp',
+    departamento: 'Departamento donde vive',
+    ciudad: 'Municipio donde vive',
+    estadoCivil: 'Estado Civil',
+    direccionResidencia: 'Dirección de Residencia',
+    zonaResidencia: 'En que zona (barrio) vive',
+    fechaExpedicionCC: 'Fecha de Expedición CC',
+    departamentoExpedicionCC: 'Departamento de Expedición CC',
+    municipioExpedicionCC: 'Municipio de Expedición CC',
+    departamentoNacimiento: 'Departamento de Nacimiento',
+    municipioNacimiento: 'Municipio de Nacimiento',
+    rh: 'Rh',
+    lateralidad: 'Zurdo/Diestro',
+    tiempoResidenciaZona: '¿Hace cuánto vive en la zona?',
+    lugarAnteriorResidencia: 'Lugar anterior de residencia',
+    razonCambioResidencia: '¿Por qué cambió de ciudad de residencia?',
+    zonasConocidas: '¿Qué zonas del país conoce?',
+    preferenciaResidencia: '¿Dónde le gustaría vivir?',
+    fechaNacimiento: 'Fecha de Nacimiento',
+    estudiaActualmente: '¿Estudia actualmente?',
+    familiarEmergencia: 'Nombre familiar En caso de emergencia',
+    parentescoFamiliarEmergencia: 'Parentesco',
+    direccionFamiliarEmergencia: 'Dirección del Familiar en Caso de Emergencia',
+    barrioFamiliarEmergencia: 'Barrio o municipio del Familiar en Caso de Emergencia',
+    telefonoFamiliarEmergencia: 'Teléfono del Familiar en Caso de Emergencia',
+    ocupacionFamiliar_Emergencia: 'Ocupación del Familiar en Caso de Emergencia',
+    oficina: 'Seleccione la oficina donde está',
+
+    escolaridad: 'Escolaridad',
+    nombreInstitucion: 'Nombre de la Institución',
+    anoFinalizacion: 'Año de Finalización',
+    tituloObtenido: 'Título Obtenido',
+    estudiosExtrasSelect: 'Estudios adicionales',
+
+    tallaChaqueta: 'Chaqueta',
+    tallaPantalon: 'Pantalón',
+    tallaCamisa: 'Camisa',
+    tallaCalzado: 'Calzado',
+
+    nombresConyuge: 'Nombres (Cónyuge)',
+    apellidosConyuge: 'Apellidos (Cónyuge)',
+    viveConyuge: '¿Vive? (Cónyuge)',
+    documentoIdentidadConyuge: 'No. Doc. Identidad (Cónyuge)',
+    direccionConyuge: 'Dirección (Cónyuge)',
+    telefonoConyuge: 'Teléfono (Cónyuge)',
+    barrioConyuge: 'Barrio o municipio (Cónyuge)',
+    ocupacionConyuge: 'Ocupación (Cónyuge)',
+
+    nombrePadre: 'Nombre Padre',
+    elPadreVive: '¿Vive? (Padre)',
+    ocupacionPadre: 'Ocupación Padre',
+    direccionPadre: 'Dirección Padre',
+    telefonoPadre: 'Teléfono Padre',
+    barrioPadre: 'Barrio o municipio Padre',
+
+    nombreMadre: 'Nombre Madre',
+    madreVive: '¿Vive? (Madre)',
+    ocupacionMadre: 'Ocupación Madre',
+    direccionMadre: 'Dirección Madre',
+    telefonoMadre: 'Teléfono Madre',
+    barrioMadre: 'Barrio o Municipio Madre',
+
+    nombreReferenciaPersonal1: 'Nombre Referencia Personal 1',
+    telefonoReferencia1: 'Teléfono Referencia Personal 1',
+    ocupacionReferencia1: 'Ocupación Referencia Personal 1',
+    direccionReferenciaPersonal1: 'Dirección Referencia Personal 1',
+    tiempoConoceReferenciaPersonal1: 'Tiempo que conoce a la referencia personal 1',
+
+    nombreReferenciaPersonal2: 'Nombre Referencia Personal 2',
+    telefonoReferencia2: 'Teléfono Referencia Personal 2',
+    ocupacionReferencia2: 'Ocupación Referencia Personal 2',
+    direccionReferenciaPersonal2: 'Dirección Referencia Personal 2',
+    tiempoConoceReferenciaPersonal2: 'Tiempo que conoce a la referencia personal 2',
+
+    nombreReferenciaFamiliar1: 'Nombre Referencia Familiar 1',
+    telefonoReferenciaFamiliar1: 'Teléfono Referencia Familiar 1',
+    ocupacionReferenciaFamiliar1: 'Ocupación Referencia Familiar 1',
+    direccionReferenciaFamiliar1: 'Dirección Referencia Familiar 1',
+    parentescoReferenciaFamiliar1: 'Parentesco con la referencia familiar 1',
+
+    nombreReferenciaFamiliar2: 'Nombre Referencia Familiar 2',
+    telefonoReferenciaFamiliar2: 'Teléfono Referencia Familiar 2',
+    ocupacionReferenciaFamiliar2: 'Ocupación Referencia Familiar 2',
+    direccionReferenciaFamiliar2: 'Dirección Referencia Familiar 2',
+    parentescoReferenciaFamiliar2: 'Parentesco con la referencia familiar 2',
+
+    experienciaLaboral: '¿Tiene experiencia laboral?',
+    nombreEmpresa1: 'Nombre Empresa',
+    direccionEmpresa1: 'Dirección Empresa',
+    telefonosEmpresa1: 'Teléfonos Empresa',
+    nombreJefe1: 'Nombre Jefe Inmediato',
+    cargoEmpresa1: 'Cargo que se desempeñaba',
+    areaExperiencia: '¿En qué área tiene experiencia?',
+    fechaRetiro1: 'Fecha de Retiro 1',
+    tiempoExperiencia: 'Tiempo de experiencia',
+    motivoRetiro1: 'Motivo de Retiro',
+    empresas_laborado: 'Empresas de flores que ha trabajado',
+
+    numHijosDependientes: 'Número de hijos que dependen económicamente',
+    cuidadorHijos: '¿Quién cuida a los hijos?',
+    conQuienViveChecks: '¿Con quién vive?',
+    familiaSolo: '¿Familia con un solo ingreso?',
+    personas_a_cargo: 'Personas a cargo',
+    tiposViviendaChecks: '¿Tipo de vivienda?',
+    numeroHabitaciones: 'Número de Habitaciones',
+    personasPorHabitacion: 'Número de Personas por Habitación',
+    caracteristicasVivienda: 'Características de la Vivienda',
+    comodidadesChecks: '¿Comodidades en la vivienda?',
+    fuenteVacante: 'Cómo se enteró de la vacante',
+
+    deseaGenerar: '¿Desea generar su hoja de vida?',
+    hojaDeVida: 'Hoja de Vida',
+    tieneVehiculo: '¿Tiene vehículo?',
+    licenciaConduccion: 'Licencia de conducción Nº',
+    categoriaLicencia: 'Categoría de la licencia',
+    estaTrabajando: '¿Está trabajando actualmente?',
+    empresaActual: 'Empresa',
+    tipoTrabajo: '¿Empleado o independiente?',
+    tipoContrato: 'Tipo de contrato',
+    trabajoAntes: '¿Trabajó antes en esta empresa?',
+    solicitoAntes: '¿Solicitó empleo antes en esta empresa?',
+    tieneHermanos: '¿Tiene hermanos?',
+    numeroHermanos: '¿Cuántos hermanos?',
+
+    expectativasVidaChecks: 'Expectativas de Vida',
+  };
+
+  // -------------------------
+  // ✅ Validadores anti-basura
+  // -------------------------
+  private readonly NAME_PART_RX =
+    /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+(?:['-][A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)*$/;
+
+  private normalizeSpaces(s: string): string {
+    return String(s ?? '').replace(/\s+/g, ' ').trim();
+  }
+
+  private stripDiacritics(s: string): string {
+    return String(s ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  }
+
+  private normalizeAddress(v: any): string {
+    let s = this.normalizeSpaces(String(v ?? '')).toUpperCase();
+    s = this.stripDiacritics(s);
+
+    s = s
+      .replace(/\bAVENIDA\s+CALLE\b/g, 'AC')
+      .replace(/\bAVENIDA\s+CARRERA\b/g, 'AK')
+      .replace(/\bCALLE\b/g, 'CL')
+      .replace(/\bCARRERA\b/g, 'CR')
+      .replace(/\bAVENIDA\b/g, 'AV')
+      .replace(/\bDIAGONAL\b/g, 'DG')
+      .replace(/\bTRANSVERSAL\b/g, 'TV')
+      .replace(/\bTRONCAL\b/g, 'TR')
+      .replace(/\bKILOMETRO\b/g, 'KM')
+      .replace(/\bAUTOPISTA\b/g, 'AUT')
+      .replace(/\bNRO\b|\bNUMERO\b|\bNO\b/g, '');
+
+    s = s.replace(/\s*#\s*/g, ' # ');
+    s = s.replace(/\s*-\s*/g, '-');
+    s = s.replace(/\s*\/\s*/g, '/');
+
+    s = s.replace(/[^A-Z0-9#\-./ ]+/g, ' ');
+    s = this.normalizeSpaces(s);
+
+    if (s.length > 120) s = s.slice(0, 120).trim();
+
+    return s;
+  }
+
+  openAddressModal(controlName: string, label: string): void {
+    const ctrl = this.formHojaDeVida2.get(controlName);
+    if (!ctrl) return;
+
+    const ref = this.dialog.open(AddressBuilderDialog, {
+      maxWidth: '95vw',
+      autoFocus: true,
+      restoreFocus: true,
+      disableClose: false,
+      data: {
+        initialValue: String(ctrl.value ?? ''),
+      },
+    });
+
+    ref.afterClosed().subscribe((result) => {
+      if (!result) return;
+
+      // ✅ aquí ya viene DIAN limpio
+      const cleaned = typeof result === 'string' ? this.normalizeAddress(result) : (result?.dian ?? '');
+
+      if (!cleaned) return;
+
+      ctrl.setValue(cleaned);
+      ctrl.markAsTouched();
+      ctrl.markAsDirty();
+      ctrl.updateValueAndValidity({ emitEvent: false });
+    });
+  }
+
+  private toDate(v: any): Date | null {
+    if (!v) return null;
+    if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+    if (typeof v?.toDate === 'function') {
+      const d = v.toDate();
+      if (d instanceof Date && !isNaN(d.getTime())) return d;
+    }
+    const d = new Date(v);
+    if (!isNaN(d.getTime())) return d;
+    return null;
+  }
+
+  private toYmd(v: any): string {
+    if (!v) return '';
+    if (typeof v?.format === 'function') return String(v.format('YYYY-MM-DD') ?? '').trim();
+    const d = this.toDate(v);
+    if (!d) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  private nameValidator(minWords = 1, maxWords = 4) {
+    return (c: AbstractControl): ValidationErrors | null => {
+      const raw = this.normalizeSpaces(c.value);
+      if (!raw) return null;
+
+      const parts = raw.split(' ').filter(Boolean);
+
+      if (parts.length < minWords) return { nameMinWords: { minWords } };
+      if (parts.length > maxWords) return { nameMaxWords: { maxWords } };
+
+      const short = parts.find((p) => p.length < 2);
+      if (short) return { nameShortWord: { word: short } };
+
+      const bad = parts.find((p) => !this.NAME_PART_RX.test(p));
+      if (bad) return { nameBadChars: { word: bad } };
+
+      return null;
+    };
+  }
+
+  private fullNameValidator() {
+    return this.nameValidator(2, 6);
+  }
+
+  private phoneCOValidator() {
+    return (c: AbstractControl): ValidationErrors | null => {
+      const raw = String(c.value ?? '').trim();
+      if (!raw) return null;
+      const digits = raw.replace(/\D+/g, '');
+
+      if (/^3\d{9}$/.test(digits)) return null;
+      if (/^\d{7}$/.test(digits)) return null;
+      if (/^60[1-8]\d{7}$/.test(digits)) return null;
+
+      return { phoneCO: true };
+    };
+  }
+
+  private docIdValidator() {
+    return (c: AbstractControl): ValidationErrors | null => {
+      const raw = String(c.value ?? '').trim();
+      if (!raw) return null;
+
+      const parent = c.parent;
+      const tipo = String(parent?.get('tipoDoc')?.value ?? '').trim().toUpperCase();
+
+      if (tipo === 'CC') {
+        const digits = raw.replace(/\D+/g, '');
+        if (!/^\d{6,12}$/.test(digits)) return { docId: true };
+        return null;
+      }
+
+      const compact = raw.replace(/\s+/g, '').toUpperCase();
+      if (!/^[A-Z0-9]{4,20}$/.test(compact)) return { docId: true };
+      return null;
+    };
+  }
+
+  private dateReasonableValidator(minYear = 1900) {
+    return (c: AbstractControl): ValidationErrors | null => {
+      const d = this.toDate(c.value);
+      if (!d) return null;
+
+      const now = new Date();
+      if (d > now) return { dateFuture: true };
+      if (d.getFullYear() < minYear) return { dateMinYear: true };
+
+      return null;
+    };
+  }
+
+  private graduationYearValidator(minYear = 1950) {
+    return (c: AbstractControl): ValidationErrors | null => {
+      const d = this.toDate(c.value);
+      if (!d) return null;
+
+      const y = d.getFullYear();
+      const nowY = new Date().getFullYear();
+
+      if (y < minYear) return { yearMin: true };
+      if (y > nowY) return { yearMax: true };
+
+      return null;
+    };
+  }
+
+  private groupCrossValidator() {
+    return (group: AbstractControl): ValidationErrors | null => {
+      if (!(group instanceof FormGroup)) return null;
+
+      const fn = group.get('fechaNacimiento')?.value;
+      const fe = group.get('fechaExpedicionCC')?.value;
+
+      const dn = this.toDate(fn);
+      const de = this.toDate(fe);
+
+      if (dn && de) {
+        if (de < dn) return { expeditionBeforeBirth: true };
+
+        const ageAtExp = de.getFullYear() - dn.getFullYear();
+        if (ageAtExp < 7) return { expeditionTooEarly: true };
+      }
+
+      return null;
+    };
+  }
+
+  private labelForPath(path: string): string {
+    const p = String(path ?? '').trim();
+    if (!p) return p;
+
+    const mEdad = /^edadHijo(\d+)$/.exec(p);
+    if (mEdad) return `Edad del hijo ${mEdad[1]}`;
+
+    const mArr = /^(hijos|hermanos)\[(\d+)\]\.(.+)$/.exec(p);
+    if (mArr) {
+      const arrName = mArr[1];
+      const idx = Number(mArr[2] ?? 0);
+      const field = mArr[3];
+      const n = idx + 1;
+
+      if (arrName === 'hijos') {
+        const inner: Record<string, string> = {
+          nombreHijo: 'Nombre del Hijo',
+          sexoHijo: 'Sexo del Hijo',
+          fechaNacimientoHijo: 'Fecha de Nacimiento del Hijo',
+          docIdentidadHijo: 'Documento de Identidad del Hijo',
+          ocupacionHijo: 'Ocupación del Hijo',
+          cursoHijo: 'Curso del Hijo',
+        };
+        return `Hijos > Hijo ${n} > ${inner[field] ?? field}`;
+      }
+
+      if (arrName === 'hermanos') {
+        const inner: Record<string, string> = {
+          nombre: 'Nombre',
+          profesion: 'Profesión/ocupación/oficio',
+          telefono: 'Teléfono',
+        };
+        return `Hermanos > Hermano ${n} > ${inner[field] ?? field}`;
+      }
+    }
+
+    return this.FIELD_LABELS[p] ?? p;
+  }
+  private readonly isBrowser: any;
 
   constructor(
     private http: HttpClient,
     private fb: FormBuilder,
     private dialog: MatDialog,
+    private cdr: ChangeDetectorRef,
     private gestionDocumentosService: DocumentManagementS,
     private candidateS: CandidateS,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private parametrizacionS: ParametrizacionS,
+    private registroProcesoContratacion: RegistroProcesoContratacion,
+
+    @Inject(PLATFORM_ID) private platformId: Object
   ) {
+    this.isBrowser = isPlatformBrowser(this.platformId);
 
-    // Llamada a la función para inicializar el formulario con base en el número de hijos
+    const addrOpt = [Validators.minLength(6), Validators.maxLength(120), Validators.pattern(this.ADDRESS_RX)];
+    const addrReq = [Validators.required, ...addrOpt];
 
-    this.formHojaDeVida2 = new FormGroup({      // Formulario publico segunda parte
+    this.formHojaDeVida2 = new FormGroup(
+      {
+        tipoDoc: new FormControl('', [Validators.required]),
+        numeroCedula: new FormControl('', [Validators.required, this.docIdValidator()]),
 
-      tipoDoc: new FormControl('', Validators.required),
-      numeroCedula: new FormControl('', Validators.required),
-      numeroCedula2: new FormControl('', Validators.required),
-      pApellido: new FormControl('', Validators.required),
+        pApellido: new FormControl('', [Validators.required, this.nameValidator(1, 4)]),
+        sApellido: new FormControl('', [this.nameValidator(1, 4)]),
 
+        pNombre: new FormControl('', [Validators.required, this.nameValidator(1, 4)]),
+        sNombre: new FormControl('', [this.nameValidator(1, 4)]),
 
-      sApellido: new FormControl(''),
-      pNombre: new FormControl('', Validators.required),
-      sNombre: new FormControl(''),
+        genero: new FormControl('', Validators.required),
+        correo: new FormControl('', [Validators.required, Validators.email]),
 
+        numCelular: new FormControl('', [Validators.required, this.phoneCOValidator()]),
+        numWha: new FormControl('', [Validators.required, this.phoneCOValidator()]),
 
-      genero: new FormControl('', Validators.required),
-      correo: new FormControl('', [Validators.required, Validators.email]),
+        departamento: new FormControl('', Validators.required),
+        ciudad: new FormControl({ value: '', disabled: true }, Validators.required),
 
-      numCelular: new FormControl('', [
-        Validators.required,
-        Validators.pattern(/^3\d{9}$/) // Debe empezar con 3 y tener 10 dígitos en total
-      ]),
-      numWha: new FormControl('', [
-        Validators.required,  // Si este campo debe ser obligatorio
-        Validators.pattern(/^3\d{9}$/)
-      ]),
+        estadoCivil: new FormControl('', Validators.required),
 
-      departamento: new FormControl('', Validators.required), // Cambié 'genero' por 'departamento' para que sea más descriptivo
-      ciudad: new FormControl(
-        { value: '', disabled: true },
+        direccionResidencia: new FormControl('', Validators.required),
+        zonaResidencia: new FormControl('', [Validators.required, Validators.minLength(3)]),
 
-      ),
+        fechaExpedicionCC: new FormControl('', [Validators.required, this.dateReasonableValidator(1900)]),
+        departamentoExpedicionCC: new FormControl('', Validators.required),
+        municipioExpedicionCC: new FormControl({ value: '', disabled: true }, Validators.required),
 
-      estadoCivil: new FormControl('', Validators.required),
-      direccionResidencia: new FormControl('', Validators.required),
-      zonaResidencia: new FormControl('', Validators.required),
-      fechaExpedicionCC: new FormControl('', Validators.required),
-      departamentoExpedicionCC: new FormControl('', Validators.required),
-      municipioExpedicionCC: new FormControl(
-        { value: '', disabled: true },
-        Validators.required
-      ),
-      departamentoNacimiento: new FormControl('', Validators.required),
-      municipioNacimiento: new FormControl(
-        { value: '', disabled: true },
-        Validators.required
-      ),
+        departamentoNacimiento: new FormControl('', Validators.required),
+        municipioNacimiento: new FormControl({ value: '', disabled: true }, Validators.required),
 
-      rh: new FormControl('', Validators.required),
-      lateralidad: new FormControl('', Validators.required),
+        rh: new FormControl('', Validators.required),
+        lateralidad: new FormControl('', Validators.required),
 
-      tiempoResidenciaZona: new FormControl('', Validators.required),
-      lugarAnteriorResidencia: new FormControl('', Validators.required),
-      razonCambioResidencia: new FormControl('', Validators.required),
-      zonasConocidas: new FormControl('', Validators.required),
-      preferenciaResidencia: new FormControl('', Validators.required),
-      fechaNacimiento: new FormControl('', Validators.required),
+        tiempoResidenciaZona: new FormControl('', Validators.required),
+        lugarAnteriorResidencia: new FormControl('', [Validators.required, Validators.minLength(3)]),
+        razonCambioResidencia: new FormControl('', [Validators.required, Validators.minLength(5)]),
+        zonasConocidas: new FormControl('', [Validators.required, Validators.minLength(3)]),
+        preferenciaResidencia: new FormControl('', [Validators.required, Validators.minLength(3)]),
 
-      familiarEmergencia: new FormControl('', Validators.required),
-      parentescoFamiliarEmergencia: new FormControl('', Validators.required),
-      direccionFamiliarEmergencia: new FormControl('', Validators.required),
+        fechaNacimiento: new FormControl('', [Validators.required, this.dateReasonableValidator(1900)]),
 
-      barrioFamiliarEmergencia: new FormControl('', Validators.required),
-      telefonoFamiliarEmergencia: new FormControl('', [
-        Validators.required,
-        Validators.pattern(/^\d+$/),
-      ]),
-      ocupacionFamiliar_Emergencia: new FormControl('', Validators.required),
-      oficina: new FormControl('', Validators.required),
+        familiarEmergencia: new FormControl('', [Validators.required, this.fullNameValidator()]),
+        parentescoFamiliarEmergencia: new FormControl('', Validators.required),
 
-      estudiaActualmente: new FormControl('', Validators.required),
+        direccionFamiliarEmergencia: new FormControl('', Validators.required),
 
-      escolaridad: new FormControl('', Validators.required),
-      nombreInstitucion: new FormControl('', Validators.required),
-      anoFinalizacion: new FormControl('', [
-        Validators.required,
-      ]),
-      tituloObtenido: new FormControl('', Validators.required),
-      estudiosExtrasSelect: new FormControl([]), // Control para el mat-select
-      estudiosExtras: this.fb.array([]), // FormArray para los campos dinámicos
+        barrioFamiliarEmergencia: new FormControl('', [Validators.required, Validators.minLength(3)]),
+        telefonoFamiliarEmergencia: new FormControl('', [Validators.required, this.phoneCOValidator()]),
+        ocupacionFamiliar_Emergencia: new FormControl('', Validators.required),
 
+        oficina: new FormControl(  '' , Validators.required),
 
-      tallaChaqueta: new FormControl('', Validators.required),
-      tallaPantalon: new FormControl('', Validators.required),
-      tallaCamisa: new FormControl('', Validators.required),
-      tallaCalzado: new FormControl('', Validators.required),
+        estudiaActualmente: new FormControl('', Validators.required),
 
+        escolaridad: new FormControl('', Validators.required),
+        nombreInstitucion: new FormControl('', Validators.required),
+        anoFinalizacion: new FormControl('', [Validators.required, this.graduationYearValidator(1950)]),
+        tituloObtenido: new FormControl('', Validators.required),
 
+        // ✅ SOLO queda el multi-select
+        estudiosExtrasSelect: new FormControl<string[]>([]),
 
-      // conyugue
-      nombresConyuge: new FormControl('',),
-      apellidosConyuge: new FormControl('',),
-      viveConyuge: new FormControl('',), // Podría ser un booleano o un string dependiendo de cómo quieras manejarlo
+        tallaChaqueta: new FormControl('', Validators.required),
+        tallaPantalon: new FormControl('', Validators.required),
+        tallaCamisa: new FormControl('', Validators.required),
+        tallaCalzado: new FormControl('', Validators.required),
 
-      documentoIdentidadConyuge: new FormControl('', [
-        Validators.pattern(/^\d+$/),
-      ]),
-      direccionConyuge: new FormControl('',),
-      telefonoConyuge: new FormControl('', [
-        Validators.pattern(/^\d+$/),
-      ]),
-      barrioConyuge: new FormControl('',),
-      ocupacionConyuge: new FormControl('',),
+        nombresConyuge: new FormControl('', [this.nameValidator(1, 6)]),
+        apellidosConyuge: new FormControl('', [this.nameValidator(1, 6)]),
+        viveConyuge: new FormControl(''),
+        documentoIdentidadConyuge: new FormControl('', []),
 
-      // Padre
-      nombrePadre: new FormControl('', Validators.required),
-      elPadreVive: new FormControl('', Validators.required), // Podría ser un booleano o un string dependiendo de cómo quieras manejarlo
-      ocupacionPadre: new FormControl(''),
-      direccionPadre: new FormControl(''),
-      telefonoPadre: new FormControl('', Validators.pattern(/^\d+$/)), // Asegúrate de que sea numérico
-      barrioPadre: new FormControl(''),
+        direccionConyuge: new FormControl('',),
 
-      // Información de la Madre
-      nombreMadre: new FormControl('', Validators.required),
-      madreVive: new FormControl('', Validators.required),
-      ocupacionMadre: new FormControl(''),
-      direccionMadre: new FormControl(''),
-      telefonoMadre: new FormControl('', Validators.pattern(/^\d+$/)),
-      barrioMadre: new FormControl(''),
+        telefonoConyuge: new FormControl('', [this.phoneCOValidator()]),
+        barrioConyuge: new FormControl('', []),
+        ocupacionConyuge: new FormControl('', []),
 
-      // Referencias Personales
-      nombreReferenciaPersonal1: new FormControl('', Validators.required),
-      telefonoReferencia1: new FormControl('', [
-        Validators.required,
-        Validators.pattern(/^\d+$/),
-      ]),
-      ocupacionReferencia1: new FormControl('', Validators.required),
-      tiempoConoceReferenciaPersonal1: new FormControl('', Validators.required),
+        nombrePadre: new FormControl('', [Validators.required, this.fullNameValidator()]),
+        elPadreVive: new FormControl('', Validators.required),
+        ocupacionPadre: new FormControl('', []),
 
-      nombreReferenciaPersonal2: new FormControl('', Validators.required),
-      telefonoReferencia2: new FormControl('', [
-        Validators.required,
-        Validators.pattern(/^\d+$/),
-      ]),
-      ocupacionReferencia2: new FormControl('', Validators.required),
-      tiempoConoceReferenciaPersonal2: new FormControl('', Validators.required),
+        direccionPadre: new FormControl(''),
 
-      // Referencias Familiares
-      nombreReferenciaFamiliar1: new FormControl('', Validators.required),
-      telefonoReferenciaFamiliar1: new FormControl('', [
-        Validators.required,
-        Validators.pattern(/^\d+$/),
-      ]),
-      ocupacionReferenciaFamiliar1: new FormControl('', Validators.required),
-      parentescoReferenciaFamiliar1: new FormControl('', Validators.required),
+        telefonoPadre: new FormControl('', [this.phoneCOValidator()]),
+        barrioPadre: new FormControl('', []),
 
-      nombreReferenciaFamiliar2: new FormControl('', Validators.required),
-      telefonoReferenciaFamiliar2: new FormControl('', [
-        Validators.required,
-        Validators.pattern(/^\d+$/),
-      ]),
-      ocupacionReferenciaFamiliar2: new FormControl('', Validators.required),
-      parentescoReferenciaFamiliar2: new FormControl('', Validators.required),
+        nombreMadre: new FormControl('', [Validators.required, this.fullNameValidator()]),
+        madreVive: new FormControl('', Validators.required),
+        ocupacionMadre: new FormControl('', []),
 
-      // Experiencia Laboral
-      experienciaLaboral: new FormControl('', Validators.required),
+        direccionMadre: new FormControl(''),
 
-      // Experiencia Laboral 1
-      nombreEmpresa1: new FormControl('',),
-      direccionEmpresa1: new FormControl('',),
-      telefonosEmpresa1: new FormControl('', [
-        Validators.pattern(/^\d+$/),
-      ]),
-      nombreJefe1: new FormControl('',),
-      fechaRetiro1: new FormControl('',), // Considera usar un DatePicker para fechas
-      tiempoExperiencia: new FormControl('',),
-      motivoRetiro1: new FormControl('',),
-      cargoEmpresa1: new FormControl('',),
-      empresas_laborado: new FormControl('',),
-      labores_realizadas: new FormControl('',),
-      rendimiento: new FormControl('',),
-      porqueRendimiento: new FormControl('',),
+        telefonoMadre: new FormControl('', [this.phoneCOValidator()]),
+        barrioMadre: new FormControl('', []),
 
-      // informacion hijos
-      numHijosDependientes: new FormControl('', [
-        Validators.required,
-        Validators.min(0),
-        Validators.max(5),
-      ]),
-      cuidadorHijos: new FormControl('',),
-      hijos: this.fb.array([]),
+        nombreReferenciaPersonal1: new FormControl('', [Validators.required, this.fullNameValidator()]),
+        telefonoReferencia1: new FormControl('', [Validators.required, this.phoneCOValidator()]),
+        ocupacionReferencia1: new FormControl('', [Validators.required, Validators.minLength(2)]),
+        tiempoConoceReferenciaPersonal1: new FormControl('', Validators.required),
 
-      // informacion con quien vive
-      familiaSolo: new FormControl('', Validators.required),
-      // vivienda
-      numeroHabitaciones: new FormControl('', Validators.required),
-      personasPorHabitacion: new FormControl('', Validators.required),
-      tipoVivienda2: new FormControl('', Validators.required),
-      caracteristicasVivienda: new FormControl('', Validators.required),
+        direccionReferenciaPersonal1: new FormControl('', Validators.required),
 
-      areaExperiencia: new FormControl([]),  // Array vacío
-      personas_a_cargo: new FormControl([], Validators.required),
+        nombreReferenciaPersonal2: new FormControl('', [Validators.required, this.fullNameValidator()]),
+        telefonoReferencia2: new FormControl('', [Validators.required, this.phoneCOValidator()]),
+        ocupacionReferencia2: new FormControl('', [Validators.required, Validators.minLength(2)]),
+        tiempoConoceReferenciaPersonal2: new FormControl('', Validators.required),
 
-      conQuienViveChecks: new FormControl([], Validators.required),
-      tiposViviendaChecks: new FormControl([], Validators.required),
-      comodidadesChecks: new FormControl([], Validators.required),
-      expectativasVidaChecks: new FormControl([], Validators.required),
-      porqueLofelicitarian: new FormControl('', Validators.required),
-      malentendido: new FormControl('', Validators.required),
-      actividadesDi: new FormControl('', Validators.required),
-      fuenteVacante: new FormControl('', Validators.required),
-      experienciaSignificativa: new FormControl('', Validators.required),
-      motivacion: new FormControl('', Validators.required),
+        direccionReferenciaPersonal2: new FormControl('', Validators.required),
 
-      deseaGenerar: new FormControl(false,),
-      hojaDeVida: new FormControl('',),
-      tieneVehiculo: new FormControl(''),
-      licenciaConduccion: new FormControl(''),
-      categoriaLicencia: new FormControl([]),
-      estaTrabajando: new FormControl(''),
-      empresaActual: new FormControl(''),
-      tipoTrabajo: new FormControl(''),
-      tipoContrato: new FormControl(''),
-      trabajoAntes: new FormControl(''),
-      solicitoAntes: new FormControl(''),
+        nombreReferenciaFamiliar1: new FormControl('', [Validators.required, this.fullNameValidator()]),
+        telefonoReferenciaFamiliar1: new FormControl('', [Validators.required, this.phoneCOValidator()]),
+        ocupacionReferenciaFamiliar1: new FormControl('', [Validators.required, Validators.minLength(2)]),
+        parentescoReferenciaFamiliar1: new FormControl('', Validators.required),
 
-      tieneParientes: new FormControl(''),
-      nombrePariente: new FormControl(''),
+        direccionReferenciaFamiliar1: new FormControl('', Validators.required),
 
-      aficiones: new FormControl(''),
-      practicaDeportes: new FormControl(''),
-      cualDeporte: new FormControl(''),
+        nombreReferenciaFamiliar2: new FormControl('', [Validators.required, this.fullNameValidator()]),
+        telefonoReferenciaFamiliar2: new FormControl('', [Validators.required, this.phoneCOValidator()]),
+        ocupacionReferenciaFamiliar2: new FormControl('', [Validators.required, Validators.minLength(2)]),
+        parentescoReferenciaFamiliar2: new FormControl('', Validators.required),
 
-      tieneHermanos: new FormControl(''),
-      numeroHermanos: new FormControl(''),
-      hermanos: this.fb.array([]), // Array para almacenar la información de los hermanos
+        direccionReferenciaFamiliar2: new FormControl('', Validators.required),
 
+        experienciaLaboral: new FormControl('', Validators.required),
 
-      direccionReferenciaPersonal1: new FormControl('', Validators.required),
-      direccionReferenciaPersonal2: new FormControl('', Validators.required),
-      direccionReferenciaFamiliar1: new FormControl('', Validators.required),
+        nombreEmpresa1: new FormControl('', [Validators.minLength(2)]),
 
-    }), { validators: this.validar };
-    this.route.queryParamMap.subscribe(params => {
+        direccionEmpresa1: new FormControl(''),
+
+        telefonosEmpresa1: new FormControl('', [this.phoneCOValidator()]),
+        nombreJefe1: new FormControl('', [this.fullNameValidator()]),
+        fechaRetiro1: new FormControl('', [this.dateReasonableValidator(1900)]),
+
+        tiempoExperiencia: new FormControl(''),
+
+        motivoRetiro1: new FormControl('', []),
+        cargoEmpresa1: new FormControl('', []),
+        empresas_laborado: new FormControl('', []),
+        rendimiento: new FormControl('', []),
+        porqueRendimiento: new FormControl('', []),
+
+        numHijosDependientes: new FormControl('', [Validators.required, Validators.min(0), Validators.max(5)]),
+        cuidadorHijos: new FormControl(''),
+        hijos: this.fb.array([]),
+
+        familiaSolo: new FormControl('', Validators.required),
+        numeroHabitaciones: new FormControl('', Validators.required),
+        personasPorHabitacion: new FormControl('', Validators.required),
+        caracteristicasVivienda: new FormControl('', Validators.required),
+
+        areaExperiencia: new FormControl([]),
+
+        personas_a_cargo: new FormControl([], Validators.required),
+
+        conQuienViveChecks: new FormControl([], Validators.required),
+        tiposViviendaChecks: new FormControl([], Validators.required),
+        comodidadesChecks: new FormControl([], Validators.required),
+
+        expectativasVidaChecks: new FormControl([], Validators.required),
+
+        fuenteVacante: new FormControl('', Validators.required),
+
+        deseaGenerar: new FormControl(false),
+        hojaDeVida: new FormControl(''),
+
+        tieneVehiculo: new FormControl(''),
+        licenciaConduccion: new FormControl(''),
+        categoriaLicencia: new FormControl([]),
+        estaTrabajando: new FormControl(''),
+        empresaActual: new FormControl(''),
+        tipoTrabajo: new FormControl(''),
+        tipoContrato: new FormControl(''),
+        trabajoAntes: new FormControl(''),
+        solicitoAntes: new FormControl(''),
+
+        tieneParientes: new FormControl(''),
+        nombrePariente: new FormControl(''),
+
+        aficiones: new FormControl(''),
+        practicaDeportes: new FormControl(''),
+        cualDeporte: new FormControl(''),
+
+        tieneHermanos: new FormControl(''),
+        numeroHermanos: new FormControl(''),
+        hermanos: this.fb.array([]),
+      },
+      { validators: this.groupCrossValidator() }
+    );
+
+    this.formHojaDeVida2.get('viveConyuge')?.valueChanges.subscribe((v) => {
+      const dir = this.formHojaDeVida2.get('direccionConyuge');
+      if (!dir) return;
+
+      const addrOpt2 = [Validators.minLength(6), Validators.maxLength(120), Validators.pattern(this.ADDRESS_RX)];
+      const val = String(v ?? '').toUpperCase().trim();
+
+      if (val === 'SI') {
+        dir.setValidators([Validators.required, ...addrOpt2]);
+      } else {
+        dir.clearValidators();
+        dir.setValue('', { emitEvent: false });
+      }
+      dir.updateValueAndValidity({ emitEvent: false });
+    });
+
+    this.route.queryParamMap.subscribe((params) => {
       const oficinaParam = (params.get('oficina') || '').toUpperCase().trim();
-
-      // Solo aplicamos si el valor del link es una oficina válida
-      if (oficinaParam && this.oficinas.includes(oficinaParam)) {
+      if (oficinaParam && Array.isArray(this.oficinas) && this.oficinas.includes(oficinaParam)) {
         this.formHojaDeVida2.get('oficina')?.setValue(oficinaParam);
         this.oficinaBloqueada = true;
       }
     });
+
     this.escucharNumeroDeHijos();
 
-    // Escucha cambios en escolaridad
+    // ✅ Ajuste por escolaridad: si es SIN ESTUDIOS, limpia y deshabilita el multi-select (ya no hay FormArray)
     this.formHojaDeVida2.get('escolaridad')?.valueChanges.subscribe((value) => {
-      const estudiosExtras = this.formHojaDeVida2.get('estudiosExtras') as FormArray;
+      const estudiosCtrl = this.formHojaDeVida2.get('estudiosExtrasSelect') as FormControl;
 
       if (value === 'SIN ESTUDIOS') {
-        // Limpia el FormArray
-        while (estudiosExtras.length !== 0) {
-          estudiosExtras.removeAt(0);
-        }
+        estudiosCtrl.setValue([], { emitEvent: false });
+        estudiosCtrl.disable({ emitEvent: false });
 
-        // Limpia los valores seleccionados en el control de selección múltiple
-        this.estudiosExtrasSelectControl.setValue([]);
-
-        // Limpia validaciones de campos relacionados
         this.formHojaDeVida2.get('nombreInstitucion')?.clearValidators();
         this.formHojaDeVida2.get('anoFinalizacion')?.clearValidators();
         this.formHojaDeVida2.get('tituloObtenido')?.clearValidators();
-
-        // Opcionalmente, desactiva el control de "Estudios Extras"
-        estudiosExtras.disable();
       } else {
-        // Habilita el control de "Estudios Extras"
-        estudiosExtras.enable();
+        estudiosCtrl.enable({ emitEvent: false });
 
-        // Vuelve a aplicar validaciones según sea necesario
-        this.formHojaDeVida2.get('nombreInstitucion')?.setValidators(Validators.required);
-        this.formHojaDeVida2.get('anoFinalizacion')?.setValidators(Validators.required);
-        this.formHojaDeVida2.get('tituloObtenido')?.setValidators(Validators.required);
+        this.formHojaDeVida2.get('nombreInstitucion')?.setValidators([Validators.required]);
+        this.formHojaDeVida2
+          .get('anoFinalizacion')
+          ?.setValidators([Validators.required, this.graduationYearValidator(1950)]);
+        this.formHojaDeVida2.get('tituloObtenido')?.setValidators([Validators.required]);
       }
 
-      // Actualiza el estado de validación de los controles
-      this.formHojaDeVida2.get('nombreInstitucion')?.updateValueAndValidity();
-      this.formHojaDeVida2.get('anoFinalizacion')?.updateValueAndValidity();
-      this.formHojaDeVida2.get('tituloObtenido')?.updateValueAndValidity();
+      this.formHojaDeVida2.get('nombreInstitucion')?.updateValueAndValidity({ emitEvent: false });
+      this.formHojaDeVida2.get('anoFinalizacion')?.updateValueAndValidity({ emitEvent: false });
+      this.formHojaDeVida2.get('tituloObtenido')?.updateValueAndValidity({ emitEvent: false });
+    });
+
+    this.formHojaDeVida2.get('tipoDoc')?.valueChanges.subscribe(() => {
+      this.formHojaDeVida2.get('numeroCedula')?.updateValueAndValidity({ emitEvent: false });
     });
   }
 
+  ngAfterViewInit(): void {
+    if (!isPlatformBrowser(this.platformId)) return;
 
+    Promise.resolve().then(() => {
+      const s = this.stepper;
+      if (!s) return;
+
+      const compute = () => {
+        const total = s.steps?.length ?? 0;
+        const index = total ? s.selectedIndex + 1 : 0;
+
+        this.stepperTotal = total;
+        this.stepperIndex = index;
+        this.stepperProgress = total ? (index / total) * 100 : 0;
+
+        this.cdr.markForCheck();
+      };
+
+      merge(s.selectionChange, s.steps.changes)
+        .pipe(startWith(null), takeUntil(this.destroy$))
+        .subscribe(() => Promise.resolve().then(compute));
+
+      compute();
+      this.cdr.detectChanges();
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  // -------------------------
+  // ✅ BULK normalizador robusto
+  // -------------------------
+  private str(v: any): string {
+    return String(v ?? '').trim();
+  }
+
+  private valFromDatos(d: any): string {
+    return this.str(d?.codigo ?? d?.abbreviation ?? d?.value ?? d?.valor ?? d?.talla ?? d?.nombre ?? d?.name ?? d?.id ?? '');
+  }
+
+  private labelFromDatos(d: any): string {
+    return this.str(
+      d?.descripcion ??
+      d?.description ??
+      d?.label ??
+      d?.nombre ??
+      d?.name ??
+      d?.talla ??
+      d?.codigo ??
+      this.valFromDatos(d) ??
+      ''
+    );
+  }
+
+  private buildOptions(items: BulItem[] = []): Option[] {
+    const seen = new Set<string>();
+
+    return (items || [])
+      .filter((i) => i?.activo !== false)
+      .map((i) => {
+        const datos = i?.datos ?? {};
+        const value = this.valFromDatos(datos);
+        const viewValue = this.labelFromDatos(datos);
+        return { value, viewValue };
+      })
+      .filter((o) => {
+        if (!o.value) return false;
+        const k = o.value.toUpperCase();
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      })
+      .sort((a, b) => a.viewValue.localeCompare(b.viewValue, 'es', { sensitivity: 'base' }));
+  }
+
+  private getDatosArray(results: Record<string, BulItem[]>, codigo: string): BulItem[] {
+    const arr = results?.[codigo] ?? [];
+    return Array.isArray(arr) ? arr : [];
+  }
+
+  private cargarCatalogosBulk(): void {
+    this.loadingCatalogos = true;
+
+    this.parametrizacionS.bulkValores([...(this.CATALOGOS as any)], true).subscribe({
+      next: (resp) => {
+        const results = (resp?.results ?? {}) as Record<string, BulItem[]>;
+
+        const tiposIdOpt = this.buildOptions(this.getDatosArray(results, 'TIPOS_IDENTIFICACION'));
+        this.tipoDocs = tiposIdOpt
+          .map((o) => ({ abbreviation: o.value, description: o.viewValue || o.value }))
+          .filter((x) => x.abbreviation);
+
+        const sexoOpt = this.buildOptions(this.getDatosArray(results, 'SEXO'));
+        this.generos = sexoOpt.map((o) => o.viewValue || o.value).filter(Boolean);
+
+        const rhOpt = this.buildOptions(this.getDatosArray(results, 'RH'));
+        this.listatiposdesangre = rhOpt.map((o) => o.viewValue || o.value).filter(Boolean);
+
+        const estCivOpt = this.buildOptions(this.getDatosArray(results, 'ESTADOS_CIVILES'));
+        this.estadosCiviles = estCivOpt.map((o) => ({ codigo: o.value, descripcion: o.viewValue || o.value })).filter((x) => x.codigo);
+
+        const manosOpt = this.buildOptions(this.getDatosArray(results, 'DOMINANCIA_MANUAL'));
+        this.listamanos = manosOpt.map((o) => ({ mano: o.value, descripcion: o.viewValue || o.value })).filter((x) => x.mano);
+
+        const parentOpt = this.buildOptions(this.getDatosArray(results, 'PARENTESCOS_FAMILIARES'));
+        this.listaParentescosFamiliares = parentOpt.map((o) => o.viewValue || o.value).filter(Boolean);
+
+        const ocupOpt = this.buildOptions(this.getDatosArray(results, 'OCUPACIONES'));
+        this.Ocupacion = ocupOpt.map((o) => o.viewValue || o.value).filter(Boolean);
+
+        const escOpt = this.buildOptions(this.getDatosArray(results, 'CATALOGO_NIVELES_ESCOLARIDAD'));
+        this.listaEscolaridad = escOpt.map((o) => o.viewValue || o.value).filter(Boolean);
+
+        const ropaOpt = this.buildOptions(this.getDatosArray(results, 'TALLA_ROPA'));
+        this.tallas = ropaOpt.map((o) => o.viewValue || o.value).filter(Boolean);
+
+        const calzadoOpt = this.buildOptions(this.getDatosArray(results, 'TALLAS_CALZADO'));
+        this.tallasCalzado = calzadoOpt.map((o) => o.viewValue || o.value).filter(Boolean);
+
+        const servOpt = this.buildOptions(this.getDatosArray(results, 'CATALOGO_SERVICIOS'));
+        this.comodidades = servOpt.map((o) => o.viewValue || o.value).filter(Boolean);
+
+        const marketingOpt = this.buildOptions(this.getDatosArray(results, 'CATALOGO_MARKETING'));
+        this.opcionesPromocion = marketingOpt.map((o) => o.viewValue || o.value).filter(Boolean);
+
+        const viveOpt = this.buildOptions(this.getDatosArray(results, 'CATALOGO_CON_QUIEN_VIVE'));
+        this.listaPosiblesRespuestasConquienVive = viveOpt.map((o) => o.viewValue || o.value).filter(Boolean);
+
+        const cargoOpt = this.buildOptions(this.getDatosArray(results, 'CATALOGO_PERSONAS_ACARGO'));
+        const cargoList = cargoOpt.map((o) => o.viewValue || o.value).filter(Boolean);
+        this.personasACargoOptions = [...cargoList];
+        this.listaPosiblesRespuestasPersonasACargo = [...cargoList];
+
+        const tvOpt = this.buildOptions(this.getDatosArray(results, 'CATALOGO_TIPOS_VIVIENDA'));
+        const tvList = tvOpt.map((o) => o.viewValue || o.value).filter(Boolean);
+        this.tiposVivienda = [...tvList];
+        this.listatiposVivienda = [...tvList];
+
+        const carVivOpt = this.buildOptions(this.getDatosArray(results, 'CATALOGO_CARACTERISTICAS_VIVIENDA'));
+        this.caracteristicasVivienda = carVivOpt.map((o) => o.viewValue || o.value).filter(Boolean);
+
+        const areasExpOpt = this.buildOptions(this.getDatosArray(results, 'AREAS_EXPERIENCIA'));
+        const areasList = areasExpOpt.map((o) => o.viewValue || o.value).filter(Boolean);
+        this.areasExperiencia = [...areasList];
+        this.listaAreas = [...areasList];
+
+        const tiempoExpOpt = this.buildOptions(this.getDatosArray(results, 'TIEMPO_EXPERIENCIA'));
+        const tiempoList = tiempoExpOpt.map((o) => o.viewValue || o.value).filter(Boolean);
+        this.tiempoTrabajado = [...tiempoList];
+        this.listaDuracion = [...tiempoList];
+
+        const expVidaOpt = this.buildOptions(this.getDatosArray(results, 'EXPECTATIVAS_VIDA'));
+        this.expectativasVida = expVidaOpt.map((o) => o.viewValue || o.value).filter(Boolean);
+
+        const haceCuantoViveEnlaZonaOpt = this.buildOptions(this.getDatosArray(results, 'HACE_CUENTO_ZONA'));
+        this.haceCuantoViveEnlaZona = haceCuantoViveEnlaZonaOpt.map((o) => o.viewValue || o.value).filter(Boolean);
+
+        const listaPersonasQueCuidanOpt = this.buildOptions(this.getDatosArray(results, 'CUIDADOR_HIJOS'));
+        this.listaPersonasQueCuidan = listaPersonasQueCuidanOpt.map((o) => o.viewValue || o.value).filter(Boolean);
+
+        if (Array.isArray(resp?.missing) && resp.missing.length) console.warn('[CATALOGOS missing]', resp.missing);
+
+        // ✅ opciones del multi-select
+        const estudiosOpt = this.buildOptions(this.getDatosArray(results, 'ESTUDIOS'));
+        this.cursosDespuesColegio = estudiosOpt.map((o) => o.viewValue || o.value).filter(Boolean);
+
+        this.loadingCatalogos = false;
+      },
+      error: () => (this.loadingCatalogos = false),
+    });
+  }
+
+  // -------------------------
+  // PDF utils
+  // -------------------------
   async listFormFields() {
-    // Asume que tienes un PDF en la carpeta de activos; ajusta la ruta según sea necesario
     const pdfUrl = '../../assets/Archivos/minerva2.pdf';
     const arrayBuffer = await fetch(pdfUrl).then((res) => res.arrayBuffer());
     const pdfDoc = await PDFDocument.load(arrayBuffer);
 
     const form = pdfDoc.getForm();
     const fields = form.getFields();
-    let fieldDetails = fields
+    const fieldDetails = fields
       .map((field) => {
         const type = field.constructor.name;
         const name = field.getName();
         let additionalDetails = '';
 
-        if (field instanceof PDFTextField) {
-          additionalDetails = ` - Value: ${field.getText()}`;
-        } else if (field instanceof PDFCheckBox) {
-          additionalDetails = ` - Is Checked: ${field.isChecked()}`;
-        } // Puedes añadir más condiciones para otros tipos de campos como PDFDropdown, etc.
+        if (field instanceof PDFTextField) additionalDetails = ` - Value: ${field.getText()}`;
+        else if (field instanceof PDFCheckBox) additionalDetails = ` - Is Checked: ${field.isChecked()}`;
 
         return `Field na: ${name}, Field type: ${type}${additionalDetails}`;
       })
       .join('\n');
 
-    // Crear un Blob con los detalles de los campos
     const blob = new Blob([fieldDetails], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
 
-    // Crear un enlace para descargar el Blob como un archivo
     const downloadLink = document.createElement('a');
     downloadLink.href = url;
     downloadLink.download = 'pdfFieldsDetails.txt';
@@ -409,62 +1070,49 @@ export class FormVacancies {
     URL.revokeObjectURL(url);
   }
 
-
-
-  // Función para agregar una marca de agua al PDF
   async addWatermarkToPdf(pdfBytes: Uint8Array, watermarkText: string): Promise<Uint8Array> {
     const pdfDoc = await PDFDocument.load(pdfBytes);
-
-    // Usar una fuente integrada en PDF-Lib
     const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
     const pages = pdfDoc.getPages();
     for (const page of pages) {
       const { width, height } = page.getSize();
 
-      // Agregar texto como marca de agua
       page.drawText(watermarkText, {
-        x: (width / 2) - 230, // Ajusta para centrar horizontalmente
-        y: (height / 2) - 250, // Ajusta para centrar verticalmente
-        size: 62, // Tamaño del texto
-        font: helveticaFont, // Usar la fuente integrada
-        color: rgb(152 / 255, 227 / 255, 57 / 255), // Convertir valores a fracciones
-        opacity: 0.20, // Transparencia
-        rotate: degrees(45), // Rotación del texto
+        x: width / 2 - 230,
+        y: height / 2 - 250,
+        size: 62,
+        font: helveticaFont,
+        color: rgb(152 / 255, 227 / 255, 57 / 255),
+        opacity: 0.2,
+        rotate: degrees(45),
       });
     }
     return await pdfDoc.save();
   }
 
-  // Manejar la carga de archivos
+  // -------------------------
+  // Upload / view
+  // -------------------------
   onFileUpload(event: Event, fileType: string) {
     const input = event.target as HTMLInputElement;
-
     if (input.files && input.files.length > 0) {
-      const file = input.files[0]; // Obtiene el archivo
-      this.uploadedFiles[fileType] = { file, fileName: file.name }; // Almacena el archivo y el nombre
+      const file = input.files[0];
+      this.uploadedFiles[fileType] = { file, fileName: file.name };
     }
   }
 
-  // Método para abrir un archivo en una nueva pestaña
   verArchivo(campo: string) {
     const archivo = this.uploadedFiles[campo];
 
     if (archivo && archivo.file) {
-      if (typeof archivo.file === 'string') {
-        // Asegurarse de que la URL esté correctamente codificada para evitar problemas
-        const fileUrl = encodeURI(archivo.file);
-        // Abrir el archivo en una nueva pestaña
+      if (typeof (archivo.file as any) === 'string') {
+        const fileUrl = encodeURI(archivo.file as any);
         window.open(fileUrl, '_blank');
       } else if (archivo.file instanceof File) {
-        // Crear una URL temporal para el archivo si es un objeto File
         const fileUrl = URL.createObjectURL(archivo.file);
         window.open(fileUrl, '_blank');
-
-        // Revocar la URL después de que el archivo ha sido abierto para liberar memoria
-        setTimeout(() => {
-          URL.revokeObjectURL(fileUrl);
-        }, 100);
+        setTimeout(() => URL.revokeObjectURL(fileUrl), 100);
       }
     } else {
       Swal.fire('Error', 'No se pudo encontrar el archivo para este campo', 'error');
@@ -472,35 +1120,27 @@ export class FormVacancies {
   }
 
   subirArchivo(event: any, campo: string) {
-    const input = event.target as HTMLInputElement; // Referencia al input
-    const file = input.files?.[0]; // Obtén el archivo seleccionado
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
 
     if (file) {
-      // Verificar si el nombre del archivo tiene más de 100 caracteres
       if (file.name.length > 100) {
         Swal.fire('Error', 'El nombre del archivo no debe exceder los 100 caracteres', 'error');
-
-        // Limpiar el input
         this.resetInput(input);
-        return; // Salir de la función si la validación falla
+        return;
       }
-
-      // Si la validación es exitosa, almacenar el archivo
-      this.uploadedFiles[campo] = { file: file, fileName: file.name }; // Guarda el archivo y el nombre
+      this.uploadedFiles[campo] = { file, fileName: file.name };
     }
 
-    // Limpiar el input para permitir seleccionar el mismo archivo nuevamente
     this.resetInput(input);
   }
 
-  // Método para reiniciar el input en el DOM
   private resetInput(input: HTMLInputElement): void {
     const newInput = input.cloneNode(true) as HTMLInputElement;
     input.parentNode?.replaceChild(newInput, input);
   }
 
   downloadPDF(pdfBytes: Uint8Array, filename: string) {
-    // Asegurar un ArrayBuffer “puro” y del rango correcto
     const ab = pdfBytes.buffer as ArrayBuffer;
     const slice = ab.slice(pdfBytes.byteOffset, pdfBytes.byteOffset + pdfBytes.byteLength);
 
@@ -510,180 +1150,252 @@ export class FormVacancies {
     const a = document.createElement('a');
     a.href = url;
     a.download = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
-    document.body.appendChild(a); // mejora compatibilidad iOS/Safari
+    document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
 
     URL.revokeObjectURL(url);
   }
 
-
-  // Función que escucha los cambios de cualquier campo del formulario y guarda en localStorage
+  // -------------------------
+  // LocalStorage (solo browser)
+  // -------------------------
   guardarCambiosEnLocalStorage(form: FormGroup, key: string): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+
     form.valueChanges.subscribe((val) => {
       const numeroCedula = this.formHojaDeVida2.get('numeroCedula')?.value;
       if (numeroCedula) {
         localStorage.setItem(key, JSON.stringify(val));
-        localStorage.setItem('numeroCedula', numeroCedula); // Guardar el número de cédula en localStorage
+        localStorage.setItem('numeroCedula', numeroCedula);
       }
     });
   }
 
-  // Función para cargar datos guardados en localStorage solo si el número de cédula coincide
   cargarDatosGuardados(): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+
     const formHojaDeVida2Data = localStorage.getItem('formHojaDeVida2');
     const numeroCedulaLocalStorage = localStorage.getItem('numeroCedula');
-    // Solo cargar los datos si el número de cédula en el formulario coincide con el almacenado
+
     if (this.numeroCedula == numeroCedulaLocalStorage) {
-      if (formHojaDeVida2Data) {
-        this.formHojaDeVida2.patchValue(JSON.parse(formHojaDeVida2Data));
-      }
+      if (formHojaDeVida2Data) this.formHojaDeVida2.patchValue(JSON.parse(formHojaDeVida2Data));
     }
   }
 
-  // Método para agregar un nuevo grupo de estudios extras
-  addEstudioExtra(nivel: string) {
-    const estudiosExtras = this.formHojaDeVida2.get('estudiosExtras') as FormArray;
-    if (nivel !== 'NINGUNA') {
-      estudiosExtras.push(
-        this.fb.group({
-          nivel: [nivel, Validators.required],
-          anoFinalizacion: ['', Validators.required],
-          anosCursados: ['', Validators.required],
-          tituloObtenido: ['', Validators.required],
-          nombreInstitucion: ['', Validators.required],
-          ciudad: ['', Validators.required],
-        })
-      );
-    }
-  }
-
-  // Método para eliminar un grupo de estudios extras
-  removeEstudioExtra(index: number) {
-    const estudiosExtras = this.formHojaDeVida2.get('estudiosExtras') as FormArray;
-    estudiosExtras.removeAt(index);
-  }
-
-  // Getter para el FormControl del select
-  get estudiosExtrasSelectControl(): FormControl {
-    return this.formHojaDeVida2.get('estudiosExtrasSelect') as FormControl;
-  }
-
-  // Getter para el FormArray
-  get estudiosExtras(): FormArray {
-    return this.formHojaDeVida2.get('estudiosExtras') as FormArray;
-  }
-
-  // Getter para obtener el array de hermanos
   get hermanosArray(): FormArray {
     return this.formHojaDeVida2.get('hermanos') as FormArray;
   }
 
-  // Limpia los campos de hermanos
   limpiarCamposHermanos() {
-    this.formHojaDeVida2.patchValue({
-      numeroHermanos: '',
-    });
+    this.formHojaDeVida2.patchValue({ numeroHermanos: '' });
     this.hermanosArray.clear();
   }
 
-
-  personasACargoOptions: string[] = [
-    'HIJOS',
-    'ABUELOS',
-    'PAPÁS',
-    'HERMANOS',
-    'PERSONAS CON CUIDADOS ESPECIALES',
-    'NINGUNO',
-  ];
-
-  // Función para extraer el contenido del otro html
   openDialog(): void {
-    const dialogRef = this.dialog.open(PoliciesModal, {
-      disableClose: true // Esto evita que el modal se cierre al hacer clic fuera de él
-    });
-
-    dialogRef.afterClosed().subscribe(result => {
-    });
+    const dialogRef = this.dialog.open(PoliciesModal, { disableClose: true });
+    dialogRef.afterClosed().subscribe(() => { });
   }
 
 
 
   async ngOnInit(): Promise<void> {
-    // this.openDialog();
+    // ✅ Si NO quieres autoguardado, comenta esta línea
+    // this.initDraftLocalStorage(this.formHojaDeVida2);
     this.cargarDatosJSON();
+    this.cargarCatalogosBulk();
 
     try {
       this.escucharCambiosEnDepartamento();
-    } catch (e) {
-    }
+    } catch (e) { }
 
-    this.formHojaDeVida2
-      .get('numHijosDependientes')!
-      .valueChanges.subscribe((numHijos) => {
-        this.actualizarEdadesHijos(numHijos);
-      });
-
-    // Nos suscribimos a los cambios en el control del FormControl del select
-    this.estudiosExtrasSelectControl.valueChanges.subscribe((selectedValues: string[]) => {
-      const estudiosExtras = this.formHojaDeVida2.get('estudiosExtras') as FormArray;
-
-      // Limpiamos el FormArray antes de agregar los seleccionados
-      estudiosExtras.clear();
-
-      // Agregamos un grupo por cada opción seleccionada
-      selectedValues?.forEach((nivel) => this.addEstudioExtra(nivel));
+    this.formHojaDeVida2.get('numHijosDependientes')!.valueChanges.subscribe((numHijos) => {
+      this.actualizarEdadesHijos(numHijos);
     });
 
-    // Suscripción a cambios en "¿Tiene hermanos?"
+    // ✅ YA NO se construye FormArray de estudiosExtras (porque lo quitaste del HTML)
+    // (No hay subscription aquí)
+
     this.formHojaDeVida2.get('tieneHermanos')?.valueChanges.subscribe((tieneHermanos: string) => {
       if (tieneHermanos === 'SI') {
         this.mostrarCamposHermanos = true;
       } else {
         this.mostrarCamposHermanos = false;
-        this.limpiarCamposHermanos(); // Limpia el array de hermanos si selecciona "No"
+        this.limpiarCamposHermanos();
       }
     });
 
-    // Suscripción a cambios en "¿Cuántos hermanos?"
     this.formHojaDeVida2.get('numeroHermanos')?.valueChanges.subscribe((numeroHermanos: number) => {
       const hermanosArray = this.hermanosArray;
-
-      // Limpia el FormArray antes de añadir nuevos controles
       hermanosArray.clear();
 
-      // Añade un FormGroup para cada hermano
       for (let i = 0; i < (numeroHermanos || 0); i++) {
         hermanosArray.push(
           this.fb.group({
-            nombre: ['', Validators.required],
-            profesion: ['', Validators.required],
-            telefono: ['', [Validators.required, Validators.pattern(/^\d+$/)]]
+            nombre: ['', [Validators.required, this.fullNameValidator()]],
+            profesion: ['', [Validators.required, Validators.minLength(2)]],
+            telefono: ['', [Validators.required, this.phoneCOValidator()]],
           })
         );
       }
     });
 
-    // Suscripción al control "deseaGenerar"
     this.formHojaDeVida2.get('deseaGenerar')?.valueChanges.subscribe((deseaGenerar: boolean) => {
-      if (!deseaGenerar) {
-        this.limpiarCamposAdicionales();
-      }
+      if (!deseaGenerar) this.limpiarCamposAdicionales();
     });
+
     this.guardarCambiosEnLocalStorage(this.formHojaDeVida2, 'formHojaDeVida2');
   }
 
+  // =========================================================
+  // ✅ LocalStorage Draft (load + autosave)
+  // =========================================================
+  private initDraftLocalStorage(form: FormGroup): void {
+    if (!this.isBrowser) return;
 
-  // campos numeroCedula y numeroCedula2 son los mismos
-  validar() {
-    if (this.formHojaDeVida2.value.numeroCedula === this.formHojaDeVida2.value.numeroCedula2) {
-      this.formHojaDeVida2.setErrors(null);
-    } else {
-      this.formHojaDeVida2.setErrors({ noCoincide: true });
+    const storageKey = this.buildDraftKey(form);
+
+    // 1) Cargar draft si existe
+    const raw = localStorage.getItem(storageKey);
+    if (raw) {
+      try {
+        const draft = JSON.parse(raw);
+        this.applyDraftToForm(form, draft);
+      } catch {
+        // si está corrupto, lo quitamos para no bloquear
+        localStorage.removeItem(storageKey);
+      }
+    }
+
+    // 2) Autosave (evita escribir si no cambia)
+    let lastSaved = '';
+    form.valueChanges
+      .pipe(debounceTime(400), takeUntil(this.destroy$))
+      .subscribe(() => {
+        const payload = this.sanitizeForStorage(form.getRawValue());
+        const str = JSON.stringify(payload);
+
+        if (str !== lastSaved) {
+          localStorage.setItem(storageKey, str);
+          lastSaved = str;
+        }
+      });
+
+  }
+
+  // Key por cédula (si está), si no usa una genérica
+  private buildDraftKey(form: FormGroup): string {
+    const doc =
+      (form.get('numero_documento')?.value ??
+        form.get('numeroCedula')?.value ??
+        form.get('numerodeceduladepersona')?.value ??
+        '') + '';
+
+    const docClean = doc.trim();
+    return docClean ? `${this.DRAFT_KEY_BASE}:${docClean}` : this.DRAFT_KEY_BASE;
+  }
+
+  // Quita cosas sensibles/no serializables
+  private sanitizeForStorage(value: any): any {
+    const walk = (v: any): any => {
+      if (v === null || v === undefined) return v;
+
+      // files/blobs: no guardar
+      if (typeof File !== 'undefined' && v instanceof File) return null;
+      if (typeof Blob !== 'undefined' && v instanceof Blob) return null;
+
+      if (Array.isArray(v)) return v.map(walk);
+
+      if (typeof v === 'object') {
+        const out: any = {};
+        for (const [k, val] of Object.entries(v)) {
+          // no guardes password ni campos sensibles si quieres
+          if (k.toLowerCase() === 'password') continue;
+          out[k] = walk(val);
+        }
+        return out;
+      }
+
+      return v; // string/number/boolean
+    };
+
+    return walk(value);
+  }
+
+  // Aplica draft al FormGroup + reconstruye FormArray
+  private applyDraftToForm(form: FormGroup, draft: any): void {
+    if (!draft || typeof draft !== 'object') return;
+
+    // 1) Primero: arrays (para que existan antes de patch)
+    for (const [key, val] of Object.entries(draft)) {
+      const ctrl = form.get(key);
+      if (ctrl instanceof FormArray && Array.isArray(val)) {
+        this.rebuildFormArray(ctrl, val);
+      }
+    }
+
+    // 2) Luego: patch normal
+    form.patchValue(draft, { emitEvent: false });
+
+    // 3) Limpieza visual
+    form.updateValueAndValidity({ emitEvent: false });
+    form.markAsPristine();
+    form.markAsUntouched();
+  }
+
+  // Reconstruye un FormArray clonando la estructura del primer item (si existe)
+  private rebuildFormArray(arr: FormArray, items: any[]): void {
+    const template = arr.length ? arr.at(0) : null;
+
+    arr.clear({ emitEvent: false });
+
+    for (const item of items) {
+      if (template) {
+        const cloned = this.cloneControl(template);
+        // set values sin disparar cambios
+        if (cloned instanceof FormGroup) cloned.patchValue(item ?? {}, { emitEvent: false });
+        else if (cloned instanceof FormControl) cloned.setValue(item ?? null, { emitEvent: false });
+        arr.push(cloned, { emitEvent: false });
+      } else {
+        // si no hay template, crea algo básico
+        arr.push(new FormControl(item ?? null), { emitEvent: false });
+      }
     }
   }
 
-  // Método para limpiar los campos asociados
+  // Clona control preservando validators/estructura
+  // Clona control preservando validators/estructura
+  private cloneControl(control: AbstractControl): AbstractControl {
+    if (control instanceof FormControl) {
+      return new FormControl(control.value, control.validator, control.asyncValidator);
+    }
+
+    if (control instanceof FormGroup) {
+      const g = new FormGroup<Record<string, AbstractControl>>(
+        {},
+        { validators: control.validator ?? undefined, asyncValidators: control.asyncValidator ?? undefined }
+      );
+
+      for (const [name, child] of Object.entries(control.controls)) {
+        g.addControl(name, this.cloneControl(child));
+      }
+      return g;
+    }
+
+    if (control instanceof FormArray) {
+      const a = new FormArray<AbstractControl>(
+        [],
+        { validators: control.validator ?? undefined, asyncValidators: control.asyncValidator ?? undefined }
+      );
+
+      // clonamos 1 elemento como template si existe
+      if (control.length) a.push(this.cloneControl(control.at(0)));
+      return a;
+    }
+
+    return control;
+  }
+
   limpiarCamposAdicionales() {
     this.formHojaDeVida2.patchValue({
       tieneVehiculo: null,
@@ -696,76 +1408,165 @@ export class FormVacancies {
       trabajoAntes: null,
       solicitoAntes: null,
       tieneHermanos: null,
-      numeroHermanos: null
+      numeroHermanos: null,
     });
 
-    // Eliminar hoja de vida de uploadedFiles
     delete this.uploadedFiles['hojaDeVida'];
-
-    // Limpia los arrays o grupos anidados, si existen
     this.hermanosArray.clear();
   }
 
-  // Método para subir todos los archivos almacenados en uploadedFiles
   subirTodosLosArchivos(): Promise<boolean> {
     return new Promise((resolve, reject) => {
-      // Filtrar y preparar los archivos para subir
       const archivosAEnviar = Object.keys(this.uploadedFiles)
         .filter((key) => {
           const fileData = this.uploadedFiles[key];
-          // Verificar si la clave tiene un tipo documental válido
           if (!(key in this.typeMap)) {
-            console.error(`La clave "${key}" no tiene un tipo documental asignado en typeMap`);
             return false;
           }
-          // Verificar si el archivo es válido
           return fileData && fileData.file;
         })
         .map((key) => ({
           key,
           ...this.uploadedFiles[key],
-          typeId: this.typeMap[key], // Asignar el tipo documental correspondiente
+          typeId: this.typeMap[key],
         }));
 
       if (archivosAEnviar.length === 0) {
-        resolve(true); // Resolver si no hay archivos
+        resolve(true);
         return;
       }
 
-      // Crear promesas para subir cada archivo
       const promesasDeSubida = archivosAEnviar.map(({ key, file, fileName, typeId }) => {
         return new Promise<void>((resolveSubida, rejectSubida) => {
-          this.gestionDocumentosService
-            .guardarDocumento(fileName, this.numeroCedula, typeId, file)
-            .subscribe({
-              next: () => {
-                resolveSubida();
-              },
-              error: (error: any) => {
-                console.error(`Error al subir archivo "${fileName}" (${key}):`, error);
-                rejectSubida(`Error al subir archivo "${key}": ${error.message}`);
-              },
-            });
+          this.gestionDocumentosService.guardarDocumento(fileName, this.numeroCedula, typeId, file).subscribe({
+            next: () => resolveSubida(),
+            error: (error: any) => {
+              rejectSubida(`Error al subir archivo "${key}": ${error.message}`);
+            },
+          });
         });
       });
 
-      // Esperar a que todas las subidas terminen
       Promise.all(promesasDeSubida)
-        .then(() => {
-          resolve(true);
-        })
+        .then(() => resolve(true))
         .catch((error) => {
-          console.error('Ocurrió un error durante la subida de archivos:', error);
           reject(error);
         });
     });
   }
 
+  // -------------------------
+  // ✅ ENVIAR + POPUP NORMALIZADO
+  // -------------------------
   async imprimirInformacion2(): Promise<void> {
-    // veririficar q ese correo no exista en la base de datos
-    await this.candidateS.validarCorreoCedula(this.formHojaDeVida2.value.correo, this.formHojaDeVida2.value.numeroCedula).subscribe((res) => {
-      if (res.correo_repetido) {
-        Swal.fire({
+    if (this.formHojaDeVida2.get('departamento')?.value) {
+      this.formHojaDeVida2.get('ciudad')?.enable({ emitEvent: false });
+    }
+    if (this.formHojaDeVida2.get('departamentoExpedicionCC')?.value) {
+      this.formHojaDeVida2.get('municipioExpedicionCC')?.enable({ emitEvent: false });
+    }
+    if (this.formHojaDeVida2.get('departamentoNacimiento')?.value) {
+      this.formHojaDeVida2.get('municipioNacimiento')?.enable({ emitEvent: false });
+    }
+
+    this.formHojaDeVida2.markAllAsTouched();
+    this.formHojaDeVida2.updateValueAndValidity({ emitEvent: false });
+
+    if (this.formHojaDeVida2.invalid) {
+      const invalidFields: string[] = [];
+      const groupMessages: string[] = [];
+
+      const GROUP_ERROR_LABELS: Record<string, string> = {
+        expeditionBeforeBirth:
+          'Revisa fechas: la Fecha de Expedición CC no puede ser anterior a la Fecha de Nacimiento.',
+        expeditionTooEarly:
+          'Revisa fechas: la Fecha de Expedición CC es demasiado cercana a la Fecha de Nacimiento (mínimo 7 años).',
+      };
+
+      const walk = (ctrl: AbstractControl, path: string) => {
+        if (ctrl instanceof FormGroup) {
+          Object.keys(ctrl.controls).forEach((k) => walk(ctrl.controls[k], path ? `${path}.${k}` : k));
+
+          if (ctrl.errors) {
+            Object.keys(ctrl.errors).forEach((errKey) => {
+              if (!path) groupMessages.push(GROUP_ERROR_LABELS[errKey] ?? `Validación general pendiente: ${errKey}`);
+              else groupMessages.push(`${this.labelForPath(path)}: ${GROUP_ERROR_LABELS[errKey] ?? errKey}`);
+            });
+          }
+          return;
+        }
+
+        if (ctrl instanceof FormArray) {
+          ctrl.controls.forEach((c, i) => walk(c, `${path}[${i}]`));
+          if (ctrl.errors) {
+            Object.keys(ctrl.errors).forEach((errKey) =>
+              groupMessages.push(`${this.labelForPath(path)}: ${errKey}`)
+            );
+          }
+          return;
+        }
+
+        if (ctrl.invalid && path) invalidFields.push(path);
+      };
+
+      walk(this.formHojaDeVida2, '');
+
+      const uniq = Array.from(new Set(invalidFields));
+      const prettyControls = Array.from(new Set(uniq.map((p) => this.labelForPath(p))));
+      const prettyGroups = Array.from(new Set(groupMessages));
+      const pretty = Array.from(new Set([...prettyGroups, ...prettyControls])).filter(Boolean);
+
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Formulario incompleto',
+        html: `
+        <div style="text-align:left;margin-top:8px;color:#1f2937;font-size:13px;line-height:1.4;">
+          <div style="margin:0 0 10px 0;color:#4b5563;">Completa los campos obligatorios:</div>
+
+          <div style="max-height:50vh;overflow:auto;padding-right:6px;margin-right:-6px;">
+            <div style="display:grid;grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));gap:8px;">
+              ${pretty
+            .map(
+              (x) => `
+                  <div style="
+                    padding:10px 12px;border:1px solid rgba(0,0,0,.08);border-radius:12px;background:rgba(0,0,0,.02);
+                    display:flex;align-items:flex-start;gap:10px;">
+                    <span style="width:8px;height:8px;border-radius:999px;background:#f59e0b;margin-top:6px;flex:0 0 8px;"></span>
+                    <div style="font-weight:600;color:#111827;">${x}</div>
+                  </div>
+                `
+            )
+            .join('')}
+            </div>
+          </div>
+
+          <div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(0,0,0,.06);color:#6b7280;font-size:12px;">
+            Tip: ve completando de arriba hacia abajo para que no se te escape ninguno.
+          </div>
+        </div>
+      `,
+        confirmButtonText: 'Aceptar',
+        confirmButtonColor: '#111827',
+        showCloseButton: true,
+        width: 720,
+        customClass: {
+          popup: 'swal-min',
+          title: 'swal-title-min',
+          confirmButton: 'swal-btn-min',
+        },
+      });
+
+      return;
+    }
+
+    const raw: any = this.formHojaDeVida2.getRawValue();
+    const correo = String(raw?.correo ?? '').trim().toLowerCase();
+    const cedula = String(raw?.numeroCedula ?? '').trim();
+
+    try {
+      const res: any = await firstValueFrom(this.candidateS.validarCorreoCedula(correo, cedula));
+      if (res?.correo_repetido) {
+        await Swal.fire({
           title: '¡Correo duplicado!',
           text: 'El correo ingresado ya se encuentra registrado por otra persona, tiene que cambiarlo',
           icon: 'error',
@@ -773,332 +1574,315 @@ export class FormVacancies {
         });
         return;
       }
-    });
-
-
-    const camposInvalidos: string[] = [];
-    const camposIgnorados = [
-      'tipoVivienda2',
-      'expectativasVidaChecks',
-      'porqueLofelicitarian',
-      'malentendido',
-      'actividadesDi',
-      'experienciaSignificativa',
-      'motivacion',
-    ];
-
-    // Validar los controles y agregar nombres inválidos que no están ignorados
-    Object.keys(this.formHojaDeVida2.controls).forEach(campo => {
-      const control = this.formHojaDeVida2.get(campo);
-      if (control?.invalid && !camposIgnorados.includes(campo)) {
-        camposInvalidos.push(campo);
-      }
-    });
-
-    if (camposInvalidos.length > 0) {
-      Swal.fire({
-        title: '¡Formulario incompleto!',
-        text: `Por favor, completa todos los campos obligatorios: ${camposInvalidos.join(', ')}`,
-        icon: 'warning',
+    } catch (e) {
+      await Swal.fire({
+        title: 'Error',
+        text: 'No se pudo validar el correo en este momento. Intenta de nuevo.',
+        icon: 'error',
         confirmButtonText: 'Aceptar',
       });
+      return;
     }
 
-    // Si hay campos inválidos en cualquiera de los dos formularios, mostramos el Swal
-    if (camposInvalidos.length > 0) {
-      Swal.fire({
-        title: '¡Formulario incompleto!',
-        html: `<ul>${camposInvalidos.map(campo => `<li>${campo}</li>`).join('')}</ul>`,
-        icon: 'warning',
-        confirmButtonText: 'Aceptar',
-      });
-    } else {
-      console.log('Formulario válido');
-      // recoger numero de cedula del local storage
-      const cedula = localStorage.getItem('cedula');
+    this.numeroCedula = raw?.numeroCedula ?? this.numeroCedula;
 
-      // Crear un objeto con solo los datos que quieres enviar
-      const datosAEnviar = {
-        tipoDoc: this.formHojaDeVida2.value.tipoDoc,
-        numeroCedula: this.formHojaDeVida2.value.numeroCedula,
-        pApellido: this.formHojaDeVida2.value.pApellido,
-        sApellido: this.formHojaDeVida2.value.sApellido,
-        pNombre: this.formHojaDeVida2.value.pNombre,
-        sNombre: this.formHojaDeVida2.value.sNombre,
-        genero: this.formHojaDeVida2.value.genero,
-        correo: this.formHojaDeVida2.value.correo,
-        numCelular: this.formHojaDeVida2.value.numCelular,
-        numWha: this.formHojaDeVida2.value.numWha,
-        departamento: this.formHojaDeVida2.value.departamento,
-        ciudad: this.formHojaDeVida2.value.ciudad ?? '',
+    const ea = raw?.estudiaActualmente;
+    const estudiaActualmente =
+      ea && typeof ea === 'object'
+        ? (ea.display ?? ea.value ?? ea.codigo ?? ea.descripcion ?? '')
+        : (ea ?? '');
 
-        estadoCivil: this.formHojaDeVida2.value.estadoCivil,
-        direccionResidencia: this.formHojaDeVida2.value.direccionResidencia,
-        barrio: this.formHojaDeVida2.value.zonaResidencia,
-        fechaExpedicionCc: this.formHojaDeVida2.value.fechaExpedicionCC,
-        departamentoExpedicionCc:
-          this.formHojaDeVida2.value.departamentoExpedicionCC,
-        municipioExpedicionCc: this.formHojaDeVida2.value.municipioExpedicionCC,
-        lugarNacimientoDepartamento:
-          this.formHojaDeVida2.value.departamentoNacimiento,
-        lugarNacimientoMunicipio: this.formHojaDeVida2.value.municipioNacimiento,
-        rh: this.formHojaDeVida2.value.rh,
-        zurdoDiestro: this.formHojaDeVida2.value.lateralidad,
+    const datosAEnviar: any = {
+      tipoDoc: raw?.tipoDoc,
+      numeroCedula: raw?.numeroCedula,
 
-        tiempoResidenciaZona: this.formHojaDeVida2.value.tiempoResidenciaZona,
-        lugarAnteriorResidencia:
-          this.formHojaDeVida2.value.lugarAnteriorResidencia,
-        razonCambioResidencia: this.formHojaDeVida2.value.razonCambioResidencia,
-        zonasConocidas: this.formHojaDeVida2.value.zonasConocidas,
-        preferenciaResidencia: this.formHojaDeVida2.value.preferenciaResidencia,
-        fechaNacimiento: this.formHojaDeVida2.value.fechaNacimiento,
-        estudiaActualmente:
-          this.formHojaDeVida2.value.estudiaActualmente.display ?? '',
+      pApellido: raw?.pApellido,
+      sApellido: raw?.sApellido,
+      pNombre: raw?.pNombre,
+      sNombre: raw?.sNombre,
+      genero: raw?.genero,
 
-        familiarEmergencia: this.formHojaDeVida2.value.familiarEmergencia, // Asumiendo que falta este campo en TS, agregar si es necesario
-        parentescoFamiliarEmergencia:
-          this.formHojaDeVida2.value.parentescoFamiliarEmergencia,
-        direccionFamiliarEmergencia:
-          this.formHojaDeVida2.value.direccionFamiliarEmergencia,
-        barrioFamiliarEmergencia:
-          this.formHojaDeVida2.value.barrioFamiliarEmergencia,
-        telefonoFamiliarEmergencia:
-          this.formHojaDeVida2.value.telefonoFamiliarEmergencia,
-        ocupacionFamiliarEmergencia:
-          this.formHojaDeVida2.value.ocupacionFamiliar_Emergencia,
+      correo,
+      numCelular: raw?.numCelular,
+      numWha: raw?.numWha,
 
-        oficina: this.formHojaDeVida2.value.oficina,
+      departamento: raw?.departamento,
+      ciudad: raw?.ciudad ?? '',
 
-        escolaridad: this.formHojaDeVida2.value.escolaridad,
-        estudiosExtra: this.formHojaDeVida2.value.estudiosExtrasSelect.join(','),
-        nombreInstitucion: this.formHojaDeVida2.value.nombreInstitucion,
-        anoFinalizacion: this.formHojaDeVida2.value.anoFinalizacion,
-        tituloObtenido: this.formHojaDeVida2.value.tituloObtenido,
-        chaqueta: this.formHojaDeVida2.value.tallaChaqueta, // Cambiado a "chaqueta"
-        pantalon: this.formHojaDeVida2.value.tallaPantalon, // Cambiado a "pantalon"
-        camisa: this.formHojaDeVida2.value.tallaCamisa, // Cambiado a "camisa"
-        calzado: this.formHojaDeVida2.value.tallaCalzado, // Cambiado a "calzado"
+      estadoCivil: raw?.estadoCivil,
+      direccionResidencia: raw?.direccionResidencia,
+      barrio: raw?.zonaResidencia,
 
-        nombreConyugue: this.formHojaDeVida2.value.nombresConyuge ?? '', // Cambiado de "nombresConyuge" a "nombreConyugue"
-        apellidoConyugue: this.formHojaDeVida2.value.apellidosConyuge ?? '', // Cambiado de "apellidosConyuge" a "apellidoConyugue"
-        numDocIdentidadConyugue:
-          this.formHojaDeVida2.value.documentoIdentidadConyuge ?? '', // Cambiado a "numDocIdentidadConyugue"
-        viveConElConyugue: this.formHojaDeVida2.value.viveConyuge ?? '', // Cambiado de "viveConyuge" a "viveConElConyugue"
-        direccionConyugue: this.formHojaDeVida2.value.direccionConyuge ?? '',
-        telefonoConyugue: this.formHojaDeVida2.value.telefonoConyuge ?? '',
-        barrioMunicipioConyugue: this.formHojaDeVida2.value.barrioConyuge ?? '', // Cambiado de "barrioConyuge" a "barrioMunicipioConyugue"
-        ocupacionConyugue: this.formHojaDeVida2.value.ocupacionConyuge ?? '',
+      fechaExpedicionCc: this.toYmd(raw?.fechaExpedicionCC),
+      departamentoExpedicionCc: raw?.departamentoExpedicionCC,
+      municipioExpedicionCc: raw?.municipioExpedicionCC,
 
-        nombrePadre: this.formHojaDeVida2.value.nombrePadre,
-        vivePadre: this.formHojaDeVida2.value.elPadreVive, // Cambiado de "elPadreVive" a "vivePadre"
-        ocupacionPadre: this.formHojaDeVida2.value.ocupacionPadre ?? '',
-        direccionPadre: this.formHojaDeVida2.value.direccionPadre ?? '',
-        telefonoPadre: this.formHojaDeVida2.value.telefonoPadre ?? '',
-        barrioPadre: this.formHojaDeVida2.value.barrioPadre ?? '',
-        nombreMadre: this.formHojaDeVida2.value.nombreMadre,
-        viveMadre: this.formHojaDeVida2.value.madreVive, // Cambiado de "madreVive" a "viveMadre"
-        ocupacionMadre: this.formHojaDeVida2.value.ocupacionMadre ?? '',
-        direccionMadre: this.formHojaDeVida2.value.direccionMadre ?? '',
-        telefonoMadre: this.formHojaDeVida2.value.telefonoMadre ?? '',
-        barrioMadre: this.formHojaDeVida2.value.barrioMadre ?? '',
+      lugarNacimientoDepartamento: raw?.departamentoNacimiento,
+      lugarNacimientoMunicipio: raw?.municipioNacimiento,
 
-        nombreReferenciaPersonal1:
-          this.formHojaDeVida2.value.nombreReferenciaPersonal1,
-        telefonoReferenciaPersonal1:
-          this.formHojaDeVida2.value.telefonoReferencia1, // Cambiado de "telefonoReferencia1" a "telefonoReferenciaPersonal1"
-        ocupacionReferenciaPersonal1:
-          this.formHojaDeVida2.value.ocupacionReferencia1, // Cambiado de "ocupacionReferencia1" a "ocupacionReferenciaPersonal1"
-        tiempoConoceReferenciaPersonal1:
-          this.formHojaDeVida2.value.tiempoConoceReferenciaPersonal1,
-        direccionReferenciaPersonal1:
-          this.formHojaDeVida2.value.direccionReferenciaPersonal1,
+      rh: raw?.rh,
+      zurdoDiestro: raw?.lateralidad,
 
-        nombreReferenciaPersonal2:
-          this.formHojaDeVida2.value.nombreReferenciaPersonal2,
-        telefonoReferenciaPersonal2:
-          this.formHojaDeVida2.value.telefonoReferencia2, // Cambiado de "telefonoReferencia2" a "telefonoReferenciaPersonal2"
-        ocupacionReferenciaPersonal2:
-          this.formHojaDeVida2.value.ocupacionReferencia2, // Cambiado de "ocupacionReferencia2" a "ocupacionReferenciaPersonal2"
-        tiempoConoceReferenciaPersonal2:
-          this.formHojaDeVida2.value.tiempoConoceReferenciaPersonal2,
-        direccionReferenciaPersonal2:
-          this.formHojaDeVida2.value.direccionReferenciaPersonal2,
+      tiempoResidenciaZona: raw?.tiempoResidenciaZona,
+      lugarAnteriorResidencia: raw?.lugarAnteriorResidencia,
+      razonCambioResidencia: raw?.razonCambioResidencia,
+      zonasConocidas: raw?.zonasConocidas,
+      preferenciaResidencia: raw?.preferenciaResidencia,
 
-        nombreReferenciaFamiliar1:
-          this.formHojaDeVida2.value.nombreReferenciaFamiliar1,
-        telefonoReferenciaFamiliar1:
-          this.formHojaDeVida2.value.telefonoReferenciaFamiliar1,
-        ocupacionReferenciaFamiliar1:
-          this.formHojaDeVida2.value.ocupacionReferenciaFamiliar1,
-        parentescoReferenciaFamiliar1:
-          this.formHojaDeVida2.value.parentescoReferenciaFamiliar1,
-        direccionReferenciaFamiliar1:
-          this.formHojaDeVida2.value.direccionReferenciaFamiliar1,
+      fechaNacimiento: this.toYmd(raw?.fechaNacimiento),
+      estudiaActualmente: String(estudiaActualmente ?? '').trim(),
 
-        nombreReferenciaFamiliar2:
-          this.formHojaDeVida2.value.nombreReferenciaFamiliar2,
-        telefonoReferenciaFamiliar2:
-          this.formHojaDeVida2.value.telefonoReferenciaFamiliar2,
-        ocupacionReferenciaFamiliar2:
-          this.formHojaDeVida2.value.ocupacionReferenciaFamiliar2,
-        parentescoReferenciaFamiliar2:
-          this.formHojaDeVida2.value.parentescoReferenciaFamiliar2,
+      familiarEmergencia: raw?.familiarEmergencia,
+      parentescoFamiliarEmergencia: raw?.parentescoFamiliarEmergencia,
+      direccionFamiliarEmergencia: raw?.direccionFamiliarEmergencia,
+      barrioFamiliarEmergencia: raw?.barrioFamiliarEmergencia,
+      telefonoFamiliarEmergencia: raw?.telefonoFamiliarEmergencia,
 
-        nombreExpeLaboral1Empresa: this.formHojaDeVida2.value.nombreEmpresa1 ?? '',
-        direccionEmpresa1: this.formHojaDeVida2.value.direccionEmpresa1 ?? '',
-        telefonosEmpresa1: this.formHojaDeVida2.value.telefonosEmpresa1 ?? '',
-        nombreJefeEmpresa1: this.formHojaDeVida2.value.nombreJefe1 ?? '',
-        fechaRetiroEmpresa1: this.formHojaDeVida2.value.fechaRetiro1 ?? '',
-        motivoRetiroEmpresa1: this.formHojaDeVida2.value.motivoRetiro1 ?? '',
-        cargoEmpresa1: this.formHojaDeVida2.value.cargoEmpresa1 ?? '',
-        empresas_laborado: this.formHojaDeVida2.value.empresas_laborado ?? '',
-        labores_realizadas: this.formHojaDeVida2.value.labores_realizadas ?? '',
-        rendimiento: this.formHojaDeVida2.value.rendimiento ?? '',
-        porqueRendimiento: this.formHojaDeVida2.value.porqueRendimiento ?? '',
+      ocupacionFamiliarEmergencia: raw?.ocupacionFamiliarEmergencia ?? raw?.ocupacionFamiliar_Emergencia ?? '',
 
-        familiaConUnSoloIngreso: this.formHojaDeVida2.value.familiaSolo,
-        numHabitaciones: this.formHojaDeVida2.value.numeroHabitaciones,
-        numPersonasPorHabitacion: this.formHojaDeVida2.value.personasPorHabitacion,
-        tipoVivienda2p: this.formHojaDeVida2.value.tipoVivienda2 ?? '',
-        caracteristicasVivienda:
-          this.formHojaDeVida2.value.caracteristicasVivienda,
-        malentendido: this.formHojaDeVida2.value.malentendido ?? '',
-        hijos: this.formHojaDeVida2.value.hijos,
-        experienciaLaboral: this.formHojaDeVida2.value.experienciaLaboral,
-        porqueLofelicitarian: this.formHojaDeVida2.value.porqueLofelicitarian ?? '',
-        areaCultivoPoscosecha: this.formHojaDeVida2.value.areaCultivoPoscosecha ?? '',
-        laboresRealizadas: this.formHojaDeVida2.value.laboresRealizadas ?? '',
-        tiempoExperiencia: this.formHojaDeVida2.value.tiempoExperiencia ?? '',
-        actividadesDi: this.formHojaDeVida2.value.actividadesDi ?? '',
-        numHijosDependientes: this.formHojaDeVida2.value.numHijosDependientes ?? '',
-        experienciaSignificativa: this.formHojaDeVida2.value.experienciaSignificativa ?? '',
-        motivacion: this.formHojaDeVida2.value.motivacion ?? '',
+      oficina: raw?.oficina,
 
-        edadHijo1: this.formHojaDeVida2.value.edadHijo1 ?? '',
-        edadHijo2: this.formHojaDeVida2.value.edadHijo2 ?? '',
-        edadHijo3: this.formHojaDeVida2.value.edadHijo3 ?? '',
-        edadHijo4: this.formHojaDeVida2.value.edadHijo4 ?? '',
-        edadHijo5: this.formHojaDeVida2.value.edadHijo5 ?? '',
-        cuidadorHijos: this.formHojaDeVida2.value.cuidadorHijos ?? '',
+      escolaridad: raw?.escolaridad,
+      // ✅ sigue igual: se envía como string separado por comas
+      estudiosExtra: Array.isArray(raw?.estudiosExtrasSelect) ? raw.estudiosExtrasSelect.join(',') : '',
+      nombreInstitucion: raw?.nombreInstitucion,
+      anoFinalizacion: this.toYmd(raw?.anoFinalizacion),
+      tituloObtenido: raw?.tituloObtenido,
 
-        fuenteVacante: this.formHojaDeVida2.value.fuenteVacante,
+      chaqueta: raw?.tallaChaqueta,
+      pantalon: raw?.tallaPantalon,
+      camisa: raw?.tallaCamisa,
+      calzado: raw?.tallaCalzado,
 
-        areaExperiencia: Array.isArray(this.formHojaDeVida2.value.areaExperiencia) ?
-          this.formHojaDeVida2.value.areaExperiencia.join(', ') : '',
-        expectativasDeVida: Array.isArray(this.formHojaDeVida2.value.expectativasVidaChecks) ?
-          this.formHojaDeVida2.value.expectativasVidaChecks.join(', ') : '',
-        servicios: Array.isArray(this.formHojaDeVida2.value.comodidadesChecks) ?
-          this.formHojaDeVida2.value.comodidadesChecks.join(', ') : '',
-        tipoVivienda: Array.isArray(this.formHojaDeVida2.value.tiposViviendaChecks) ?
-          this.formHojaDeVida2.value.tiposViviendaChecks.join(', ') : '',
-        personasConQuienConvive: Array.isArray(this.formHojaDeVida2.value.conQuienViveChecks) ?
-          this.formHojaDeVida2.value.conQuienViveChecks.join(', ') : '',
-        personas_a_cargo: Array.isArray(this.formHojaDeVida2.value.personas_a_cargo) ?
-          this.formHojaDeVida2.value.personas_a_cargo.join(', ') : '',
-      };
+      nombreConyugue: raw?.nombresConyuge ?? '',
+      apellidoConyugue: raw?.apellidosConyuge ?? '',
+      numDocIdentidadConyugue: raw?.documentoIdentidadConyuge ?? '',
+      viveConElConyugue: raw?.viveConyuge ?? '',
+      direccionConyugue: raw?.direccionConyuge ?? '',
+      telefonoConyugue: raw?.telefonoConyuge ?? '',
+      barrioMunicipioConyugue: raw?.barrioConyuge ?? '',
+      ocupacion_conyugue: raw?.ocupacionConyuge ?? '',
 
-      // Convertir datos y campos hijos a mayúscula
-      const upperCaseValues = this.convertValuesToUpperCase(datosAEnviar);
+      nombrePadre: raw?.nombrePadre,
+      vivePadre: raw?.elPadreVive,
+      ocupacionPadre: raw?.ocupacionPadre ?? '',
+      direccionPadre: raw?.direccionPadre ?? '',
+      telefonoPadre: raw?.telefonoPadre ?? '',
+      barrioPadre: raw?.barrioPadre ?? '',
 
-      // Convertir hijos también
-      const hijos = this.formHojaDeVida2.value.hijos;
-      const upperCaseHijos = hijos.map((hijo: any) => this.convertValuesToUpperCase(hijo));
-      upperCaseValues.hijos = upperCaseHijos;
+      nombreMadre: raw?.nombreMadre,
+      viveMadre: raw?.madreVive,
+      ocupacionMadre: raw?.ocupacionMadre ?? '',
+      direccionMadre: raw?.direccionMadre ?? '',
+      telefonoMadre: raw?.telefonoMadre ?? '',
+      barrioMadre: raw?.barrioMadre ?? '',
 
-      // Si hay opción de generar hoja de vida
-      if (this.formHojaDeVida2.value.deseaGenerar) {
-        // this.fillForm();
-      }
+      nombreReferenciaPersonal1: raw?.nombreReferenciaPersonal1,
+      telefonoReferenciaPersonal1: raw?.telefonoReferencia1,
+      ocupacionReferenciaPersonal1: raw?.ocupacionReferencia1,
+      tiempoConoceReferenciaPersonal1: raw?.tiempoConoceReferenciaPersonal1,
+      direccionReferenciaPersonal1: raw?.direccionReferenciaPersonal1,
 
-      // Mostrar loader de carga
-      Swal.fire({
-        title: 'Guardando...',
-        text: 'Por favor espere',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-      });
+      nombreReferenciaPersonal2: raw?.nombreReferenciaPersonal2,
+      telefonoReferenciaPersonal2: raw?.telefonoReferencia2,
+      ocupacionReferenciaPersonal2: raw?.ocupacionReferencia2,
+      tiempoConoceReferenciaPersonal2: raw?.tiempoConoceReferenciaPersonal2,
+      direccionReferenciaPersonal2: raw?.direccionReferenciaPersonal2,
 
-      this.candidateS.formulario_vacantes(upperCaseValues).subscribe({
-        next: async (response: any) => {
-          if (response && response.message) {
-            try {
-              const allFilesUploaded = await this.subirTodosLosArchivos();
-              Swal.close();
+      nombreReferenciaFamiliar1: raw?.nombreReferenciaFamiliar1,
+      telefonoReferenciaFamiliar1: raw?.telefonoReferenciaFamiliar1,
+      ocupacionReferenciaFamiliar1: raw?.ocupacionReferenciaFamiliar1,
+      parentescoReferenciaFamiliar1: raw?.parentescoReferenciaFamiliar1,
+      direccionReferenciaFamiliar1: raw?.direccionReferenciaFamiliar1,
 
-              if (allFilesUploaded) {
-                await Swal.fire({
-                  title: '¡Éxito!',
-                  text: 'Datos y archivos guardados exitosamente.',
-                  icon: 'success',
-                  confirmButtonText: 'Ok'
-                });
-              } else {
-                await Swal.fire({
-                  title: 'Advertencia',
-                  text: 'Datos guardados, pero hubo problemas al subir archivos.',
-                  icon: 'warning',
-                  confirmButtonText: 'Ok'
-                });
-              }
-            } catch (error) {
-              Swal.close();
-              await Swal.fire({
-                title: 'Error',
-                text: `Hubo un error al subir los archivos: ${error}`,
-                icon: 'error',
-                confirmButtonText: 'Ok'
-              });
-            }
+      nombreReferenciaFamiliar2: raw?.nombreReferenciaFamiliar2,
+      telefonoReferenciaFamiliar2: raw?.telefonoReferenciaFamiliar2,
+      ocupacionReferenciaFamiliar2: raw?.ocupacionReferenciaFamiliar2,
+      parentescoReferenciaFamiliar2: raw?.parentescoReferenciaFamiliar2,
+      direccionReferenciaFamiliar2: raw?.direccionReferenciaFamiliar2,
 
-            await Swal.fire({
-              title: '¡Datos guardados!',
-              text: 'Los datos se guardaron correctamente.',
-              icon: 'success',
-              confirmButtonText: 'Aceptar',
-            });
-          } else {
+      nombreExpeLaboral1Empresa: raw?.nombreEmpresa1 ?? '',
+      direccionEmpresa1: raw?.direccionEmpresa1 ?? '',
+      telefonosEmpresa1: raw?.telefonosEmpresa1 ?? '',
+      nombreJefeEmpresa1: raw?.nombreJefe1 ?? '',
+      fechaRetiroEmpresa1: this.toYmd(raw?.fechaRetiro1) ?? '',
+      motivoRetiroEmpresa1: raw?.motivoRetiro1 ?? '',
+      cargoEmpresa1: raw?.cargoEmpresa1 ?? '',
+      empresas_laborado: raw?.empresas_laborado ?? '',
+
+      tiempoExperiencia: raw?.tiempoExperiencia ?? '',
+
+      familiaConUnSoloIngreso: raw?.familiaSolo,
+      numHabitaciones: raw?.numeroHabitaciones,
+      numPersonasPorHabitacion: raw?.personasPorHabitacion,
+      caracteristicasVivienda: raw?.caracteristicasVivienda,
+
+      experienciaLaboral: raw?.experienciaLaboral,
+      numHijosDependientes: raw?.numHijosDependientes ?? '',
+      cuidadorHijos: raw?.cuidadorHijos ?? '',
+      fuenteVacante: raw?.fuenteVacante,
+
+      areaExperiencia: Array.isArray(raw?.areaExperiencia) ? raw.areaExperiencia.join(', ') : '',
+      expectativasDeVida: Array.isArray(raw?.expectativasVidaChecks) ? raw.expectativasVidaChecks.join(', ') : '',
+
+      servicios: Array.isArray(raw?.comodidadesChecks) ? raw.comodidadesChecks.join(', ') : '',
+      tipoVivienda: Array.isArray(raw?.tiposViviendaChecks) ? raw.tiposViviendaChecks.join(', ') : '',
+      personasConQuienConvive: Array.isArray(raw?.conQuienViveChecks) ? raw.conQuienViveChecks.join(', ') : '',
+      personas_a_cargo: Array.isArray(raw?.personas_a_cargo) ? raw.personas_a_cargo.join(', ') : '',
+    };
+
+    const hijosArr = Array.isArray(raw?.hijos) ? raw.hijos : [];
+    datosAEnviar.hijos = hijosArr.map((hijo: any) => {
+      const h = { ...hijo };
+      if (h?.fechaNacimientoHijo) h.fechaNacimientoHijo = this.toYmd(h.fechaNacimientoHijo);
+      return h;
+    });
+
+    const upperCaseValues = this.convertValuesToUpperCase(datosAEnviar);
+    upperCaseValues.correo = correo;
+
+    upperCaseValues.hijos = (Array.isArray(datosAEnviar.hijos) ? datosAEnviar.hijos : []).map((hijo: any) => {
+      const h = { ...hijo };
+      return this.convertValuesToUpperCase(h);
+    });
+
+    Swal.fire({
+      title: 'Guardando...',
+      text: 'Por favor espere',
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+    });
+
+    this.registroProcesoContratacion.crearActualizarCandidato2(upperCaseValues).subscribe({
+      next: async (respUpsert: any) => {
+        try {
+          const upsertOk = !!respUpsert?.ok;
+
+          if (!upsertOk) {
             Swal.close();
             await Swal.fire({
               title: 'Error',
-              text: 'Hubo un error al guardar los datos.',
+              text: 'Hubo un error al guardar (upsert).',
               icon: 'error',
               confirmButtonText: 'Aceptar',
             });
+            return;
           }
-        },
-        error: (error) => {
+
+          let parte2Ok = false;
+          try {
+            const respParte2: any = await firstValueFrom(
+              this.registroProcesoContratacion.formulario_vacantes(upperCaseValues)
+            );
+
+            parte2Ok =
+              respParte2?.ok === true ||
+              respParte2?.success === true ||
+              !!respParte2?.message;
+          } catch (e2) {
+            parte2Ok = false;
+          }
+
+          if (!parte2Ok) {
+            Swal.close();
+            await Swal.fire({
+              title: 'Error',
+              text: 'Upsert guardó, pero falló la Parte 2 (subirParte2).',
+              icon: 'error',
+              confirmButtonText: 'Aceptar',
+            });
+            return;
+          }
+
+          this.numeroCedula = respUpsert?.numero_documento ?? this.numeroCedula;
+
+          const allFilesUploaded = await this.subirTodosLosArchivos();
           Swal.close();
-          Swal.fire({
-            title: 'Error',
-            text: error.error?.message || 'Error desconocido al guardar los datos.',
-            icon: 'error',
-            confirmButtonText: 'Aceptar',
+
+          await Swal.fire({
+            title: allFilesUploaded ? '¡Éxito!' : 'Advertencia',
+            text: allFilesUploaded
+              ? 'Datos y archivos guardados exitosamente.'
+              : 'Datos guardados, pero hubo problemas al subir archivos.',
+            icon: allFilesUploaded ? 'success' : 'warning',
+            confirmButtonText: 'Ok',
           });
-          console.error(error.error?.message || error);
+        } catch (error) {
+          Swal.close();
+          await Swal.fire({
+            title: 'Error',
+            text: `Hubo un error al subir los archivos: ${error}`,
+            icon: 'error',
+            confirmButtonText: 'Ok',
+          });
         }
-      });
-    }
+      },
+      error: async (error: any) => {
+        Swal.close();
+        await Swal.fire({
+          title: 'Error',
+          text: error?.error?.message || error?.message || 'Error desconocido al guardar los datos.',
+          icon: 'error',
+          confirmButtonText: 'Aceptar',
+        });
+      },
+    });
+  }
+
+  // -------------------------
+  // ✅ Normalización al enviar
+  // -------------------------
+  private isPhoneKey(key: string): boolean {
+    return [
+      'numCelular',
+      'numWha',
+      'telefonoFamiliarEmergencia',
+      'telefonoPadre',
+      'telefonoMadre',
+      'telefonoConyuge',
+      'telefonosEmpresa1',
+      'telefonoReferencia1',
+      'telefonoReferencia2',
+      'telefonoReferenciaFamiliar1',
+      'telefonoReferenciaFamiliar2',
+      'telefono',
+      'docIdentidadHijo',
+    ].includes(key);
+  }
+
+  private digitsOnly(v: any): string {
+    return String(v ?? '').replace(/\D+/g, '').trim();
   }
 
   convertValuesToUpperCase(formValues: any): any {
-    const upperCaseValues: { [key: string]: any } = {}; // Objeto para almacenar los valores formateados
+    const upperCaseValues: { [key: string]: any } = {};
 
     for (const key in formValues) {
-      if (formValues.hasOwnProperty(key)) {
+      if (Object.prototype.hasOwnProperty.call(formValues, key)) {
         const value = formValues[key];
 
+        if (key === 'correo') {
+          upperCaseValues[key] = String(value ?? '').trim().toLowerCase();
+          continue;
+        }
+
         if (typeof value === 'string') {
-          // Normalizar texto: eliminar caracteres decorativos y convertir a mayúsculas
-          upperCaseValues[key] = this.normalizeString(value.trim().toUpperCase());
+          const cleaned = this.normalizeSpaces(value);
+
+          if (this.isPhoneKey(key)) {
+            upperCaseValues[key] = this.digitsOnly(cleaned);
+          } else {
+            upperCaseValues[key] = this.normalizeString(cleaned.toUpperCase());
+          }
         } else if (Array.isArray(value)) {
-          // Si es un arreglo, normalizar cada elemento
-          upperCaseValues[key] = value.map(item =>
-            typeof item === 'string'
-              ? this.normalizeString(item.trim().toUpperCase())
-              : item
-          );
+          upperCaseValues[key] = value.map((item) => {
+            if (typeof item === 'string') {
+              const cleaned = this.normalizeSpaces(item);
+              return this.normalizeString(cleaned.toUpperCase());
+            }
+            return item;
+          });
         } else {
-          // Dejar el valor tal como está si no es una cadena o arreglo
           upperCaseValues[key] = value;
         }
       }
@@ -1109,846 +1893,250 @@ export class FormVacancies {
 
   normalizeString(value: string): string {
     return value
-      .normalize('NFKD') // Normalización para separar caracteres combinados
-      .replace(/[\u{1D400}-\u{1D7FF}]/gu, char => String.fromCharCode(char.codePointAt(0)! - 0x1D400 + 65)); // Rango matemático
+      .normalize('NFKD')
+      .replace(/[\u{1D400}-\u{1D7FF}]/gu, (char) => String.fromCharCode(char.codePointAt(0)! - 0x1d400 + 65));
   }
-
-
-  buscarCedula() {
-    console.log('Buscando cédula:', this.numeroCedula);
-    // verificar si el campo de cédula está vacío
-    if (!this.numeroCedula) {
-      Swal.fire({
-        title: 'Error',
-        text: 'Por favor, ingresa una cédula válida.',
-        icon: 'error',
-        confirmButtonText: 'Aceptar',
-      });
-      return;
-    }
-
-
-    Swal.fire({
-      title: 'Confirmar búsqueda',
-      text: `¿Deseas buscar la cédula ${this.numeroCedula}?`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, buscar',
-      cancelButtonText: 'Cancelar',
-    }).then((result) => {
-      if (result.isConfirmed) {
-        // Puedes cargar datos guardados aquí si lo necesitas
-        this.cargarDatosGuardados?.();
-
-        localStorage.setItem('cedula', this.numeroCedula);
-
-        this.candidateS.buscarCandidatoPorCedula(this.numeroCedula).subscribe({
-          next: (response) => {
-            this.mostrarFormulario = true;
-            Swal.fire({
-              title: 'Cédula encontrada',
-              text: 'Actualiza tus datos',
-              icon: 'success',
-              confirmButtonText: 'Aceptar',
-            });
-            this.llenarFormularioConDatos(response);
-          },
-          error: (error) => {
-            console.error(error);
-            if (error.error?.message?.startsWith('No se encontraron datos para la cédula ingresada')) {
-              Swal.fire({
-                title: 'Cédula no encontrada',
-                text: 'Procede a llenar el formulario con los datos por favor.',
-                icon: 'success',
-                confirmButtonText: 'Aceptar',
-              });
-              this.mostrarFormulario = true;
-            }
-          }
-        });
-      }
-    });
-  }
-
-
-  llenarDatosHijos(hijos: any[]): void {
-    const hijosArray = this.hijosFormArray;
-    // Primero, limpia el FormArray para asegurarte de que esté vacío
-    while (hijosArray.length !== 0) {
-      hijosArray.removeAt(0);
-    }
-
-    // Ahora, llena el FormArray con la información de cada hijo
-    hijos.forEach((hijo) => {
-      hijosArray.push(this.crearFormGroupHijoConDatos(hijo));
-    });
-  }
-
-  crearFormGroupHijoConDatos(datosHijo: any): FormGroup {
-    const auxViveConTrabajador = this.stringToBoolean(
-      datosHijo.vive_con_trabajador
-    );
-
-    return new FormGroup({
-      nombreHijo: new FormControl(datosHijo.nombre, Validators.required),
-
-      // SEXO, FECHA NACIMIENTO, DOCUMENTO DE IDENTIDAD, OCUPACION, Curso
-
-      sexoHijo: new FormControl(datosHijo.sexo, Validators.required),
-
-      fechaNacimientoHijo: new FormControl(
-        datosHijo.fecha_nacimiento,
-        Validators.required
-      ),
-
-      docIdentidadHijo: new FormControl(
-        datosHijo.no_documento,
-        Validators.required
-      ),
-
-      ocupacionHijo: new FormControl(datosHijo.estudia_o_trabaja, Validators.required),
-
-      cursoHijo: new FormControl(datosHijo.curso, Validators.required),
-
-    });
-  }
-
-  llenarFormularioConDatos(datos: any) {
-    if (datos.data && datos.data.length > 0) {
-      let datosHoja = datos.data[0]; // Asume que quieres llenar el formulario con el primer objeto en el array 'data'
-      // Encuentra el objeto correspondiente a "Sí" o "No" en opcionBinaria
-      const opcionSeleccionada = this.opcionBinaria.find(
-        (opcion) =>
-          (datosHoja.estudia_actualmente === 'Sí' && opcion.value === true) ||
-          (datosHoja.estudia_actualmente === 'No' && opcion.value === false)
-      );
-
-      //this.actualizarEdadesHijos(datosHoja.num_hijos_dependen_economicamente);
-
-      if (datosHoja && datosHoja.numerodeceduladepersona !== undefined) {
-
-        this.formHojaDeVida2.patchValue({
-          tipoDoc: datosHoja.tipodedocumento !== '-' ? datosHoja.tipodedocumento : '',
-          numeroCedula: datosHoja.numerodeceduladepersona !== '-' ? datosHoja.numerodeceduladepersona : '',
-          numeroCedula2: datosHoja.numerodeceduladepersona !== '-' ? datosHoja.numerodeceduladepersona : '',
-          pApellido: datosHoja.primer_apellido !== '-' ? datosHoja.primer_apellido : '',
-          sApellido: datosHoja.segundo_apellido !== '-' ? datosHoja.segundo_apellido : '',
-          pNombre: datosHoja.primer_nombre !== '-' ? datosHoja.primer_nombre : '',
-          sNombre: datosHoja.segundo_nombre !== '-' ? datosHoja.segundo_nombre : '',
-          genero: datosHoja.genero !== '-' ? datosHoja.genero : '',
-          correo: datosHoja.primercorreoelectronico !== '-' ? datosHoja.primercorreoelectronico : '',
-          numCelular: datosHoja.celular !== '-' ? datosHoja.celular : '',
-          numWha: datosHoja.whatsapp !== '-' ? datosHoja.whatsapp : '',
-          departamento: datosHoja.departamento !== '-' ? datosHoja.departamento : '',
-
-          estadoCivil: datosHoja.estado_civil !== '-' ? datosHoja.estado_civil : '',
-          direccionResidencia: datosHoja.direccion_residencia !== '-' ? datosHoja.direccion_residencia : '',
-          zonaResidencia: datosHoja.barrio !== '-' ? datosHoja.barrio : '',
-          fechaExpedicionCC: datosHoja.fecha_expedicion_cc !== '-' ? datosHoja.fecha_expedicion_cc : '',
-          departamentoExpedicionCC: datosHoja.departamento_expedicion_cc !== '-' ? datosHoja.departamento_expedicion_cc : '',
-          municipioExpedicionCC: datosHoja.municipio_expedicion_cc !== '-' ? datosHoja.municipio_expedicion_cc : '',
-          departamentoNacimiento: datosHoja.lugar_nacimiento_departamento !== '-' ? datosHoja.lugar_nacimiento_departamento : '',
-          municipioNacimiento: datosHoja.lugar_nacimiento_municipio !== '-' ? datosHoja.lugar_nacimiento_municipio : '',
-          rh: datosHoja.rh !== '-' ? datosHoja.rh : '',
-          lateralidad: datosHoja.zurdo_diestro !== '-' ? datosHoja.zurdo_diestro : '',
-
-          ciudad: datosHoja.municipio !== '-' ? datosHoja.municipio : '',
-          tiempoResidenciaZona: datosHoja.hacecuantoviveenlazona !== '-' ? datosHoja.hacecuantoviveenlazona : '',
-          lugarAnteriorResidencia: datosHoja.lugar_anterior_residencia !== '-' ? datosHoja.lugar_anterior_residencia : '',
-          razonCambioResidencia: datosHoja.hace_cuanto_se_vino_y_porque !== '-' ? datosHoja.hace_cuanto_se_vino_y_porque : '',
-          zonasConocidas: datosHoja.zonas_del_pais !== '-' ? datosHoja.zonas_del_pais : '',
-          preferenciaResidencia: datosHoja.donde_le_gustaria_vivir !== '-' ? datosHoja.donde_le_gustaria_vivir : '',
-          fechaNacimiento: datosHoja.fecha_nacimiento !== '-' ? datosHoja.fecha_nacimiento : '',
-          estudiaActualmente: opcionSeleccionada, // Asigna el objeto encontrado
-
-          familiarEmergencia: datosHoja.familiar_emergencia !== '-' ? datosHoja.familiar_emergencia : '',
-          parentescoFamiliarEmergencia: datosHoja.parentesco_familiar_emergencia !== '-' ? datosHoja.parentesco_familiar_emergencia : '',
-          direccionFamiliarEmergencia: datosHoja.direccion_familiar_emergencia !== '-' ? datosHoja.direccion_familiar_emergencia : '',
-          barrioFamiliarEmergencia: datosHoja.barrio_familiar_emergencia !== '-' ? datosHoja.barrio_familiar_emergencia : '',
-          telefonoFamiliarEmergencia: datosHoja.telefono_familiar_emergencia !== '-' ? datosHoja.telefono_familiar_emergencia : '',
-          ocupacionFamiliar_Emergencia: datosHoja.ocupacion_familiar_emergencia !== '-' ? datosHoja.ocupacion_familiar_emergencia : '',
-
-          // Formulario publico segunda parte
-          escolaridad: datosHoja.escolaridad !== '-' ? datosHoja.escolaridad : '',
-          estudiosExtras: datosHoja.estudiosExtra !== '-' ? datosHoja.estudiosExtra : '',
-          nombreInstitucion: datosHoja.nombre_institucion !== '-' ? datosHoja.nombre_institucion : '',
-          anoFinalizacion: datosHoja.ano_finalizacion !== '-' ? datosHoja.ano_finalizacion : '',
-          tituloObtenido: datosHoja.titulo_obtenido !== '-' ? datosHoja.titulo_obtenido : '',
-          tallaChaqueta: datosHoja.chaqueta !== '-' ? datosHoja.chaqueta : '',
-          tallaPantalon: datosHoja.pantalon !== '-' ? datosHoja.pantalon : '',
-          tallaCamisa: datosHoja.camisa !== '-' ? datosHoja.camisa : '',
-          tallaCalzado: datosHoja.calzado !== '-' ? datosHoja.calzado : '',
-
-          nombresConyuge: datosHoja.nombre_conyugue !== '-' ? datosHoja.nombre_conyugue : '',
-          apellidosConyuge: datosHoja.apellido_conyugue !== '-' ? datosHoja.apellido_conyugue : '',
-          documentoIdentidadConyuge: datosHoja.num_doc_identidad_conyugue !== '-' ? datosHoja.num_doc_identidad_conyugue : '',
-          viveConyuge: datosHoja.vive_con_el_conyugue !== '-' ? this.stringToBoolean(datosHoja.vive_con_el_conyugue) : '',
-          direccionConyuge: datosHoja.direccion_conyugue !== '-' ? datosHoja.direccion_conyugue : '',
-          telefonoConyuge: datosHoja.telefono_conyugue !== '-' ? datosHoja.telefono_conyugue : '',
-          barrioConyuge: datosHoja.barrio_municipio_conyugue !== '-' ? datosHoja.barrio_municipio_conyugue : '',
-          ocupacionConyuge: datosHoja.ocupacion_conyugue !== '-' ? datosHoja.ocupacion_conyugue : '',
-          telefonoLaboralConyuge: datosHoja.telefono_laboral_conyugue !== '-' ? datosHoja.telefono_laboral_conyugue : '',
-          direccionLaboralConyuge: datosHoja.direccion_laboral_conyugue !== '-' ? datosHoja.direccion_laboral_conyugue : '',
-
-          nombrePadre: datosHoja.nombre_padre !== '-' ? datosHoja.nombre_padre : '',
-          elPadreVive: datosHoja.vive_padre !== '-' ? this.stringToBoolean(datosHoja.vive_padre) : '',
-          ocupacionPadre: datosHoja.ocupacion_padre !== '-' ? datosHoja.ocupacion_padre : '',
-          direccionPadre: datosHoja.direccion_padre !== '-' ? datosHoja.direccion_padre : '',
-          telefonoPadre: datosHoja.telefono_padre !== '-' ? datosHoja.telefono_padre : '',
-          barrioPadre: datosHoja.barrio_padre !== '-' ? datosHoja.barrio_padre : '',
-          nombreMadre: datosHoja.nombre_madre !== '-' ? datosHoja.nombre_madre : '',
-
-          madreVive: datosHoja.vive_madre !== '-' ? this.stringToBoolean(datosHoja.vive_madre) : '',
-          ocupacionMadre: datosHoja.ocupacion_madre !== '-' ? datosHoja.ocupacion_madre : '',
-          direccionMadre: datosHoja.direccion_madre !== '-' ? datosHoja.direccion_madre : '',
-          telefonoMadre: datosHoja.telefono_madre !== '-' ? datosHoja.telefono_madre : '',
-          barrioMadre: datosHoja.barrio_madre !== '-' ? datosHoja.barrio_madre : '',
-
-
-          nombreReferenciaPersonal1: datosHoja.nombre_referencia_personal1 !== '-' ? datosHoja.nombre_referencia_personal1 : '',
-          telefonoReferencia1: datosHoja.telefono_referencia_personal1 !== '-' ? datosHoja.telefono_referencia_personal1 : '',
-          ocupacionReferencia1: datosHoja.ocupacion_referencia_personal1 !== '-' ? datosHoja.ocupacion_referencia_personal1 : '',
-          tiempoConoceReferenciaPersonal1: datosHoja.tiempo_conoce_referencia_personal1 !== '-' ? datosHoja.tiempo_conoce_referencia_personal1 : '',
-
-          nombreReferenciaPersonal2: datosHoja.nombre_referencia_personal2 !== '-' ? datosHoja.nombre_referencia_personal2 : '',
-          telefonoReferencia2: datosHoja.telefono_referencia_personal2 !== '-' ? datosHoja.telefono_referencia_personal2 : '',
-          ocupacionReferencia2: datosHoja.ocupacion_referencia_personal2 !== '-' ? datosHoja.ocupacion_referencia_personal2 : '',
-          tiempoConoceReferenciaPersonal2: datosHoja.tiempo_conoce_referencia_personal2 !== '-' ? datosHoja.tiempo_conoce_referencia_personal2 : '',
-
-          nombreReferenciaFamiliar1: datosHoja.nombre_referencia_familiar1 !== '-' ? datosHoja.nombre_referencia_familiar1 : '',
-          telefonoReferenciaFamiliar1: datosHoja.telefono_referencia_familiar1 !== '-' ? datosHoja.telefono_referencia_familiar1 : '',
-          ocupacionReferenciaFamiliar1: datosHoja.ocupacion_referencia_familiar1 !== '-' ? datosHoja.ocupacion_referencia_familiar1 : '',
-          parentescoReferenciaFamiliar1: datosHoja.parentesco_referencia_familiar1 !== '-' ? datosHoja.parentesco_referencia_familiar1 : '',
-
-          nombreReferenciaFamiliar2: datosHoja.nombre_referencia_familiar2 !== '-' ? datosHoja.nombre_referencia_familiar2 : '',
-          telefonoReferenciaFamiliar2: datosHoja.telefono_referencia_familiar2 !== '-' ? datosHoja.telefono_referencia_familiar2 : '',
-          ocupacionReferenciaFamiliar2: datosHoja.ocupacion_referencia_familiar2 !== '-' ? datosHoja.ocupacion_referencia_familiar2 : '',
-          parentescoReferenciaFamiliar2: datosHoja.parentesco_referencia_familiar2 !== '-' ? datosHoja.parentesco_referencia_familiar2 : '',
-
-          experienciaLaboral: this.stringToBoolean(datosHoja.tiene_experiencia_laboral !== '-' ? datosHoja.tiene_experiencia_laboral : ''),
-
-          areaCultivoPoscosecha: datosHoja.area_cultivo_poscosecha !== '-' ? datosHoja.area_cultivo_poscosecha : '',
-          laboresRealizadas: datosHoja.labores_realizadas !== '-' ? datosHoja.labores_realizadas : '',
-          tiempoExperiencia: datosHoja.tiempo_experiencia !== '-' ? datosHoja.tiempo_experiencia : '',
-
-
-          nombreEmpresa1: datosHoja.nombre_expe_laboral1_empresa !== '-' ? datosHoja.nombre_expe_laboral1_empresa : '',
-          direccionEmpresa1: datosHoja.direccion_empresa1 !== '-' ? datosHoja.direccion_empresa1 : '',
-          telefonosEmpresa1: datosHoja.telefonos_empresa1 !== '-' ? datosHoja.telefonos_empresa1 : '',
-          nombreJefe1: datosHoja.nombre_jefe_empresa1 !== '-' ? datosHoja.nombre_jefe_empresa1 : '',
-          cargoTrabajador1: datosHoja.cargo_empresa1 !== '-' ? datosHoja.cargo_empresa1 : '',
-          fechaRetiro1: datosHoja.fecha_retiro_empresa1 !== '-' ? datosHoja.fecha_retiro_empresa1 : '',
-          motivoRetiro1: datosHoja.motivo_retiro_empresa1 !== '-' ? datosHoja.motivo_retiro_empresa1 : '',
-          cargoEmpresa1: datosHoja.cargoEmpresa1 !== '-' ? datosHoja.cargoEmpresa1 : '',
-          empresas_laborado: datosHoja.empresas_laborado !== '-' ? datosHoja.empresas_laborado : '',
-          labores_realizadas: datosHoja.labores_realizadas !== '-' ? datosHoja.labores_realizadas : '',
-          rendimiento: datosHoja.rendimiento !== '-' ? datosHoja.rendimiento : '',
-          porqueRendimiento: datosHoja.porqueRendimiento !== '-' ? datosHoja.porqueRendimiento : '',
-
-          nombreEmpresa2: datosHoja.nombre_expe_laboral2_empresa !== '-' ? datosHoja.nombre_expe_laboral2_empresa : '',
-          direccionEmpresa2: datosHoja.direccion_empresa2 !== '-' ? datosHoja.direccion_empresa2 : '',
-          telefonosEmpresa2: datosHoja.telefonos_empresa2 !== '-' ? datosHoja.telefonos_empresa2 : '',
-          nombreJefe2: datosHoja.nombre_jefe_empresa2 !== '-' ? datosHoja.nombre_jefe_empresa2 : '',
-          cargoTrabajador2: datosHoja.cargo_empresa2 !== '-' ? datosHoja.cargo_empresa2 : '',
-          fechaRetiro2: datosHoja.fecha_retiro_empresa2 !== '-' ? datosHoja.fecha_retiro_empresa2 : '',
-          motivoRetiro2: datosHoja.motivo_retiro_empresa2 !== '-' ? datosHoja.motivo_retiro_empresa2 : '',
-
-          numHijosDependientes: datosHoja.num_hijos_dependen_economicamente !== '-' ? datosHoja.num_hijos_dependen_economicamente : '',
-          edadHijo1: datosHoja.edad_hijo1 !== '-' ? datosHoja.edad_hijo1 : '',
-          edadHijo2: datosHoja.edad_hijo2 !== '-' ? datosHoja.edad_hijo2 : '',
-          edadHijo3: datosHoja.edad_hijo3 !== '-' ? datosHoja.edad_hijo3 : '',
-          edadHijo4: datosHoja.edad_hijo4 !== '-' ? datosHoja.edad_hijo4 : '',
-          edadHijo5: datosHoja.edad_hijo5 !== '-' ? datosHoja.edad_hijo5 : '',
-
-          cuidadorHijos: datosHoja.quien_los_cuida !== '-' ? datosHoja.quien_los_cuida : '',
-
-          familiaSolo: this.stringToBoolean(datosHoja.familia_con_un_solo_ingreso !== '-' ? datosHoja.familia_con_un_solo_ingreso : ''),
-          numeroHabitaciones: datosHoja.num_habitaciones !== '-' ? datosHoja.num_habitaciones : '',
-          personasPorHabitacion: datosHoja.num_personas_por_habitacion !== '-' ? datosHoja.num_personas_por_habitacion : '',
-          tipoVivienda2: datosHoja.tipo_vivienda_2p !== '-' ? datosHoja.tipo_vivienda_2p : '',
-          caracteristicasVivienda: datosHoja.caractteristicas_vivienda !== '-' ? datosHoja.caractteristicas_vivienda : '',
-          fuenteVacante: datosHoja.como_se_entero !== '-' ? datosHoja.como_se_entero : '',
-
-
-          areaExperiencia: datosHoja.area_experiencia ? datosHoja.area_experiencia.split(',').map((item: string) => item.trim()) : [],
-          conQuienViveChecks: datosHoja.personas_con_quien_convive ? datosHoja.personas_con_quien_convive.split(',').map((item: string) => item.trim()) : [],
-          tiposViviendaChecks: datosHoja.tipo_vivienda ? datosHoja.tipo_vivienda.split(',').map((item: string) => item.trim()) : [],
-          comodidadesChecks: datosHoja.servicios ? datosHoja.servicios.split(',').map((item: string) => item.trim()) : [],
-          expectativasVidaChecks: datosHoja.expectativas_de_vida ? datosHoja.expectativas_de_vida.split(',').map((item: string) => item.trim()) : [],
-          personas_a_cargo: datosHoja.personas_a_cargo ? datosHoja.personas_a_cargo.split(',').map((item: string) => item.trim()) : [],
-
-          porqueLofelicitarian: datosHoja.porqueLofelicitarian !== '-' ? datosHoja.porqueLofelicitarian : '',
-          malentendido: datosHoja.malentendido !== '-' ? datosHoja.malentendido : '',
-          actividadesDi: datosHoja.actividadesDi !== '-' ? datosHoja.actividadesDi : '',
-          experienciaSignificativa: datosHoja.experienciaSignificativa !== '-' ? datosHoja.experienciaSignificativa : '',
-          motivacion: datosHoja.motivacion !== '-' ? datosHoja.motivacion : '',
-
-
-        });
-
-        // Suponiendo que datosHoja.hijos es el array con los datos de los hijos
-        this.llenarDatosHijos(datosHoja.hijos);
-
-      } else {
-        console.error(
-          'La propiedad numerodeceduladepersona no se encontró en los datos recibidos'
-        );
-      }
-    } else {
-      console.error('No se recibieron datos para llenar el formulario');
-    }
-  }
-
-
-
-
-
 
   compareFn(o1: any, o2: any): boolean {
     return o1 === o2;
   }
 
   stringToBoolean(stringValue: any) {
-    if (
-      stringValue === null ||
-      stringValue === undefined ||
-      stringValue.trim() === ''
-    ) {
-      // Retorna false o true dependiendo de lo que consideres adecuado para tu aplicación
-      // cuando el valor de entrada es nulo, undefined o una cadena vacía.
-      return false;
-    }
-    return stringValue.toLowerCase() === 'true';
+    if (stringValue === null || stringValue === undefined || String(stringValue).trim() === '') return false;
+    return String(stringValue).toLowerCase() === 'true';
   }
 
+  // -------------------------
+  // Hijos
+  // -------------------------
   get hijosFormArray() {
     return this.formHojaDeVida2.get('hijos') as FormArray;
   }
 
   inicializarFormularioHijos() {
-    this.formHojaDeVida2
-      .get('numHijosDependientes')!
-      .valueChanges.subscribe((numHijos) => {
-        this.actualizarFormularioHijos(numHijos);
-      });
+    this.formHojaDeVida2.get('numHijosDependientes')!.valueChanges.subscribe((numHijos) => {
+      this.actualizarFormularioHijos(numHijos);
+    });
   }
-
 
   actualizarFormularioHijos(numHijos: number) {
     const hijosArray = this.formHojaDeVida2.get('hijos') as FormArray;
 
-    // Eliminar todos los FormGroup existentes
-    while (hijosArray.length) {
-      hijosArray.removeAt(0);
-    }
+    while (hijosArray.length) hijosArray.removeAt(0);
 
-    // Crear un nuevo FormGroup para cada hijo
-    for (let i = 0; i < numHijos; i++) {
-      hijosArray.push(this.crearFormGroupHijo());
-    }
+    for (let i = 0; i < numHijos; i++) hijosArray.push(this.crearFormGroupHijo());
   }
 
   escucharNumeroDeHijos() {
-    this.formHojaDeVida2
-      .get('numHijosDependientes')!
-      .valueChanges.subscribe((numHijos: number) => {
-        const hijosArray = this.formHojaDeVida2.get('hijos') as FormArray;
-        const hijosActuales = hijosArray.length;
+    this.formHojaDeVida2.get('numHijosDependientes')!.valueChanges.subscribe((numHijos: number) => {
+      const hijosArray = this.formHojaDeVida2.get('hijos') as FormArray;
+      const hijosActuales = hijosArray.length;
 
-        if (numHijos > hijosActuales) {
-          for (let i = hijosActuales; i < numHijos; i++) {
-            hijosArray.push(this.crearFormGroupHijo());
-          }
-        } else {
-          for (let i = hijosActuales; i > numHijos; i--) {
-            hijosArray.removeAt(i - 1);
-          }
-        }
-      });
+      if (numHijos > hijosActuales) {
+        for (let i = hijosActuales; i < numHijos; i++) hijosArray.push(this.crearFormGroupHijo());
+      } else {
+        for (let i = hijosActuales; i > numHijos; i--) hijosArray.removeAt(i - 1);
+      }
+    });
   }
 
   crearFormGroupHijo(): FormGroup {
     return new FormGroup({
-      nombreHijo: new FormControl('', Validators.required),
-      // SEXO, FECHA NACIMIENTO, DOCUMENTO DE IDENTIDAD, OCUPACION, Curso
+      nombreHijo: new FormControl('', [Validators.required, this.nameValidator(1, 6)]),
       sexoHijo: new FormControl('', Validators.required),
-      fechaNacimientoHijo: new FormControl('', Validators.required),
-      docIdentidadHijo: new FormControl('', Validators.required),
-      ocupacionHijo: new FormControl('', Validators.required),
-      cursoHijo: new FormControl('', Validators.required),
+      fechaNacimientoHijo: new FormControl('', [Validators.required, this.dateReasonableValidator(1900)]),
+      docIdentidadHijo: new FormControl('', [Validators.required, Validators.minLength(3)]),
+      ocupacionHijo: new FormControl('', [Validators.required, Validators.minLength(2)]),
+      cursoHijo: new FormControl('', [Validators.required, Validators.minLength(1)]),
     });
   }
 
   generarArrayHijos(): Array<number> {
-    const numHijos =
-      this.formHojaDeVida2.get('numHijosDependientes')?.value || 0;
+    const numHijos = this.formHojaDeVida2.get('numHijosDependientes')?.value || 0;
     return Array.from({ length: numHijos }, (_, i) => i);
   }
 
   actualizarEdadesHijos(numHijos: number) {
-    // Primero, elimina los controles existentes para las edades de los hijos
     Object.keys(this.formHojaDeVida2.controls).forEach((key) => {
-      if (key.startsWith('edadHijo')) {
-        this.formHojaDeVida2.removeControl(key);
-      }
+      if (key.startsWith('edadHijo')) this.formHojaDeVida2.removeControl(key);
     });
 
-    // Luego, agrega nuevos controles basándose en el número de hijos ingresado
     for (let i = 0; i < numHijos; i++) {
-      this.formHojaDeVida2.addControl(
-        `edadHijo${i + 1}`,
-        new FormControl('', Validators.min(0))
-      );
+      this.formHojaDeVida2.addControl(`edadHijo${i + 1}`, new FormControl('', [Validators.min(0), Validators.max(60)]));
     }
   }
 
+  // -------------------------
+  // Colombia JSON
+  // -------------------------
   escucharCambiosEnDepartamento(): void {
-    this.formHojaDeVida2
-      .get('departamento')!
-      .valueChanges.subscribe((departamentoSeleccionado) => {
-        this.ciudadesResidencia = this.actualizarMunicipios(
-          departamentoSeleccionado
-        );
-        this.formHojaDeVida2.get('ciudad')!.enable();
-      });
+    this.formHojaDeVida2.get('departamento')!.valueChanges.subscribe((departamentoSeleccionado) => {
+      this.ciudadesResidencia = this.actualizarMunicipios(departamentoSeleccionado);
+      this.formHojaDeVida2.get('ciudad')!.enable();
+    });
 
-    this.formHojaDeVida2
-      .get('departamentoExpedicionCC')!
-      .valueChanges.subscribe((departamentoSeleccionado) => {
-        this.ciudadesExpedicionCC = this.actualizarMunicipios(
-          departamentoSeleccionado
-        );
-        this.formHojaDeVida2.get('municipioExpedicionCC')!.enable();
-      });
+    this.formHojaDeVida2.get('departamentoExpedicionCC')!.valueChanges.subscribe((departamentoSeleccionado) => {
+      this.ciudadesExpedicionCC = this.actualizarMunicipios(departamentoSeleccionado);
+      this.formHojaDeVida2.get('municipioExpedicionCC')!.enable();
+    });
 
-    this.formHojaDeVida2
-      .get('departamentoNacimiento')!
-      .valueChanges.subscribe((departamentoSeleccionado) => {
-        this.ciudadesNacimiento = this.actualizarMunicipios(
-          departamentoSeleccionado
-        );
-        this.formHojaDeVida2.get('municipioNacimiento')!.enable();
-      });
+    this.formHojaDeVida2.get('departamentoNacimiento')!.valueChanges.subscribe((departamentoSeleccionado) => {
+      this.ciudadesNacimiento = this.actualizarMunicipios(departamentoSeleccionado);
+      this.formHojaDeVida2.get('municipioNacimiento')!.enable();
+    });
   }
 
   actualizarMunicipios(departamentoSeleccionado: string): string[] {
-    const departamento = this.datos.find(
-      (d: any) => d.departamento === departamentoSeleccionado
-    );
+    const departamento = this.datos?.find((d: any) => d.departamento === departamentoSeleccionado);
     return departamento ? departamento.ciudades : [];
   }
 
   async cargarDatosJSON(): Promise<void> {
-    this.http.get('files/utils/colombia.json').subscribe(
-      (data) => {
-        this.datos = data;
-      },
-    );
+    this.http.get('files/utils/colombia.json').subscribe((data) => {
+      this.datos = data;
+    });
   }
 
-  // Manejo del cambio de selección en el select
   onSelectionChange() {
     const deseaGenerar = this.formHojaDeVida2.get('deseaGenerar')?.value;
     this.mostrarSubirHojaVida = deseaGenerar === false;
     this.mostrarCamposAdicionales = deseaGenerar === true;
   }
 
-
-  onArchivoSeleccionado(event: any) {
-    const archivo = event.target.files[0]; // Obtiene el primer archivo seleccionado
-
-    if (archivo) {
-      // Verificar si el tamaño del archivo es válido (ejemplo: máximo 5 MB)
-      const maxSize = 5 * 1024 * 1024; // 5 MB
-      if (archivo.size > maxSize) {
-        Swal.fire({
-          title: 'Archivo demasiado grande',
-          text: 'El archivo no debe exceder 5 MB.',
-          icon: 'error',
-          confirmButtonText: 'Ok'
-        });
-        return; // Terminar si el archivo excede el tamaño máximo
-      }
-
-      // Verificar si el tipo de archivo es válido (solo PDF, Word, etc.)
-      const extensionesValidas = ['application/pdf', 'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-      if (!extensionesValidas.includes(archivo.type)) {
-        Swal.fire({
-          title: 'Formato no permitido',
-          text: 'Solo se permiten archivos PDF o Word.',
-          icon: 'error',
-          confirmButtonText: 'Ok'
-        });
-        return; // Terminar si el formato no es válido
-      }
-
-      // Si el archivo es válido, almacenarlo en una variable
-      this.formHojaDeVida2.patchValue({
-        archivoHojaDeVida: archivo
-      });
-
-      Swal.fire({
-        title: 'Archivo cargado',
-        text: `El archivo "${archivo.name}" se cargó correctamente.`,
-        icon: 'success',
-        confirmButtonText: 'Ok'
-      });
-    }
-  }
-
-  opcionesPromocion: string[] = [
-    "RED SOCIAL (FACEBOOK, INSTAGRAM, TIKTOK)",
-    "YA HABÍA TRABAJADO CON NOSOTROS",
-    "REFERENCIADO POR ALGUIEN QUE YA TRABAJA/O EN LA TEMPORAL",
-    "PERIFONEO (CARRO, MOTO)",
-    "VOLANTES (A PIE)",
-    "CONVOCATORIA EXTERNA (MUNICIPIO, LOCALIDAD, BARRIO)",
-    "PUNTO FÍSICO DIRECTO (PREGUNTÓ EN LA OFICINA TEMPORAL)",
-    "CONVOCATORIA EXTERNA (MUNICIPIO, LOCALIDAD, BARRIO)",
-    "CHAT SERVICIO AL CLIENTE (WHATSAPP, REDES SOCIALES)",
-  ];
-
-  // Arreglo para el tipo de cedula
-  tipoDocs: any[] = [
-    { abbreviation: 'CC', description: 'Cédula de Ciudadanía (CC)' },
-    { abbreviation: 'PPT', description: 'Permiso de permanencia temporal (PPT)' },
-    { abbreviation: 'CE', description: 'Cédula de Extranjería (CE)' },
-  ];
-
-  generos: any[] = ['M', 'F'];
-
-  haceCuantoViveEnlaZona: any[] = [
-    'MENOS DE UN MES',
-    'UN MES',
-    'MÁS DE 2 MESES',
-    'MÁS DE 6 MESES',
-    'TODA LA VIDA'
-  ];
-
-  //  Lista estado civil
-  estadosCiviles: any[] = [
-    {
-      codigo: 'SO',
-      descripcion: 'SO (Soltero)',
-    },
-    {
-      codigo: 'UL',
-      descripcion: 'UL (Unión Libre) ',
-    },
-    {
-      codigo: 'CA',
-      descripcion: 'CA (Casado)',
-    },
-    {
-      codigo: 'SE',
-      descripcion: 'SE (Separado)',
-    },
-    {
-      codigo: 'VI',
-      descripcion: 'VI (Viudo)',
-    },
-  ];
-
-  listadoDeNacionalidades: any[] = [
-    'COLOMBIANA',
-    'VENEZOLANA',
-    'ESTADOUNIDENSE',
-    'ECUATORIANA',
-    'PERUANA',
-    'ESPAÑOLA',
-    'CUBANA',
-    'ARGENTINA',
-    'MEXICANA',
-  ];
-
-
-  listatiposdesangre: any[] = [
-    'AB+',
-    'AB-',
-    'A+',
-    'A-',
-    'B+',
-    'B-',
-    'O+',
-    'O-',
-  ];
-
   opcionBinaria: any[] = [
-    { value: true, display: 'SÍ' },
-    { value: false, display: 'NO' },
-  ];
-
-  listamanos: any[] = [
-    {
-      mano: 'ZURDO',
-      descripcion: 'ZURDO (ESCRIBE CON LA MANO IZQUIERDA)',
-    },
-    {
-      mano: 'DIESTRO',
-      descripcion: 'DIESTRO (ESCRIBE CON LA MANO DERECHA)',
-    },
-    {
-      mano: 'AMBIDIESTRO',
-      descripcion: 'AMBIDIESTRO (ESCRIBE CON AMBAS MANOS)',
-    },
-  ];
-
-
-  tiposVivienda = ['CASA', 'APARTAMENTO', 'FINCA', 'HABITACIÓN'];
-
-  tiposVivienda2: string[] = [
-    'PROPIA TOTALMENTE PAGA',
-    'PROPIA LA ESTÁN PAGANDO',
-    'ARRIENDO',
-    'FAMILIAR',
-  ];
-
-
-  caracteristicasVivienda: string[] = ['OBRA NEGRA', 'OBRA GRIS', 'TERMINADA'];
-
-  comodidades: string[] = [
-    'GAS NATURAL',
-    'TELÉFONO FIJO',
-    'INTERNET',
-    'LAVADERO',
-    'PATIO',
-    'LUZ',
-    'AGUA',
-    'TELEVISIÓN',
-  ];
-
-
-  expectativasVida: string[] = [
-    'EDUCACIÓN PROPIA',
-    'EDUCACIÓN DE LOS HIJOS',
-    'COMPRA DE VIVIENDA',
-    'COMPRA DE AUTOMÓVIL',
-    'VIAJAR',
-    'OTRO',
-  ];
-
-
-  listaEscolaridad: any[] = [
-    '1',
-    '2',
-    '3',
-    '4',
-    '5',
-    '6',
-    '7',
-    '8',
-    '9',
-    '10',
-    '11',
-    'SIN ESTUDIOS',
-    'OTROS',
-  ];
-
-  listaEscoText: any[] = [
-    {
-      esco: 'EDUCACIÓN BÁSICA PRIMARIA',
-      descripcion: 'EDUCACIÓN BÁSICA PRIMARIA - 1 A 5 GRADO',
-    },
-    {
-      esco: 'EDUCACIÓN BÁSICA SECUNDARIA',
-      descripcion: 'EDUCACIÓN BÁSICA SECUNDARIA - 6 A 9 GRADO',
-    },
-    {
-      esco: 'EDUCACIÓN MEDIA ACADÉMICA',
-      descripcion: 'EDUCACIÓN MEDIA ACADÉMICA - 10 A 11 GRADO',
-    },
-    {
-      esco: 'OTRO',
-      descripcion:
-        'OTRO (ESCRIBIR PRIMERO TÍTULO LUEGO NOMBRE) EJ: TÉCNICO ELECTRICISTA',
-    },
-  ];
-
-
-  tallas: any[] = [
-    '4',
-    '6',
-    '8',
-    '10',
-    '12',
-    '14',
-    '16',
-    '34',
-    '36',
-    '38',
-    '40',
-    '42',
-    '44',
-  ];
-
-  tallasCalzado: any[] = ['35', '36', '37', '39', '40', '41', '42', '44'];
-
-  listaParentescosFamiliares: any[] = [
-    'PADRE',
-    'MADRE',
-    'ABUELO/ABUEL@',
-    'BISABUELO/BISABUEL@',
-    'TÍ@',
-    'PRIM@',
-    'SOBRIN@',
-    'HERMAN@',
-    'CUÑAD@',
-    'ESPOS@',
-    'HIJ@',
-    'NIET@',
-    'BISNIET@',
-    'SUEGR@',
-    'YERN@',
-    'HERMANASTR@',
-    'MEDI@ HERMAN@',
-    'PADRE ADOPTIVO',
-    'MADRE ADOPTIVA',
-    'HIJ@ ADOPTIV@',
-    'ABUEL@ ADOPTIV@',
-    'PADRE BIOLÓGICO',
-    'MADRE BIOLÓGICA',
-    'HIJ@ BIOLÓGIC@',
-    'PADRE DE CRIANZA',
-    'MADRE DE CRIANZA',
-    'HIJ@ DE CRIANZA',
-    'TUTOR LEGAL',
-    'CURADOR LEGAL',
-    'PADRIN@',
-    'COMPADR@',
-    'CONCUBIN@',
-    'EX-ESPOS@',
-    'AMIG@',
-    'NINGUNO',
-  ];
-
-
-  Ocupacion: any[] = [
-    'EMPLEADO',
-    'INDEPENDIENTE',
-    'HOGAR (AM@ DE CASA)',
-    'DESEMPLEADO',
-    'OTRO',
-  ];
-
-  listaMotivosRetiro: any[] = [
-    'RENUNCIA VOLUNTARIA',
-    'DESPIDO',
-    'REDUCCIÓN DE PERSONAL',
-    'CIERRE DE LA EMPRESA',
-    'FIN DE CONTRATO TEMPORAL',
-    'ABANDONO DE CARGO',
-  ];
-
-
-  listaAreas: any[] = ['CULTIVO', 'POSCOSECHA', 'AMBAS', 'OTRO'];
-
-  listaCalificaciones: any[] = ['BAJO', 'MEDIO', 'EXCELENTE'];
-
-  listaDuracion: any[] = [
-    'MENOS DE UN MES',
-    '3 MESES',
-    '6 MESES',
-    '1 AÑO',
-    '2 AÑOS',
-    'MÁS DE 2 AÑOS',
-    'TODA LA VIDA',
-  ];
-
-  listatiposVivienda: any[] = [
-    'CASA',
-    'APARTAMENTO',
-    'CASA-LOTE',
-    'FINCA',
-    'HABITACIÓN',
+    { value: 'SI', display: 'SÍ' },
+    { value: 'NO', display: 'NO' },
   ];
 
   oficinas: string[] = [
-    'ANDES', 'BOSA', 'CARTAGENITA', 'FACA_PRIMERA', 'FACA_PRINCIPAL', 'FONTIBÓN',
-    'FORANEOS', 'FUNZA', 'MADRID', 'MONTE_VERDE', 'ROSAL', 'SOACHA', 'SUBA',
-    'TOCANCIPÁ', 'USME'
+    'ANDES',
+    'BOSA',
+    'CARTAGENITA',
+    'FACA_PRIMERA',
+    'FACA_PRINCIPAL',
+    'FONTIBÓN',
+    'FORANEOS',
+    'FUNZA',
+    'MADRID',
+    'MONTE_VERDE',
+    'ROSAL',
+    'SOACHA',
+    'SUBA',
+    'TOCANCIPÁ',
+    'USME',
   ];
 
+  shouldShowError(controlName: string): boolean {
+    const c = this.formHojaDeVida2.get(controlName);
+    return !!c && c.invalid && (c.touched || c.dirty);
+  }
 
-  listaPosiblesRespuestasConquienVive: any[] = [
-    'AMIGOS',
-    'ABUELO',
-    'ABUELA',
-    'PAREJA',
-    'PAPÁ',
-    'MAMÁ',
-    'HERMANO',
-    'HERMANA',
-    'TÍO',
-    'TÍA',
-    'PRIMO',
-    'PRIMA',
-    'SOBRINO',
-    'SOBRINA',
-    'SOLO'
-  ];
+  private readonly FIELD_ERROR_MESSAGES: Record<string, Record<string, string | ((ctx?: any) => string)>> = {
+    pNombre: {
+      required: 'Escribe tu primer nombre.',
+      nameBadChars: 'El nombre solo debe tener letras. No uses números ni símbolos.',
+      nameShortWord: 'Cada palabra del nombre debe tener mínimo 2 letras.',
+      nameMaxWords: () => 'Máximo 4 palabras en el nombre.',
+    },
+    pApellido: {
+      required: 'Escribe tu primer apellido.',
+      nameBadChars: 'El apellido solo debe tener letras. No uses números ni símbolos.',
+      nameShortWord: 'Cada palabra del apellido debe tener mínimo 2 letras.',
+      nameMaxWords: () => 'Máximo 4 palabras en el apellido.',
+    },
 
-  listaPersonasQueCuidan: any[] = [
-    'YO',
-    'PAREJA O ESPOSA',
-    'AMIGOS',
-    'JARDÍN',
-    'SON INDEPENDIENTES',
-    'FAMILIAR',
-    'COLEGIO',
-    'UNIVERSIDAD',
-    'AMIG@S',
-    'NIÑERA',
-    'DUEÑA APARTAMENTO',
-  ];
+    sNombre: {
+      nameBadChars: 'El segundo nombre solo debe tener letras.',
+      nameShortWord: 'Cada palabra debe tener mínimo 2 letras.',
+      nameMaxWords: () => 'Máximo 4 palabras.',
+    },
+    sApellido: {
+      nameBadChars: 'El segundo apellido solo debe tener letras.',
+      nameShortWord: 'Cada palabra debe tener mínimo 2 letras.',
+      nameMaxWords: () => 'Máximo 4 palabras.',
+    },
 
-  listaPosiblesRespuestasPersonasACargo: any[] = [
-    'HIJOS',
-    'ABUELOS',
-    'PAPÁS',
-    'HERMANOS',
-    'PERSONAS CON CUIDADOS ESPECIALES',
-    'OTRO',
-    'TÍOS',
-  ];
+    familiarEmergencia: {
+      required: 'Escribe nombre y apellido del familiar (mínimo 2 palabras).',
+      nameMinWords: () => 'Escribe nombre y apellido del familiar (mínimo 2 palabras).',
+    },
+    nombrePadre: {
+      required: 'Escribe nombre y apellido del padre (mínimo 2 palabras).',
+      nameMinWords: () => 'Escribe nombre y apellido del padre (mínimo 2 palabras).',
+    },
+    nombreMadre: {
+      required: 'Escribe nombre y apellido de la madre (mínimo 2 palabras).',
+      nameMinWords: () => 'Escribe nombre y apellido de la madre (mínimo 2 palabras).',
+    },
 
+    conQuienViveChecks: { required: 'Selecciona al menos una opción.' },
+    tiposViviendaChecks: { required: 'Selecciona al menos una opción.' },
+    comodidadesChecks: { required: 'Selecciona al menos una opción.' },
+    expectativasVidaChecks: { required: 'Selecciona al menos una opción.' },
+    personas_a_cargo: { required: 'Selecciona al menos una opción.' },
 
-  opcionesDeExperiencia: any[] = [
-    'SECTOR FLORICULTOR (POSCOSECHA- CLASIFICACIÓN, BONCHEO, EMPAQUE, CUARTO FRÍO)',
-    'SECTOR FLORICULTOR (CALIDAD- MIPE)',
-    'SECTOR FLORICULTOR (ÁREA DE MANTENIMIENTO- ORNATOS, TRABAJO EN ALTURAS, MECÁNICOS, JEFATURAS Y SUPERVISIÓN)',
-    'SECTOR COMERCIAL (VENTAS)',
-    'SECTOR INDUSTRIAL (ALIMENTOS- TEXTIL- TRANSPORTE)',
-    'SECTOR FINANCIERO',
-    'SECTOR ADMINISTRATIVO Y CONTABLE',
-    'SIN EXPERIENCIA',
-  ];
+    numHijosDependientes: {
+      required: 'Indica cuántos hijos dependen económicamente de ti.',
+      min: () => 'No puede ser menor que 0.',
+      max: () => 'Máximo 5.',
+    },
+  };
 
-  tiempoTrabajado: any[] = [
-    'DE 15 DÍAS A 1 MES (UNA TEMPORADA)',
-    'DE 2 A 6 MESES',
-    'MÁS DE 6 MESES',
-    'UN AÑO O MÁS',
-  ];
+  getErrorMessage(controlName: string): string {
+    const c = this.formHojaDeVida2.get(controlName);
+    if (!c || !c.errors) return '';
 
-  cursosDespuesColegio: any[] = [
-    'TÉCNICO',
-    'TECNÓLOGO',
-    'UNIVERSIDAD',
-    'ESPECIALIZACIÓN',
-    'NINGUNA',
-  ];
+    const errors = c.errors;
 
-  areasExperiencia: string[] = [
-    'SECTOR FLORICULTOR (POSCOSECHA- CLASIFICACIÓN, BONCHEO, EMPAQUE, CUARTO FRÍO)',
-    'SECTOR FLORICULTOR (CALIDAD- MIPE)',
-    'SECTOR FLORICULTOR (ÁREA DE MANTENIMIENTO- ORNATOS, TRABAJO EN ALTURAS, MECÁNICOS, ELECTRICISTAS)',
-    'JEFATURAS Y SUPERVISIÓN',
-    'SECTOR COMERCIAL (VENTAS)',
-    'SECTOR INDUSTRIAL (ALIMENTOS- TEXTIL- TRANSPORTE)',
-    'SECTOR FINANCIERO',
-    'SECTOR ADMINISTRATIVO Y CONTABLE',
-    'SIN EXPERIENCIA',
-  ];
+    const fieldMap = this.FIELD_ERROR_MESSAGES[controlName];
+    if (fieldMap) {
+      for (const key of Object.keys(errors)) {
+        const msg = fieldMap[key];
+        if (msg) return typeof msg === 'function' ? msg(errors[key]) : msg;
+      }
+    }
 
+    if (errors['required']) {
+      return Array.isArray(c.value) ? 'Selecciona al menos una opción.' : 'Este campo es obligatorio.';
+    }
+
+    if (errors['email']) return 'Ingresa un correo válido.';
+
+    if (errors['minlength']) {
+      return `Escribe mínimo ${errors['minlength'].requiredLength} caracteres.`;
+    }
+    if (errors['maxlength']) {
+      return `Escribe máximo ${errors['maxlength'].requiredLength} caracteres.`;
+    }
+
+    if (errors['pattern']) {
+      return 'El formato no es válido. Revisa lo que escribiste.';
+    }
+
+    if (errors['min']) return `El valor mínimo permitido es ${errors['min'].min}.`;
+    if (errors['max']) return `El valor máximo permitido es ${errors['max'].max}.`;
+
+    if (errors['docId']) {
+      const tipo = String(this.formHojaDeVida2.get('tipoDoc')?.value ?? '').toUpperCase().trim();
+      if (tipo === 'CC') return 'Para CC: escribe solo números (6 a 12 dígitos), sin puntos.';
+      return 'Documento inválido: usa solo letras y números (4 a 20), sin espacios.';
+    }
+
+    if (errors['phoneCO']) {
+      return 'Número inválido. Celular: 10 dígitos y empieza por 3. Fijo: 7 dígitos.';
+    }
+
+    if (errors['dateFuture']) return 'La fecha no puede ser futura.';
+    if (errors['dateMinYear']) return 'La fecha es demasiado antigua.';
+
+    if (errors['yearMin']) return 'El año es demasiado antiguo.';
+    if (errors['yearMax']) return 'El año no puede ser mayor al año actual.';
+
+    if (errors['nameMinWords']) return 'Escribe mínimo nombre y apellido.';
+    if (errors['nameMaxWords']) return 'Escribiste demasiadas palabras.';
+    if (errors['nameShortWord']) return 'Cada palabra debe tener mínimo 2 letras.';
+    if (errors['nameBadChars']) return 'Solo letras. No uses números ni símbolos.';
+
+    return 'Revisa este campo.';
+  }
 }

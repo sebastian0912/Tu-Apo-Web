@@ -58,8 +58,51 @@ export class CandidateS {
   }
 
   // Crear o actualizar candidato
+  private toUpperDeep(value: any): any {
+    if (value === null || value === undefined) return value;
+
+    // Files / Blobs
+    if (typeof File !== 'undefined' && value instanceof File) return value;
+    if (typeof Blob !== 'undefined' && value instanceof Blob) return value;
+
+    // Date
+    if (value instanceof Date) return value;
+
+    // Array
+    if (Array.isArray(value)) {
+      return value.map(v => this.toUpperDeep(v));
+    }
+
+    // Object
+    if (typeof value === 'object') {
+      const out: any = {};
+      for (const [k, v] of Object.entries(value)) {
+        out[k] = this.toUpperDeep(v);
+      }
+      return out;
+    }
+
+    // String
+    if (typeof value === 'string') {
+      const s = value.trim();
+
+      // no tocar emails / urls
+      const looksLikeEmail = s.includes('@');
+      const looksLikeUrl = /^https?:\/\//i.test(s);
+
+      if (looksLikeEmail || looksLikeUrl) return value;
+
+      return s.toUpperCase();
+    }
+
+    // number/boolean/etc
+    return value;
+  }
+
+  // Crear o actualizar candidato
   crearActualizarCandidato(data: any): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/contratacion/candidato/`, data);
+    const payload = this.toUpperDeep(data);
+    return this.http.post<any>(`${this.apiUrl}/gestion_contratacion/candidatos/`, payload);
   }
 
   subirFirmaBase64(pk: number | string, firmaBase64: string): Observable<UploadFotoResponse> {

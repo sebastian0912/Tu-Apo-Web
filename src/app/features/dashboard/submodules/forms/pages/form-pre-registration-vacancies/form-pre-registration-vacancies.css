@@ -15,6 +15,20 @@
   --shadow: 0 10px 26px rgba(15, 23, 42, 0.10);
   --shadow-sm: 0 6px 16px rgba(15, 23, 42, 0.08);
 
+  /* Stepper chevron vars (compact + horizontal scroll) */
+  --stepper-bg: #ffffff;
+  /* fondo del header */
+  --chev: 14px;
+  /* tamaño punta */
+  --step-h: 46px;
+  /* alto del segmento (compacto) */
+  --step-gap: 8px;
+  /* separación entre segmentos (evita montarse) */
+  --step-min-w: 190px;
+  /* ancho mínimo del segmento (fuerza scroll) */
+  --step-pad-x: 14px;
+  /* padding interno texto */
+
   display: block;
   color: var(--text);
   -webkit-font-smoothing: antialiased;
@@ -43,13 +57,13 @@
 }
 
 .search-card ::ng-deep .mat-mdc-card-content {
-  padding: 22px;
+  padding: 20px;
 }
 
 .search-head {
   display: grid;
   gap: 6px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   text-align: center;
 }
 
@@ -90,12 +104,12 @@
   border: 1px solid var(--line);
   background: var(--card);
   box-shadow: var(--shadow);
-  padding: 22px;
+  padding: 20px;
 }
 
 .title {
   text-align: center;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .title h2 {
@@ -110,28 +124,28 @@
   position: relative;
   border-radius: var(--radius-sm);
   overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.08);
 }
 
-/* ===== Progress ===== */
+/* ===== Progress (compact) ===== */
 .progress-wrap {
   display: grid;
-  gap: 8px;
-  padding: 12px 12px 6px;
+  gap: 6px;
+  padding: 10px 12px 8px;
   border-bottom: 1px solid var(--line);
-  background:
-    linear-gradient(180deg, rgba(141, 214, 3, 0.10), rgba(141, 214, 3, 0.00));
+  background: linear-gradient(180deg, rgba(141, 214, 3, 0.10), rgba(141, 214, 3, 0.00));
 }
 
 .progress-label {
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--muted);
   text-align: center;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 /* Make progress bar branded */
 .progress-wide {
-  height: 10px;
+  height: 8px;
   border-radius: 999px;
   overflow: hidden;
 }
@@ -147,13 +161,14 @@
 /* ===== Stepper nav buttons (left/right) ===== */
 .stepper-nav {
   position: absolute;
-  z-index: 5;
-  top: 64px; /* sits over the header row (below progress) */
-  width: 36px;
-  height: 36px;
+  z-index: 12;
+  top: calc(10px + 8px + 6px + 12px + (var(--step-h) / 2) - 18px);
+  /* arriba: padding progress + barra + gap + label approx + centrar en header */
+  width: 34px;
+  height: 34px;
   border-radius: 999px;
   border: 1px solid rgba(15, 23, 42, 0.10);
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.94);
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.10);
   display: inline-flex;
   align-items: center;
@@ -196,21 +211,36 @@
   background: transparent;
 }
 
-/* Header container: horizontal scroll + nicer spacing */
+/* Quita la línea horizontal del stepper */
+::ng-deep .responsive-stepper .mat-stepper-horizontal-line {
+  display: none !important;
+}
+
+/* Header container: fuerza scroll horizontal y evita “aplastar” los steps */
 ::ng-deep .responsive-stepper .mat-horizontal-stepper-header-container {
-  padding: 10px 52px; /* room for nav buttons */
+  position: relative;
+  padding: 10px 52px 12px;
+  /* espacio para nav buttons */
   border-bottom: 1px solid var(--line);
-  gap: 10px;
+  background: var(--stepper-bg);
+
+  display: flex;
+  align-items: center;
+  gap: var(--step-gap);
+
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
+
   scroll-behavior: smooth;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
+
+  /* snap suave para que cada chevron “caiga” bien */
   scroll-snap-type: x proximity;
 }
 
-/* Chrome/Edge scrollbars */
+/* Scrollbar (Chrome/Edge) */
 ::ng-deep .responsive-stepper .mat-horizontal-stepper-header-container::-webkit-scrollbar {
   height: 10px;
 }
@@ -229,71 +259,138 @@
   background: rgba(15, 23, 42, 0.28);
 }
 
-/* Each step header becomes a “pill” */
-::ng-deep .responsive-stepper .mat-step-header {
-  border-radius: 999px;
-  padding: 10px 12px;
-  background: rgba(15, 23, 42, 0.035);
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
-  scroll-snap-align: start;
-  min-height: 44px;
+/* Oculta el icono/numero default del stepper (queda tu icon + texto) */
+::ng-deep .responsive-stepper .mat-step-header .mat-step-icon,
+::ng-deep .responsive-stepper .mat-step-header .mat-step-icon-state-number,
+::ng-deep .responsive-stepper .mat-step-header .mat-step-icon-state-done,
+::ng-deep .responsive-stepper .mat-step-header .mat-step-icon-state-edit {
+  display: none !important;
 }
 
-/* Prevent header shrinking too much: keeps pills readable */
-::ng-deep .responsive-stepper .mat-step-header .mat-step-label {
-  white-space: nowrap;
+/* ====== CHEVRON SEGMENTS (sin montarse) ====== */
+::ng-deep .responsive-stepper .mat-step-header {
+  /* colores por estado */
+  --_bg: rgba(15, 23, 42, 0.045);
+  --_bd: rgba(15, 23, 42, 0.14);
+  --_fg: #0f172a;
+
+  flex: 0 0 auto;
+  /* <- clave: no se encoge, hace scroll */
+  min-width: var(--step-min-w);
+  /* <- clave: fuerza scroll horizontal */
+  height: var(--step-h);
+  min-height: var(--step-h) !important;
+
+  display: flex;
+  align-items: center;
+
+  padding: 0 calc(var(--step-pad-x) + var(--chev)) 0 calc(var(--step-pad-x) + var(--chev));
+  background: var(--_bg);
+  color: var(--_fg);
+
+  /* “borde” sin border real (queda bien con clip-path) */
+  box-shadow: inset 0 0 0 1px var(--_bd);
+
+  /* forma chevron compacta */
+  clip-path: polygon(0 0,
+      calc(100% - var(--chev)) 0,
+      100% 50%,
+      calc(100% - var(--chev)) 100%,
+      0 100%,
+      var(--chev) 50%);
+
+  border-radius: 10px;
+  /* suaviza un poco el render en algunos browsers */
+  scroll-snap-align: start;
+
+  transition: transform 120ms ease, filter 120ms ease;
 }
 
 ::ng-deep .responsive-stepper .mat-step-header:hover {
   transform: translateY(-1px);
-  background: rgba(141, 214, 3, 0.10);
-  border-color: rgba(141, 214, 3, 0.30);
+  filter: brightness(0.99);
 }
 
+/* First: sin “mordida” izquierda */
+::ng-deep .responsive-stepper .mat-step-header:first-of-type {
+  padding-left: var(--step-pad-x);
+  clip-path: polygon(0 0,
+      calc(100% - var(--chev)) 0,
+      100% 50%,
+      calc(100% - var(--chev)) 100%,
+      0 100%);
+}
+
+/* Last: sin punta derecha */
+::ng-deep .responsive-stepper .mat-step-header:last-of-type {
+  padding-right: var(--step-pad-x);
+  clip-path: polygon(0 0,
+      100% 0,
+      100% 100%,
+      0 100%,
+      var(--chev) 50%);
+}
+
+/* Estado ACTIVO */
+::ng-deep .responsive-stepper .mat-step-header.mat-active {
+  --_bg: rgba(141, 214, 3, 0.95);
+  --_bd: rgba(15, 23, 42, 0.20);
+  --_fg: #0b2100;
+  z-index: 3;
+}
+
+/* Estado COMPLETADO */
+::ng-deep .responsive-stepper .mat-step-header.mat-completed {
+  --_bg: rgba(141, 214, 3, 0.18);
+  --_bd: rgba(141, 214, 3, 0.55);
+  --_fg: #0b2100;
+  z-index: 2;
+}
+
+/* Label del step: compacto, sin saltos feos */
+::ng-deep .responsive-stepper .mat-step-header .mat-step-label,
+::ng-deep .responsive-stepper .mat-step-header .mat-step-text-label {
+  color: var(--_fg) !important;
+  font-weight: 900;
+  line-height: 1.12;
+
+  /* evita “crecer” alto: recorta con ellipsis */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Tu wrapper (mat-icon + texto) */
 .stepper-label {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 800;
-  color: #111827;
+  gap: 10px;
+  font-weight: 900;
   letter-spacing: -0.01em;
+  color: inherit;
+  min-width: 0;
+  /* permite ellipsis */
 }
 
 .stepper-label mat-icon {
-  color: var(--brand);
+  color: currentColor;
+  opacity: 0.95;
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
 }
 
-/* Active / completed */
-::ng-deep .responsive-stepper .mat-step-header.mat-active {
-  background: rgba(141, 214, 3, 0.14);
-  border-color: rgba(141, 214, 3, 0.45);
-}
-
-::ng-deep .responsive-stepper .mat-step-header .mat-step-icon {
-  background: rgba(15, 23, 42, 0.10);
-  color: #111827;
-}
-
-::ng-deep .responsive-stepper .mat-step-header.mat-active .mat-step-icon,
-::ng-deep .responsive-stepper .mat-step-header.mat-step-header-selected .mat-step-icon {
-  background: var(--brand) !important;
-  color: #0b2100 !important;
-}
-
-::ng-deep .responsive-stepper .mat-step-header.mat-completed .mat-step-icon {
-  background: var(--brand) !important;
-  color: #0b2100 !important;
-}
-
-/* Removes the default connecting line feel a bit */
-::ng-deep .responsive-stepper .mat-stepper-horizontal-line {
-  border-top-color: rgba(15, 23, 42, 0.10);
+.stepper-label span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
 }
 
 /* Step body padding */
 ::ng-deep .responsive-stepper .mat-horizontal-content-container {
-  padding: 18px 8px 6px;
+  padding: 16px 10px 8px;
 }
 
 /* ===== Grids ===== */
@@ -341,8 +438,8 @@
 
 .section-title {
   margin: 0;
-  font-weight: 800;
-  font-size: 16px;
+  font-weight: 900;
+  font-size: 15px;
   letter-spacing: -0.01em;
 }
 
@@ -370,7 +467,7 @@
   align-items: center;
   gap: 10px;
   margin-bottom: 10px;
-  font-weight: 800;
+  font-weight: 900;
 }
 
 .spacer {
@@ -388,7 +485,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 10px;
-  padding: 12px 6px 6px;
+  padding: 10px 6px 8px;
   margin-top: 6px;
   border-top: 1px solid var(--line);
 }
@@ -413,7 +510,7 @@
   border: 1px dashed rgba(141, 214, 3, 0.55);
   background: rgba(141, 214, 3, 0.10);
   color: #1f2937;
-  font-weight: 700;
+  font-weight: 800;
   text-align: center;
   box-shadow: var(--shadow-sm);
 }
@@ -469,7 +566,7 @@
   filter: saturate(0.95);
 }
 
-/* ===== Disabled "Oficina" look (since it will be auto-filled and disabled from TS) ===== */
+/* ===== Disabled "Oficina" look ===== */
 ::ng-deep .mat-mdc-form-field.mat-form-field-disabled .mdc-text-field--outlined,
 ::ng-deep .mat-mdc-form-field.mat-form-field-disabled .mdc-notched-outline {
   opacity: 0.92;
@@ -478,11 +575,18 @@
 ::ng-deep .mat-mdc-form-field.mat-form-field-disabled .mdc-floating-label,
 ::ng-deep .mat-mdc-form-field.mat-form-field-disabled .mat-mdc-select-value-text {
   color: rgba(15, 23, 42, 0.72) !important;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 /* ===== Responsive ===== */
 @media (max-width: 900px) {
+  :host {
+    --chev: 12px;
+    --step-h: 44px;
+    --step-min-w: 170px;
+    --step-gap: 8px;
+  }
+
   .search-grid {
     grid-template-columns: 1fr;
   }
@@ -502,18 +606,16 @@
   }
 
   ::ng-deep .responsive-stepper .mat-horizontal-content-container {
-    padding: 16px 4px 6px;
+    padding: 14px 8px 8px;
   }
 
-  /* Nav buttons a bit smaller on mobile */
   .stepper-nav {
-    top: 62px;
-    width: 34px;
-    height: 34px;
+    width: 32px;
+    height: 32px;
   }
 
   ::ng-deep .responsive-stepper .mat-horizontal-stepper-header-container {
-    padding: 10px 46px;
+    padding: 10px 46px 12px;
   }
 }
 

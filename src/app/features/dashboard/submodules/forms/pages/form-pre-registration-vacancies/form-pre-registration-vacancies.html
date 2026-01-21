@@ -1,952 +1,972 @@
 <div class="contenedor">
-
   <!-- =========================
        BUSCAR POR DOCUMENTO
   ========================== -->
   @if (!showForm) {
-    <mat-card class="search-card">
-      <mat-card-content>
-        <div class="search-head">
-          <h2 class="search-title">Buscar por documento</h2>
-          <p class="search-subtitle">
-            Ingresa tipo y número de documento para consultar y luego habilitar el formulario.
-          </p>
+  <mat-card class="search-card">
+    <mat-card-content>
+      <div class="search-head">
+        <h2 class="search-title">Buscar por documento</h2>
+        <p class="search-subtitle">
+          Ingresa tipo y número de documento para consultar y luego habilitar el
+          formulario.
+        </p>
+      </div>
+
+      <form
+        class="search-grid"
+        [formGroup]="searchForm"
+        autocomplete="off"
+        (ngSubmit)="onBuscar()">
+
+        <!-- Tipo doc (búsqueda) -->
+        <mat-form-field appearance="outline">
+          <mat-label>Tipo de documento</mat-label>
+          <mat-select formControlName="tipo_doc" required>
+            @for (tipoDoc of tipoDocs; track tipoDoc.abbreviation) {
+            <mat-option [value]="tipoDoc.abbreviation">
+              {{ tipoDoc.description }}
+            </mat-option>
+            }
+          </mat-select>
+
+          @let sTipo = searchForm.get('tipo_doc');
+          @if (sTipo?.hasError('required') && (sTipo?.touched || sTipo?.dirty))
+          {
+          <mat-error>Seleccione un tipo de documento.</mat-error>
+          }
+        </mat-form-field>
+
+        <!-- Número doc (búsqueda) -->
+        <mat-form-field appearance="outline">
+          <mat-label>Número de documento</mat-label>
+          <input
+            matInput
+            formControlName="numero_documento"
+            placeholder="Ej: 10058478963"
+            maxlength="15"
+            type="tel"
+            inputmode="numeric"
+            autocomplete="off" />
+          <mat-hint>
+            Escribe solo números. La “X” se maneja internamente según el tipo.
+          </mat-hint>
+
+          @let sNum = searchForm.get('numero_documento');
+          @if (sNum?.hasError('required') && (sNum?.touched || sNum?.dirty)) {
+          <mat-error>El número de documento es obligatorio.</mat-error>
+          }
+          @if (sNum?.hasError('pattern') && (sNum?.touched || sNum?.dirty)) {
+          <mat-error>Solo se permiten números.</mat-error>
+          }
+          @if (('' + (sNum?.value ?? '')).length < 6 && (sNum?.touched ||
+          sNum?.dirty)) {
+          <mat-error>Debe tener mínimo 6 dígitos.</mat-error>
+          }
+        </mat-form-field>
+
+        <!-- Botones -->
+        <div class="search-actions">
+          <button
+            mat-flat-button
+            color="primary"
+            type="submit"
+            [disabled]="isSearching || searchForm.invalid">
+            <mat-icon>search</mat-icon>
+            Buscar
+          </button>
+
+          <button
+            mat-stroked-button
+            type="button"
+            [disabled]="isSearching"
+            (click)="searchForm.reset(); showForm = false; foundCandidate = null;">
+            <mat-icon>restart_alt</mat-icon>
+            Limpiar
+          </button>
         </div>
-
-        <form
-          class="search-grid"
-          [formGroup]="searchForm"
-          autocomplete="off"
-          (ngSubmit)="onBuscar()"
-        >
-          <!-- Tipo doc (búsqueda) -->
-          <mat-form-field appearance="outline">
-            <mat-label>Tipo de documento</mat-label>
-            <mat-select formControlName="tipo_doc" required>
-              @for (tipoDoc of tipoDocs; track tipoDoc.abbreviation) {
-                <mat-option [value]="tipoDoc.abbreviation">
-                  {{ tipoDoc.description }}
-                </mat-option>
-              }
-            </mat-select>
-
-            @let sTipo = searchForm.get('tipo_doc');
-            @if (sTipo?.hasError('required') && (sTipo?.touched || sTipo?.dirty)) {
-              <mat-error>Seleccione un tipo de documento.</mat-error>
-            }
-          </mat-form-field>
-
-          <!-- Número doc (búsqueda) -->
-          <mat-form-field appearance="outline">
-            <mat-label>Número de documento</mat-label>
-            <input
-              matInput
-              formControlName="numero_documento"
-              placeholder="Ej: 10058478963"
-              maxlength="15"
-              type="tel"
-              inputmode="numeric"
-              autocomplete="off"
-            />
-            <mat-hint>Escribe solo números. La “X” se maneja internamente según el tipo.</mat-hint>
-
-            @let sNum = searchForm.get('numero_documento');
-            @if (sNum?.hasError('required') && (sNum?.touched || sNum?.dirty)) {
-              <mat-error>El número de documento es obligatorio.</mat-error>
-            }
-            @if (sNum?.hasError('pattern') && (sNum?.touched || sNum?.dirty)) {
-              <mat-error>Solo se permiten números.</mat-error>
-            }
-            @if (('' + (sNum?.value ?? '')).length < 6 && (sNum?.touched || sNum?.dirty)) {
-              <mat-error>Debe tener mínimo 6 dígitos.</mat-error>
-            }
-          </mat-form-field>
-
-          <!-- Botones -->
-          <div class="search-actions">
-            <button
-              mat-flat-button
-              color="primary"
-              type="submit"
-              [disabled]="isSearching || searchForm.invalid"
-            >
-              <mat-icon>search</mat-icon>
-              Buscar
-            </button>
-
-            <button
-              mat-stroked-button
-              type="button"
-              [disabled]="isSearching"
-              (click)="searchForm.reset(); showForm = false; foundCandidate = null;"
-            >
-              <mat-icon>restart_alt</mat-icon>
-              Limpiar
-            </button>
-          </div>
-        </form>
-      </mat-card-content>
-    </mat-card>
+      </form>
+    </mat-card-content>
+  </mat-card>
   }
 
   <!-- =========================
        FORMULARIO (SOLO DESPUÉS DE BUSCAR)
   ========================== -->
   @if (showForm) {
-    <form
-      class="formulario"
-      [formGroup]="formVacante"
-      autocomplete="off"
-      (ngSubmit)="onSubmit()"
-    >
-      <div class="title">
-        <h2>Llena la siguiente información</h2>
+  <form
+    class="formulario"
+    [formGroup]="formVacante"
+    autocomplete="off"
+    (ngSubmit)="onSubmit()">
+
+    <div class="title">
+      <h2>Llena la siguiente información.</h2>
+    </div>
+
+    <!-- Contenedor para el stepper + scroll -->
+    <div class="stepper-outer" #stepperHost>
+      <!-- Progreso por paso -->
+      <div class="progress-wrap">
+        <mat-progress-bar
+          class="progress-wide"
+          mode="determinate"
+          [value]="((currentStepIndex + 1) / totalSteps) * 100">
+        </mat-progress-bar>
+
+        <div class="progress-label">
+          Paso {{ currentStepIndex + 1 }} de {{ totalSteps }}
+          — {{ (((currentStepIndex + 1) / totalSteps) * 100) | number:'1.0-0'
+          }}%
+        </div>
       </div>
 
-      <!-- Contenedor para el stepper + scroll -->
-      <div class="stepper-outer" #stepperHost>
-        <!-- Progreso por paso -->
-        <div class="progress-wrap">
-          <mat-progress-bar
-            class="progress-wide"
-            mode="determinate"
-            [value]="((currentStepIndex + 1) / totalSteps) * 100"
-          ></mat-progress-bar>
+      <!-- ✅ Flechas para scroll horizontal del header -->
+      <button
+        type="button"
+        class="stepper-nav prev"
+        (click)="scrollHeaders(-1)"
+        aria-label="Paso anterior">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
 
-          <div class="progress-label">
-            Paso {{ currentStepIndex + 1 }} de {{ totalSteps }}
-            — {{ (((currentStepIndex + 1) / totalSteps) * 100) | number:'1.0-0' }}%
-          </div>
-        </div>
+      <button
+        type="button"
+        class="stepper-nav next"
+        (click)="scrollHeaders(1)"
+        aria-label="Paso siguiente">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
 
-        <!-- ✅ Flechas para scroll horizontal del header -->
-        <button
-          type="button"
-          class="stepper-nav prev"
-          (click)="scrollHeaders(-1)"
-          aria-label="Paso anterior"
-        >
-          <mat-icon>chevron_left</mat-icon>
-        </button>
+      <!-- Stepper -->
+      <mat-horizontal-stepper
+        #stepper
+        class="responsive-stepper"
+        [linear]="true"
+        labelPosition="end"
+        (selectionChange)="onStepChange($event)">
 
-        <button
-          type="button"
-          class="stepper-nav next"
-          (click)="scrollHeaders(1)"
-          aria-label="Paso siguiente"
-        >
-          <mat-icon>chevron_right</mat-icon>
-        </button>
-
-        <!-- Stepper -->
-        <mat-horizontal-stepper
-          #stepper
-          class="responsive-stepper"
-          [linear]="true"
-          labelPosition="end"
-          (selectionChange)="onStepChange($event)"
-        >
-          <!-- =========================
-               Paso 1: Identificación y documento
+        <!-- =========================
+                 Paso 1: Identificación y documento
           ========================== -->
-          <mat-step [stepControl]="step1Ctrl">
-            <ng-template matStepLabel>
-              <span class="stepper-label">
-                <mat-icon inline="true" aria-hidden="true">badge</mat-icon>
-                <span>Identificación</span>
-              </span>
-            </ng-template>
+        <mat-step [stepControl]="step1Ctrl">
+          <ng-template matStepLabel>
+            <span class="stepper-label">
+              <mat-icon inline="true" aria-hidden="true">badge</mat-icon>
+              <span>Identificación</span>
+            </span>
+          </ng-template>
 
-            <div class="datos">
-              <mat-form-field appearance="outline">
-                <mat-label>Oficina</mat-label>
-                <mat-select formControlName="oficina" required>
-                  @for (o of oficinas; track o) {
-                    <mat-option [value]="o">{{ o }}</mat-option>
-                  }
-                </mat-select>
-              </mat-form-field>
-
-              <!-- Tipo de documento -->
-              <mat-form-field appearance="outline">
-                <mat-label>Tipo de documento</mat-label>
-                <mat-select formControlName="tipo_doc" required>
-                  @for (tipoDoc of tipoDocs; track tipoDoc.abbreviation) {
-                    <mat-option [value]="tipoDoc.abbreviation">
-                      {{ tipoDoc.description }}
-                    </mat-option>
-                  }
-                </mat-select>
-
-                @let tipoDocCtrl = formVacante.get('tipo_doc');
-                @if (tipoDocCtrl?.hasError('required') && (tipoDocCtrl?.touched || tipoDocCtrl?.dirty)) {
-                  <mat-error>Seleccione un tipo de documento.</mat-error>
+          <div class="datos">
+            <mat-form-field appearance="outline">
+              <mat-label>Oficina</mat-label>
+              <mat-select formControlName="oficina" required>
+                @for (o of oficinas; track o) {
+                <mat-option [value]="o">{{ o }}</mat-option>
                 }
-              </mat-form-field>
+              </mat-select>
+            </mat-form-field>
 
-              <!-- Número de documento -->
-              <mat-form-field appearance="outline">
-                <mat-label>Número de documento</mat-label>
-                <input
-                  matInput
-                  formControlName="numero_documento"
-                  placeholder="Ej: 10058478963"
-                  maxlength="32"
-                  type="tel"
-                  inputmode="numeric"
-                  autocomplete="off"
-                />
-                <mat-hint>Escribe solo números. El sistema agregará “X” al enviar si aplica.</mat-hint>
-
-                @let numDoc = formVacante.get('numero_documento');
-                @if (numDoc?.hasError('required') && (numDoc?.touched || numDoc?.dirty)) {
-                  <mat-error>El número de documento es obligatorio.</mat-error>
+            <!-- Tipo de documento -->
+            <mat-form-field appearance="outline">
+              <mat-label>Tipo de documento</mat-label>
+              <mat-select formControlName="tipo_doc" required>
+                @for (tipoDoc of tipoDocs; track tipoDoc.abbreviation) {
+                <mat-option [value]="tipoDoc.abbreviation">
+                  {{ tipoDoc.description }}
+                </mat-option>
                 }
-                @if (numDoc?.hasError('pattern') && (numDoc?.touched || numDoc?.dirty)) {
-                  <mat-error>Solo se permiten números.</mat-error>
-                }
-                @if (('' + (numDoc?.value ?? '')).length < 6 && (numDoc?.touched || numDoc?.dirty)) {
-                  <mat-error>Debe tener mínimo 6 dígitos.</mat-error>
-                }
-              </mat-form-field>
+              </mat-select>
 
-              <!-- Fecha de expedición -->
-              <mat-form-field appearance="outline">
-                <mat-label>Fecha de expedición</mat-label>
-                <input
-                  matInput
-                  [matDatepicker]="pickerExpedicion"
-                  formControlName="fecha_expedicion"
-                  (focus)="pickerExpedicion.open()"
-                  readonly
-                />
-                <mat-datepicker-toggle matSuffix [for]="pickerExpedicion"></mat-datepicker-toggle>
-                <mat-datepicker #pickerExpedicion startView="multi-year"></mat-datepicker>
-
-                @let fe = formVacante.get('fecha_expedicion');
-                @if (fe?.hasError('required') && (fe?.touched || fe?.dirty)) {
-                  <mat-error>La fecha de expedición es obligatoria.</mat-error>
-                }
-              </mat-form-field>
-
-              <!-- Municipio de expedición -->
-              <mat-form-field appearance="outline">
-                <mat-label>Municipio de expedición</mat-label>
-                <input
-                  matInput
-                  type="text"
-                  formControlName="mpio_expedicion"
-                  [matAutocomplete]="autoMunicipio"
-                  autocomplete="off"
-                />
-                <mat-autocomplete
-                  #autoMunicipio="matAutocomplete"
-                  (optionSelected)="onMunicipioSelected($event)"
-                  autoActiveFirstOption
-                >
-                  @for (ciudad of (filteredCities$ | async) ?? []; track $index) {
-                    <mat-option [value]="ciudad">{{ ciudad }}</mat-option>
-                  }
-                </mat-autocomplete>
-
-                @let me = formVacante.get('mpio_expedicion');
-                @if (me?.hasError('required') && (me?.touched || me?.dirty)) {
-                  <mat-error>El municipio de expedición es obligatorio.</mat-error>
-                }
-              </mat-form-field>
-            </div>
-
-            <div class="step-actions">
-              <span></span>
-              <button
-                mat-flat-button
-                color="primary"
-                matStepperNext
-                type="button"
-                [disabled]="step1Ctrl.invalid"
-              >
-                Siguiente
-              </button>
-            </div>
-          </mat-step>
-
-          <!-- =========================
-               Paso 2: Datos personales y nacimiento
-          ========================== -->
-          <mat-step [stepControl]="step2Ctrl">
-            <ng-template matStepLabel>
-              <span class="stepper-label">
-                <mat-icon inline="true" aria-hidden="true">person</mat-icon>
-                <span>Datos personales</span>
-              </span>
-            </ng-template>
-
-            <div class="datos">
-              <mat-form-field appearance="outline">
-                <mat-label>Primer apellido</mat-label>
-                <input matInput formControlName="primer_apellido" maxlength="30" />
-                @let pA = formVacante.get('primer_apellido');
-                @if (pA?.hasError('required') && (pA?.touched || pA?.dirty)) {
-                  <mat-error>El primer apellido es obligatorio.</mat-error>
-                }
-                @if ((pA?.value?.length ?? 0) < 2 && (pA?.touched || pA?.dirty)) {
-                  <mat-error>Debe tener mínimo 2 letras.</mat-error>
-                }
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Segundo apellido</mat-label>
-                <input matInput formControlName="segundo_apellido" maxlength="30" />
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Primer nombre</mat-label>
-                <input matInput formControlName="primer_nombre" maxlength="30" />
-                @let pN = formVacante.get('primer_nombre');
-                @if (pN?.hasError('required') && (pN?.touched || pN?.dirty)) {
-                  <mat-error>El primer nombre es obligatorio.</mat-error>
-                }
-                @if ((pN?.value?.length ?? 0) < 2 && (pN?.touched || pN?.dirty)) {
-                  <mat-error>Debe tener mínimo 2 letras.</mat-error>
-                }
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Segundo nombre</mat-label>
-                <input matInput formControlName="segundo_nombre" maxlength="30" />
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Fecha de nacimiento</mat-label>
-                <input
-                  matInput
-                  [matDatepicker]="pickerNacimiento"
-                  formControlName="fecha_nacimiento"
-                  (focus)="pickerNacimiento.open()"
-                  readonly
-                />
-                <mat-datepicker-toggle matSuffix [for]="pickerNacimiento"></mat-datepicker-toggle>
-                <mat-datepicker #pickerNacimiento startView="multi-year"></mat-datepicker>
-
-                @let fn = formVacante.get('fecha_nacimiento');
-                @if (fn?.hasError('required') && (fn?.touched || fn?.dirty)) {
-                  <mat-error>La fecha de nacimiento es obligatoria.</mat-error>
-                }
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Lugar de nacimiento</mat-label>
-                <input
-                  matInput
-                  type="text"
-                  formControlName="mpio_nacimiento"
-                  [matAutocomplete]="autoNacimiento"
-                  autocomplete="off"
-                  maxlength="50"
-                />
-                <mat-autocomplete
-                  #autoNacimiento="matAutocomplete"
-                  (optionSelected)="onLugarNacimientoSelected($event)"
-                  autoActiveFirstOption
-                >
-                  @for (ciudad of (filteredCitiesNacimiento$ | async) ?? []; track $index) {
-                    <mat-option [value]="ciudad">{{ ciudad }}</mat-option>
-                  }
-                </mat-autocomplete>
-
-                @let ln = formVacante.get('mpio_nacimiento');
-                @if (ln?.hasError('required') && (ln?.touched || ln?.dirty)) {
-                  <mat-error>El lugar de nacimiento es obligatorio.</mat-error>
-                }
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Sexo</mat-label>
-                <mat-select formControlName="sexo" required>
-                  @for (g of sexos; track g) {
-                    <mat-option [value]="g">{{ g }}</mat-option>
-                  }
-                </mat-select>
-
-                @let gen = formVacante.get('sexo');
-                @if (gen?.hasError('required') && (gen?.touched || gen?.dirty)) {
-                  <mat-error>Seleccione un género.</mat-error>
-                }
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Estado civil</mat-label>
-                <mat-select formControlName="estado_civil" required>
-                  @for (estado of estadosCiviles; track estado.codigo) {
-                    <mat-option [value]="estado.codigo">{{ estado.descripcion }}</mat-option>
-                  }
-                </mat-select>
-
-                @let ec = formVacante.get('estado_civil');
-                @if (ec?.hasError('required') && (ec?.touched || ec?.dirty)) {
-                  <mat-error>Seleccione un estado civil.</mat-error>
-                }
-              </mat-form-field>
-            </div>
-
-            <div class="step-actions">
-              <button mat-stroked-button matStepperPrevious type="button">Anterior</button>
-              <button
-                mat-flat-button
-                color="primary"
-                matStepperNext
-                type="button"
-                [disabled]="step2Ctrl.invalid"
-              >
-                Siguiente
-              </button>
-            </div>
-          </mat-step>
-
-          <!-- =========================
-               Paso 3: Contacto, domicilio y correo
-          ========================== -->
-          <mat-step [stepControl]="step3Ctrl">
-            <ng-template matStepLabel>
-              <span class="stepper-label">
-                <mat-icon inline="true" aria-hidden="true">home</mat-icon>
-                <span>Contacto y domicilio</span>
-              </span>
-            </ng-template>
-
-            <div class="datos">
-              <mat-form-field appearance="outline">
-                <mat-label>Barrio</mat-label>
-                <input
-                  matInput
-                  formControlName="barrio"
-                  placeholder="Ejemplo: Barrio la paz"
-                  maxlength="40"
-                />
-                @let barrio = formVacante.get('barrio');
-                @if (barrio?.hasError('required') && (barrio?.touched || barrio?.dirty)) {
-                  <mat-error>El barrio es obligatorio.</mat-error>
-                }
-                @if ((barrio?.value?.length ?? 0) < 3 && (barrio?.touched || barrio?.dirty)) {
-                  <mat-error>Debe tener mínimo 3 caracteres.</mat-error>
-                }
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Número de celular</mat-label>
-                <input
-                  matInput
-                  formControlName="celular"
-                  placeholder="Ej: 3175987256"
-                  maxlength="10"
-                  type="tel"
-                  inputmode="numeric"
-                  autocomplete="tel"
-                />
-                @let cel = formVacante.get('celular');
-                @if (cel?.hasError('required') && (cel?.touched || cel?.dirty)) {
-                  <mat-error>El número de celular es obligatorio.</mat-error>
-                }
-                @if (cel?.hasError('pattern') && (cel?.touched || cel?.dirty)) {
-                  <mat-error>Debe ser un celular colombiano válido (10 dígitos, inicia con 3).</mat-error>
-                }
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Número de WhatsApp</mat-label>
-                <input
-                  matInput
-                  formControlName="whatsapp"
-                  placeholder="Ej: 3175987256"
-                  maxlength="10"
-                  type="tel"
-                  inputmode="numeric"
-                  autocomplete="tel"
-                />
-                @let wsp = formVacante.get('whatsapp');
-                @if (wsp?.hasError('required') && (wsp?.touched || wsp?.dirty)) {
-                  <mat-error>El número de WhatsApp es obligatorio.</mat-error>
-                }
-                @if (wsp?.hasError('pattern') && (wsp?.touched || wsp?.dirty)) {
-                  <mat-error>Debe ser un celular colombiano válido (10 dígitos, inicia con 3).</mat-error>
-                }
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>¿Con quién vive?</mat-label>
-                <mat-select formControlName="personas_con_quien_convive" multiple>
-                  @for (op of listaPosiblesRespuestasConquienVive; track op) {
-                    <mat-option [value]="op">{{ op }}</mat-option>
-                  }
-                </mat-select>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="w-full">
-                <mat-label>¿Hace cuánto vive en la zona?</mat-label>
-                <mat-select formControlName="hace_cuanto_vive" required>
-                  <mat-option [value]="'LIFETIME'">Toda la vida</mat-option>
-
-                  <mat-optgroup label="Meses">
-                    @for (m of meses; track m) {
-                      <mat-option [value]="'M:' + m">
-                        {{ m }} {{ m === 1 ? 'mes' : 'meses' }}
-                      </mat-option>
-                    }
-                  </mat-optgroup>
-
-                  <mat-optgroup label="Años">
-                    @for (y of anios; track y) {
-                      <mat-option [value]="'Y:' + y">
-                        {{ y }} {{ y === 1 ? 'año' : 'años' }}
-                      </mat-option>
-                    }
-                  </mat-optgroup>
-                </mat-select>
-
-                <mat-hint>Ej.: 6 meses, 3 años o “Toda la vida”.</mat-hint>
-
-                @let tr = formVacante.get('hace_cuanto_vive');
-                @if (tr?.hasError('required') && (tr?.touched || tr?.dirty)) {
-                  <mat-error>Este campo es obligatorio.</mat-error>
-                }
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Correo electrónico</mat-label>
-                <input
-                  matInput
-                  formControlName="correo_usuario"
-                  placeholder="Ej: sebstian088"
-                  autocomplete="off"
-                  [pattern]="emailUserPattern"
-                  maxlength="64"
-                />
-                <span matSuffix>&#64;</span>
-
-                @let cu = formVacante.get('correo_usuario');
-                @if (cu?.hasError('required') && (cu?.touched || cu?.dirty)) {
-                  <mat-error>El correo electrónico es obligatorio.</mat-error>
-                }
-                @if (cu?.hasError('pattern') && (cu?.touched || cu?.dirty)) {
-                  <mat-error>Ingrese solo el usuario, sin dominio.</mat-error>
-                }
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Dominio</mat-label>
-                <mat-select formControlName="correo_dominio" required>
-                  @for (dom of dominiosValidos; track dom) {
-                    <mat-option [value]="dom">&#64;{{ dom }}</mat-option>
-                  }
-                </mat-select>
-
-                @let cd = formVacante.get('correo_dominio');
-                @if (cd?.hasError('required') && (cd?.touched || cd?.dirty)) {
-                  <mat-error>Seleccione el dominio.</mat-error>
-                }
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Contraseña</mat-label>
-                <input
-                  matInput
-                  [type]="hidePassword ? 'password' : 'text'"
-                  formControlName="password"
-                  placeholder="Mínimo 8 caracteres"
-                  maxlength="32"
-                />
-                <button
-                  mat-icon-button
-                  matSuffix
-                  type="button"
-                  (click)="hidePassword = !hidePassword"
-                  [attr.aria-label]="'Hide password'"
-                  [attr.aria-pressed]="hidePassword"
-                >
-                  <mat-icon>{{ hidePassword ? 'visibility_off' : 'visibility' }}</mat-icon>
-                </button>
-
-                @let pw = formVacante.get('password');
-                @if (pw?.hasError('required') && (pw?.touched || pw?.dirty)) {
-                  <mat-error>La contraseña es obligatoria.</mat-error>
-                }
-                @if (pw?.hasError('minlength') && (pw?.touched || pw?.dirty)) {
-                  <mat-error>Debe tener mínimo 8 caracteres.</mat-error>
-                }
-              </mat-form-field>
-            </div>
-
-            <div class="step-actions">
-              <button mat-stroked-button matStepperPrevious type="button">Anterior</button>
-              <button
-                mat-flat-button
-                color="primary"
-                matStepperNext
-                type="button"
-                [disabled]="step3Ctrl.invalid"
-              >
-                Siguiente
-              </button>
-            </div>
-          </mat-step>
-
-          <!-- =========================
-               Paso 4: Información familiar
-          ========================== -->
-          <mat-step [stepControl]="step4Ctrl">
-            <ng-template matStepLabel>
-              <span class="stepper-label">
-                <mat-icon inline="true" aria-hidden="true">diversity_3</mat-icon>
-                <span>Información familiar</span>
-              </span>
-            </ng-template>
-
-            <section class="section">
-              <div class="section-head">
-                <h3 class="section-title">Información familiar</h3>
-                <mat-divider></mat-divider>
-              </div>
-
-              <div class="grid-2" [formGroup]="formVacante">
-                <mat-form-field appearance="outline">
-                  <mat-label>¿Tiene hijos?</mat-label>
-                  <mat-select formControlName="tieneHijos" required>
-                    <mat-option [value]="true">Sí</mat-option>
-                    <mat-option [value]="false">No</mat-option>
-                  </mat-select>
-
-                  @let th = formVacante.get('tieneHijos');
-                  @if (th?.hasError('required') && (th?.touched || th?.dirty)) {
-                    <mat-error>Este campo es obligatorio.</mat-error>
-                  }
-                </mat-form-field>
-
-                @if (formVacante.get('tieneHijos')?.value !== true) {
-                  <div class="placeholder"></div>
-                }
-              </div>
-
-              @if (formVacante.get('tieneHijos')?.value === true) {
-                <div class="stack">
-                  <div class="grid-2" [formGroup]="formVacante">
-                    <mat-form-field appearance="outline">
-                      <mat-label>¿Quién los cuida?</mat-label>
-                      <input
-                        matInput
-                        formControlName="cuidadorHijos"
-                        placeholder="Ej: Madre, Abuela, Guardería..."
-                      />
-
-                      @let ch = formVacante.get('cuidadorHijos');
-                      @if (ch?.hasError('required') && (ch?.touched || ch?.dirty)) {
-                        <mat-error>Este campo es obligatorio.</mat-error>
-                      }
-                    </mat-form-field>
-
-                    <mat-form-field appearance="outline">
-                      <mat-label>Número de hijos</mat-label>
-                      <input
-                        matInput
-                        type="number"
-                        min="1"
-                        formControlName="numeroHijos"
-                        placeholder="Ej: 2"
-                      />
-
-                      @let nh = formVacante.get('numeroHijos');
-                      @if (nh?.hasError('required') && (nh?.touched || nh?.dirty)) {
-                        <mat-error>Este campo es obligatorio.</mat-error>
-                      }
-                      @if (nh?.hasError('min')) {
-                        <mat-error>Debe ser al menos 1.</mat-error>
-                      }
-                    </mat-form-field>
-                  </div>
-
-                  <div formArrayName="hijos" class="cards-stack children">
-                    @for (hijo of hijosFA.controls; track $index; let i = $index) {
-                      <div class="card" [formGroupName]="i">
-                        <div class="card-title"><span>Hijo {{ i + 1 }}</span></div>
-
-                        <div class="grid-3">
-                          <mat-form-field appearance="outline">
-                            <mat-label>Número de documento</mat-label>
-                            <input
-                              matInput
-                              formControlName="numero_de_documento"
-                              type="tel"
-                              inputmode="numeric"
-                              maxlength="15"
-                              placeholder="Solo números"
-                              autocomplete="off"
-                            />
-
-                            @let nd = hijo.get('numero_de_documento');
-                            @if (nd?.hasError('pattern') && (nd?.touched || nd?.dirty)) {
-                              <mat-error>Solo se permiten dígitos.</mat-error>
-                            }
-                            @if (nd?.hasError('minlength') && (nd?.touched || nd?.dirty)) {
-                              <mat-error>Mínimo 6 dígitos.</mat-error>
-                            }
-                          </mat-form-field>
-
-                          <mat-form-field appearance="outline">
-                            <mat-label>Fecha de nacimiento</mat-label>
-                            <input
-                              matInput
-                              [matDatepicker]="pickerHijo"
-                              formControlName="fecha_nac"
-                              (focus)="pickerHijo.open()"
-                              readonly
-                            />
-                            <mat-datepicker-toggle matSuffix [for]="pickerHijo"></mat-datepicker-toggle>
-                            <mat-datepicker #pickerHijo startView="multi-year"></mat-datepicker>
-
-                            @let fn = hijo.get('fecha_nac');
-                            @if (fn?.hasError('required') && (fn?.touched || fn?.dirty)) {
-                              <mat-error>La fecha es obligatoria.</mat-error>
-                            }
-                          </mat-form-field>
-                        </div>
-                      </div>
-                    }
-                  </div>
-                </div>
+              @let tipoDocCtrl = formVacante.get('tipo_doc');
+              @if (tipoDocCtrl?.hasError('required') && (tipoDocCtrl?.touched ||
+              tipoDocCtrl?.dirty)) {
+              <mat-error>Seleccione un tipo de documento.</mat-error>
               }
-            </section>
+            </mat-form-field>
 
-            <div class="step-actions">
-              <button mat-stroked-button matStepperPrevious type="button">Anterior</button>
-              <button
-                mat-flat-button
-                color="primary"
-                matStepperNext
-                type="button"
-                [disabled]="step4Ctrl.invalid"
-              >
-                Siguiente
-              </button>
-            </div>
-          </mat-step>
+            <!-- Número de documento -->
+            <mat-form-field appearance="outline">
+              <mat-label>Número de documento</mat-label>
+              <input
+                matInput
+                formControlName="numero_documento"
+                placeholder="Ej: 10058478963"
+                maxlength="32"
+                type="tel"
+                inputmode="numeric"
+                autocomplete="off" />
+              <mat-hint>
+                Escribe solo números. El sistema agregará “X” al enviar si
+                aplica.
+              </mat-hint>
 
-          <!-- =========================
-               Paso 5: Educación + Experiencia en flores
-          ========================== -->
-          <mat-step [stepControl]="step5Ctrl">
-            <ng-template matStepLabel>
-              <span class="stepper-label">
-                <mat-icon inline="true" aria-hidden="true">school</mat-icon>
-                <span>Formación y experiencia</span>
-              </span>
-            </ng-template>
+              @let numDoc = formVacante.get('numero_documento');
+              @if (numDoc?.hasError('required') && (numDoc?.touched ||
+              numDoc?.dirty)) {
+              <mat-error>El número de documento es obligatorio.</mat-error>
+              }
+              @if (numDoc?.hasError('pattern') && (numDoc?.touched ||
+              numDoc?.dirty)) {
+              <mat-error>Solo se permiten números.</mat-error>
+              }
+              @if (('' + (numDoc?.value ?? '')).length < 6 && (numDoc?.touched
+              || numDoc?.dirty)) {
+              <mat-error>Debe tener mínimo 6 dígitos.</mat-error>
+              }
+            </mat-form-field>
 
-            <div class="datos">
-              <mat-form-field appearance="outline">
-                <mat-label>Escolaridad</mat-label>
-                <mat-select formControlName="nivel" required>
-                  @for (e of escolaridades; track e.esco) {
-                    <mat-option [value]="e.esco">{{ e.descripcion }}</mat-option>
-                  }
-                </mat-select>
+            <!-- Fecha de expedición -->
+            <mat-form-field appearance="outline">
+              <mat-label>Fecha de expedición</mat-label>
+              <input
+                matInput
+                [matDatepicker]="pickerExpedicion"
+                formControlName="fecha_expedicion"
+                (focus)="pickerExpedicion.open()"
+                readonly />
+              <mat-datepicker-toggle matSuffix
+                [for]="pickerExpedicion"></mat-datepicker-toggle>
+              <mat-datepicker #pickerExpedicion
+                startView="multi-year"></mat-datepicker>
 
-                @let esc = formVacante.get('nivel');
-                @if (esc?.hasError('required') && (esc?.touched || esc?.dirty)) {
-                  <mat-error>Requerido</mat-error>
+              @let fe = formVacante.get('fecha_expedicion');
+              @if (fe?.hasError('required') && (fe?.touched || fe?.dirty)) {
+              <mat-error>La fecha de expedición es obligatoria.</mat-error>
+              }
+            </mat-form-field>
+
+            <!-- Municipio de expedición -->
+            <mat-form-field appearance="outline">
+              <mat-label>Municipio de expedición</mat-label>
+              <input
+                matInput
+                type="text"
+                formControlName="mpio_expedicion"
+                [matAutocomplete]="autoMunicipio"
+                autocomplete="off" />
+              <mat-autocomplete
+                #autoMunicipio="matAutocomplete"
+                (optionSelected)="onMunicipioSelected($event)"
+                autoActiveFirstOption>
+                @for (ciudad of (filteredCities$ | async) ?? []; track $index) {
+                <mat-option [value]="ciudad">{{ ciudad }}</mat-option>
                 }
-              </mat-form-field>
+              </mat-autocomplete>
 
+              @let me = formVacante.get('mpio_expedicion');
+              @if (me?.hasError('required') && (me?.touched || me?.dirty)) {
+              <mat-error>El municipio de expedición es obligatorio.</mat-error>
+              }
+            </mat-form-field>
+
+            <!-- Aux BRIGADA -->
+            @if (formVacante.get('oficina')?.value === 'BRIGADA') {
+            <mat-form-field appearance="outline">
+              <mat-label>Brigada</mat-label>
+              <input matInput formControlName="brigadaDe"
+                placeholder="Ej: ZIPAQUIRÁ" />
+            </mat-form-field>
+            }
+          </div>
+
+          <div class="step-actions">
+            <span></span>
+            <button
+              mat-flat-button
+              color="primary"
+              matStepperNext
+              type="button"
+              [disabled]="step1Ctrl.invalid">
+              Siguiente
+            </button>
+          </div>
+        </mat-step>
+
+        <!-- =========================
+                 Paso 2: Datos personales y nacimiento
+          ========================== -->
+        <mat-step [stepControl]="step2Ctrl">
+          <ng-template matStepLabel>
+            <span class="stepper-label">
+              <mat-icon inline="true" aria-hidden="true">person</mat-icon>
+              <span>Datos personales</span>
+            </span>
+          </ng-template>
+
+          <div class="datos">
+            <mat-form-field appearance="outline">
+              <mat-label>Primer apellido</mat-label>
+              <input matInput formControlName="primer_apellido"
+                maxlength="30" />
+
+              @let pA = formVacante.get('primer_apellido');
+              @if (pA?.hasError('required') && (pA?.touched || pA?.dirty)) {
+              <mat-error>El primer apellido es obligatorio.</mat-error>
+              }
+              @if ((pA?.value?.length ?? 0) < 2 && (pA?.touched || pA?.dirty)) {
+              <mat-error>Debe tener mínimo 2 letras.</mat-error>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Segundo apellido</mat-label>
+              <input matInput formControlName="segundo_apellido"
+                maxlength="30" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Primer nombre</mat-label>
+              <input matInput formControlName="primer_nombre" maxlength="30" />
+
+              @let pN = formVacante.get('primer_nombre');
+              @if (pN?.hasError('required') && (pN?.touched || pN?.dirty)) {
+              <mat-error>El primer nombre es obligatorio.</mat-error>
+              }
+              @if ((pN?.value?.length ?? 0) < 2 && (pN?.touched || pN?.dirty)) {
+              <mat-error>Debe tener mínimo 2 letras.</mat-error>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Segundo nombre</mat-label>
+              <input matInput formControlName="segundo_nombre" maxlength="30" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Fecha de nacimiento</mat-label>
+              <input
+                matInput
+                [matDatepicker]="pickerNacimiento"
+                formControlName="fecha_nacimiento"
+                (focus)="pickerNacimiento.open()"
+                readonly />
+              <mat-datepicker-toggle matSuffix
+                [for]="pickerNacimiento"></mat-datepicker-toggle>
+              <mat-datepicker #pickerNacimiento
+                startView="multi-year"></mat-datepicker>
+
+              @let fn = formVacante.get('fecha_nacimiento');
+              @if (fn?.hasError('required') && (fn?.touched || fn?.dirty)) {
+              <mat-error>La fecha de nacimiento es obligatoria.</mat-error>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Lugar de nacimiento</mat-label>
+              <input
+                matInput
+                type="text"
+                formControlName="mpio_nacimiento"
+                [matAutocomplete]="autoNacimiento"
+                autocomplete="off"
+                maxlength="50" />
+              <mat-autocomplete
+                #autoNacimiento="matAutocomplete"
+                (optionSelected)="onLugarNacimientoSelected($event)"
+                autoActiveFirstOption>
+                @for (ciudad of (filteredCitiesNacimiento$ | async) ?? []; track
+                $index) {
+                <mat-option [value]="ciudad">{{ ciudad }}</mat-option>
+                }
+              </mat-autocomplete>
+
+              @let ln = formVacante.get('mpio_nacimiento');
+              @if (ln?.hasError('required') && (ln?.touched || ln?.dirty)) {
+              <mat-error>El lugar de nacimiento es obligatorio.</mat-error>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Sexo</mat-label>
+              <mat-select formControlName="sexo" required>
+                @for (g of sexos; track g) {
+                <mat-option [value]="g">{{ g }}</mat-option>
+                }
+              </mat-select>
+
+              @let gen = formVacante.get('sexo');
+              @if (gen?.hasError('required') && (gen?.touched || gen?.dirty)) {
+              <mat-error>Seleccione un género.</mat-error>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Estado civil</mat-label>
+              <mat-select formControlName="estado_civil" required>
+                @for (estado of estadosCiviles; track estado.codigo) {
+                <mat-option [value]="estado.codigo">
+                  {{ estado.descripcion }}
+                </mat-option>
+                }
+              </mat-select>
+
+              @let ec = formVacante.get('estado_civil');
+              @if (ec?.hasError('required') && (ec?.touched || ec?.dirty)) {
+              <mat-error>Seleccione un estado civil.</mat-error>
+              }
+            </mat-form-field>
+          </div>
+
+          <div class="step-actions">
+            <button mat-stroked-button matStepperPrevious
+              type="button">Anterior</button>
+            <button
+              mat-flat-button
+              color="primary"
+              matStepperNext
+              type="button"
+              [disabled]="step2Ctrl.invalid">
+              Siguiente
+            </button>
+          </div>
+        </mat-step>
+
+        <!-- =========================
+                 Paso 3: Contacto, domicilio y correo
+          ========================== -->
+        <mat-step [stepControl]="step3Ctrl">
+          <ng-template matStepLabel>
+            <span class="stepper-label">
+              <mat-icon inline="true" aria-hidden="true">home</mat-icon>
+              <span>Contacto y domicilio</span>
+            </span>
+          </ng-template>
+
+          <div class="datos">
+            <mat-form-field appearance="outline">
+              <mat-label>Barrio</mat-label>
+              <input
+                matInput
+                formControlName="barrio"
+                placeholder="Ejemplo: Barrio la paz"
+                maxlength="40" />
+
+              @let barrio = formVacante.get('barrio');
+              @if (barrio?.hasError('required') && (barrio?.touched ||
+              barrio?.dirty)) {
+              <mat-error>El barrio es obligatorio.</mat-error>
+              }
+              @if ((barrio?.value?.length ?? 0) < 3 && (barrio?.touched ||
+              barrio?.dirty)) {
+              <mat-error>Debe tener mínimo 3 caracteres.</mat-error>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Número de celular</mat-label>
+              <input
+                matInput
+                formControlName="celular"
+                placeholder="Ej: 3175987256"
+                maxlength="10"
+                type="tel"
+                inputmode="numeric"
+                autocomplete="tel" />
+
+              @let cel = formVacante.get('celular');
+              @if (cel?.hasError('required') && (cel?.touched || cel?.dirty)) {
+              <mat-error>El número de celular es obligatorio.</mat-error>
+              }
+              @if (cel?.hasError('pattern') && (cel?.touched || cel?.dirty)) {
+              <mat-error>
+                Debe ser un celular colombiano válido (10 dígitos, inicia con
+                3).
+              </mat-error>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Número de WhatsApp</mat-label>
+              <input
+                matInput
+                formControlName="whatsapp"
+                placeholder="Ej: 3175987256"
+                maxlength="10"
+                type="tel"
+                inputmode="numeric"
+                autocomplete="tel" />
+
+              @let wsp = formVacante.get('whatsapp');
+              @if (wsp?.hasError('required') && (wsp?.touched || wsp?.dirty)) {
+              <mat-error>El número de WhatsApp es obligatorio.</mat-error>
+              }
+              @if (wsp?.hasError('pattern') && (wsp?.touched || wsp?.dirty)) {
+              <mat-error>
+                Debe ser un celular colombiano válido (10 dígitos, inicia con
+                3).
+              </mat-error>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>¿Con quién vive?</mat-label>
+              <mat-select formControlName="personas_con_quien_convive" multiple>
+                @for (op of listaPosiblesRespuestasConquienVive; track op) {
+                <mat-option [value]="op">{{ op }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>¿Hace cuánto vive en la zona?</mat-label>
+              <mat-select formControlName="hace_cuanto_vive" required>
+                @for (t of tiemposZona; track t.value) {
+                <mat-option [value]="t.value">{{ t.label }}</mat-option>
+                }
+              </mat-select>
+
+              @let tr = formVacante.get('hace_cuanto_vive');
+              @if (tr?.hasError('required') && (tr?.touched || tr?.dirty)) {
+              <mat-error>Este campo es obligatorio.</mat-error>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Correo electrónico</mat-label>
+              <input
+                matInput
+                formControlName="correo_usuario"
+                placeholder="Ej: sebstian088"
+                autocomplete="off"
+                [pattern]="emailUserPattern"
+                maxlength="64" />
+              <span matSuffix>&#64;</span>
+
+              @let cu = formVacante.get('correo_usuario');
+              @if (cu?.hasError('required') && (cu?.touched || cu?.dirty)) {
+              <mat-error>El correo electrónico es obligatorio.</mat-error>
+              }
+              @if (cu?.hasError('pattern') && (cu?.touched || cu?.dirty)) {
+              <mat-error>Ingrese solo el usuario, sin dominio.</mat-error>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Dominio</mat-label>
+              <mat-select formControlName="correo_dominio" required>
+                @for (dom of dominiosValidos; track dom) {
+                <mat-option [value]="dom">&#64;{{ dom }}</mat-option>
+                }
+              </mat-select>
+
+              @let cd = formVacante.get('correo_dominio');
+              @if (cd?.hasError('required') && (cd?.touched || cd?.dirty)) {
+              <mat-error>Seleccione el dominio.</mat-error>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Contraseña</mat-label>
+              <input
+                matInput
+                [type]="hidePassword ? 'password' : 'text'"
+                formControlName="password"
+                placeholder="Mínimo 8 caracteres"
+                maxlength="32" />
+              <button
+                mat-icon-button
+                matSuffix
+                type="button"
+                (click)="hidePassword = !hidePassword"
+                [attr.aria-label]="'Hide password'"
+                [attr.aria-pressed]="hidePassword">
+                <mat-icon>{{ hidePassword ? 'visibility_off' : 'visibility'
+                  }}</mat-icon>
+              </button>
+
+              @let pw = formVacante.get('password');
+              @if (pw?.hasError('required') && (pw?.touched || pw?.dirty)) {
+              <mat-error>La contraseña es obligatoria.</mat-error>
+              }
+              @if (pw?.hasError('minlength') && (pw?.touched || pw?.dirty)) {
+              <mat-error>Debe tener mínimo 8 caracteres.</mat-error>
+              }
+            </mat-form-field>
+          </div>
+
+          <div class="step-actions">
+            <button mat-stroked-button matStepperPrevious
+              type="button">Anterior</button>
+            <button
+              mat-flat-button
+              color="primary"
+              matStepperNext
+              type="button"
+              [disabled]="step3Ctrl.invalid">
+              Siguiente
+            </button>
+          </div>
+        </mat-step>
+
+        <!-- =========================
+                 Paso 4: Información familiar
+          ========================== -->
+        <mat-step [stepControl]="step4Ctrl">
+          <ng-template matStepLabel>
+            <span class="stepper-label">
+              <mat-icon inline="true" aria-hidden="true">diversity_3</mat-icon>
+              <span>Información familiar</span>
+            </span>
+          </ng-template>
+
+          <section class="section">
+            <div class="section-head">
+              <h3 class="section-title">Información familiar</h3>
+              <mat-divider></mat-divider>
+            </div>
+
+            <div class="grid-2">
               <mat-form-field appearance="outline">
-                <mat-label>¿Estudia actualmente?</mat-label>
-                <mat-select formControlName="estudiaActualmente" required>
+                <mat-label>¿Tiene hijos?</mat-label>
+                <mat-select formControlName="tieneHijos" required>
                   <mat-option [value]="true">Sí</mat-option>
                   <mat-option [value]="false">No</mat-option>
                 </mat-select>
 
-                @let est = formVacante.get('estudiaActualmente');
-                @if (est?.hasError('required') && (est?.touched || est?.dirty)) {
-                  <mat-error>Requerido</mat-error>
+                @let th = formVacante.get('tieneHijos');
+                @if (th?.hasError('required') && (th?.touched || th?.dirty)) {
+                <mat-error>Este campo es obligatorio.</mat-error>
                 }
               </mat-form-field>
 
-              <mat-form-field appearance="outline">
-                <mat-label>¿Cómo se proyecta en 1 año?</mat-label>
-                <textarea matInput rows="3" formControlName="proyeccion1Ano"></textarea>
+              @if (formVacante.get('tieneHijos')?.value !== true) {
+              <div class="placeholder"></div>
+              }
+            </div>
 
-                @let p1 = formVacante.get('proyeccion1Ano');
-                @if (p1?.invalid && (p1?.touched || p1?.dirty)) {
-                  <mat-error>Requerido</mat-error>
-                }
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>¿Cuenta con experiencia en flores?</mat-label>
-                <mat-select formControlName="experienciaFlores" required>
-                  <mat-option value="Sí">Sí</mat-option>
-                  <mat-option value="No">No</mat-option>
-                </mat-select>
-
-                @let ef = formVacante.get('experienciaFlores');
-                @if (ef?.hasError('required') && (ef?.touched || ef?.dirty)) {
-                  <mat-error>Este campo es obligatorio.</mat-error>
-                }
-              </mat-form-field>
-
-              @if (formVacante.get('experienciaFlores')?.value === 'Sí') {
+            @if (formVacante.get('tieneHijos')?.value === true) {
+            <div class="stack">
+              <div class="grid-2">
                 <mat-form-field appearance="outline">
-                  <mat-label>Tipo de experiencia en flores</mat-label>
-                  <mat-select formControlName="tipoExperienciaFlores" required>
-                    <mat-option value="CULTIVO">CULTIVO</mat-option>
-                    <mat-option value="POSCOSECHA">POSCOSECHA</mat-option>
-                    <mat-option value="AMBAS">AMBAS</mat-option>
-                    <mat-option value="OTROS">OTROS</mat-option>
+                  <mat-label>¿Quién los cuida?</mat-label>
+
+                  <mat-select formControlName="cuidadorHijos" required>
+                    @for (opt of CUIDADOR_HIJOS; track opt) {
+                    <mat-option [value]="opt">{{ opt }}</mat-option>
+                    }
                   </mat-select>
 
-                  @let tef = formVacante.get('tipoExperienciaFlores');
-                  @if (tef?.hasError('required') && (tef?.touched || tef?.dirty)) {
-                    <mat-error>Este campo es obligatorio.</mat-error>
+                  @let ch = formVacante.get('cuidadorHijos');
+                  @if (ch?.hasError('required') && (ch?.touched || ch?.dirty)) {
+                  <mat-error>Este campo es obligatorio.</mat-error>
                   }
                 </mat-form-field>
-              }
 
-              @if (formVacante.get('tipoExperienciaFlores')?.value === 'OTROS') {
                 <mat-form-field appearance="outline">
-                  <mat-label>¿Cuál?</mat-label>
+                  <mat-label>Número de hijos</mat-label>
                   <input
                     matInput
-                    formControlName="otroExperiencia"
-                    maxlength="64"
-                    placeholder="Especifique otro tipo de experiencia"
-                  />
+                    type="number"
+                    min="1"
+                    formControlName="numeroHijos"
+                    placeholder="Ej: 2" />
 
-                  @let oe = formVacante.get('otroExperiencia');
-                  @if (oe?.hasError('required') && (oe?.touched || oe?.dirty)) {
-                    <mat-error>Este campo es obligatorio.</mat-error>
+                  @let nh = formVacante.get('numeroHijos');
+                  @if (nh?.hasError('required') && (nh?.touched || nh?.dirty)) {
+                  <mat-error>Este campo es obligatorio.</mat-error>
+                  }
+                  @if (nh?.hasError('min')) {
+                  <mat-error>Debe ser al menos 1.</mat-error>
                   }
                 </mat-form-field>
-              }
-            </div>
-
-            <div class="step-actions">
-              <button mat-stroked-button matStepperPrevious type="button">Anterior</button>
-              <button
-                mat-flat-button
-                color="primary"
-                matStepperNext
-                type="button"
-                [disabled]="step5Ctrl.invalid"
-              >
-                Siguiente
-              </button>
-            </div>
-          </mat-step>
-
-          <!-- =========================
-               Paso 6: Historial laboral
-          ========================== -->
-          <mat-step [stepControl]="step6Ctrl">
-            <ng-template matStepLabel>
-              <span class="stepper-label">
-                <mat-icon inline="true" aria-hidden="true">work_history</mat-icon>
-                <span>Historial laboral</span>
-              </span>
-            </ng-template>
-
-            <section class="section">
-              <div class="section-head">
-                <h3 class="section-title">Empresas donde ha laborado (llénelo si tiene experiencia)</h3>
-                <span class="spacer"></span>
-                <button type="button" mat-stroked-button color="primary" (click)="addExperiencia()">
-                  <mat-icon>add</mat-icon>&nbsp;Agregar experiencia
-                </button>
               </div>
 
-              <div formArrayName="experiencias" class="cards-stack">
-                @for (exp of experienciasFA.controls; track $index; let i = $index) {
-                  <div class="card" [formGroupName]="i">
-                    <div class="card-title">
-                      <span>Experiencia {{ i + 1 }}</span>
-                      <span class="spacer"></span>
-                      <button
-                        type="button"
-                        mat-icon-button
-                        color="warn"
-                        (click)="removeExperiencia(i)"
-                        [disabled]="i < SEED_EXP_COUNT"
-                      >
-                        <mat-icon>delete</mat-icon>
-                      </button>
-                    </div>
+              <div formArrayName="hijos" class="cards-stack children">
+                @for (hijo of hijosFA.controls; track $index; let i = $index) {
+                <div class="card" [formGroupName]="i">
+                  <div class="card-title"><span>Hijo {{ i + 1 }}</span></div>
 
-                    <div class="grid-2">
-                      <mat-form-field appearance="outline">
-                        <mat-label>Nombre de la empresa</mat-label>
-                        <input matInput formControlName="empresa" />
-                      </mat-form-field>
+                  <div class="grid-3">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Número de documento</mat-label>
+                      <input
+                        matInput
+                        formControlName="numero_de_documento"
+                        type="tel"
+                        inputmode="numeric"
+                        maxlength="15"
+                        placeholder="Solo números"
+                        autocomplete="off" />
 
-                      <mat-form-field appearance="outline">
-                        <mat-label>Tiempo (meses/años)</mat-label>
-                        <input matInput formControlName="tiempo_trabajado" />
-                      </mat-form-field>
-                    </div>
+                      @let nd = hijo.get('numero_de_documento');
+                      @if (nd?.hasError('pattern') && (nd?.touched ||
+                      nd?.dirty)) {
+                      <mat-error>Solo se permiten dígitos.</mat-error>
+                      }
+                      @if (nd?.hasError('minlength') && (nd?.touched ||
+                      nd?.dirty)) {
+                      <mat-error>Mínimo 6 dígitos.</mat-error>
+                      }
+                    </mat-form-field>
 
-                    <div class="grid-1">
-                      <mat-form-field appearance="outline">
-                        <mat-label>Labores realizadas</mat-label>
-                        <textarea matInput rows="2" formControlName="labores_realizadas"></textarea>
-                      </mat-form-field>
+                    <!-- ✅ FIX REAL: no uses #pickerHijo{{i}} (Angular no lo soporta)
+                               Usa #pickerHijo dentro del loop: cada iteración tiene su propio ref -->
+                    <mat-form-field appearance="outline">
+                      <mat-label>Fecha de nacimiento</mat-label>
+                      <input
+                        matInput
+                        [matDatepicker]="pickerHijo"
+                        formControlName="fecha_nac"
+                        (focus)="pickerHijo.open()"
+                        readonly />
+                      <mat-datepicker-toggle matSuffix
+                        [for]="pickerHijo"></mat-datepicker-toggle>
+                      <mat-datepicker #pickerHijo
+                        startView="multi-year"></mat-datepicker>
 
-                      <mat-form-field appearance="outline">
-                        <mat-label>Labores principales</mat-label>
-                        <textarea matInput rows="2" formControlName="labores_principales"></textarea>
-                      </mat-form-field>
-                    </div>
+                      @let fnH = hijo.get('fecha_nac');
+                      @if (fnH?.hasError('required') && (fnH?.touched ||
+                      fnH?.dirty)) {
+                      <mat-error>La fecha es obligatoria.</mat-error>
+                      }
+                    </mat-form-field>
                   </div>
+                </div>
                 }
               </div>
-            </section>
-
-            <div class="step-actions">
-              <button mat-stroked-button matStepperPrevious type="button">Anterior</button>
-              <button
-                mat-flat-button
-                color="primary"
-                matStepperNext
-                type="button"
-                [disabled]="step6Ctrl.invalid"
-              >
-                Siguiente
-              </button>
             </div>
-          </mat-step>
+            }
+          </section>
 
-          <!-- =========================
-               Paso 7: Confirmación y envío
+          <div class="step-actions">
+            <button mat-stroked-button matStepperPrevious
+              type="button">Anterior</button>
+            <button
+              mat-flat-button
+              color="primary"
+              matStepperNext
+              type="button"
+              [disabled]="step4Ctrl.invalid">
+              Siguiente
+            </button>
+          </div>
+        </mat-step>
+
+        <!-- =========================
+                 Paso 5: Educación + Experiencia en flores
           ========================== -->
-          <mat-step>
-            <ng-template matStepLabel>
-              <span class="stepper-label">
-                <mat-icon inline="true" aria-hidden="true">check_circle</mat-icon>
-                <span>Confirmación</span>
-              </span>
-            </ng-template>
+        <mat-step [stepControl]="step5Ctrl">
+          <ng-template matStepLabel>
+            <span class="stepper-label">
+              <mat-icon inline="true" aria-hidden="true">school</mat-icon>
+              <span>Formación y experiencia</span>
+            </span>
+          </ng-template>
 
-            <p>Revisa que la información sea correcta antes de enviar.</p>
+          <div class="datos">
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Escolaridad</mat-label>
+              <mat-select formControlName="nivel" required>
+                @for (e of escolaridades; track e.value) {
+                <mat-option [value]="e.value">{{ e.label }}</mat-option>
+                }
+              </mat-select>
 
-            <div class="form-actions">
-              <button mat-stroked-button matStepperPrevious type="button">Anterior</button>
-              <button type="submit" mat-flat-button color="primary" class="submit-button">
-                Enviar
+              @let esc = formVacante.get('nivel');
+              @if (esc?.hasError('required') && (esc?.touched || esc?.dirty)) {
+              <mat-error>Requerido</mat-error>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>¿Estudia actualmente?</mat-label>
+              <mat-select formControlName="estudiaActualmente" required>
+                <mat-option [value]="true">Sí</mat-option>
+                <mat-option [value]="false">No</mat-option>
+              </mat-select>
+
+              @let est = formVacante.get('estudiaActualmente');
+              @if (est?.hasError('required') && (est?.touched || est?.dirty)) {
+              <mat-error>Requerido</mat-error>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>¿Cómo se proyecta en 1 año?</mat-label>
+              <textarea matInput rows="3"
+                formControlName="proyeccion1Ano"></textarea>
+
+              @let p1 = formVacante.get('proyeccion1Ano');
+              @if (p1?.invalid && (p1?.touched || p1?.dirty)) {
+              <mat-error>Requerido</mat-error>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>¿Cuenta con experiencia en flores?</mat-label>
+              <mat-select formControlName="experienciaFlores" required>
+                <mat-option value="Sí">Sí</mat-option>
+                <mat-option value="No">No</mat-option>
+              </mat-select>
+
+              @let ef = formVacante.get('experienciaFlores');
+              @if (ef?.hasError('required') && (ef?.touched || ef?.dirty)) {
+              <mat-error>Este campo es obligatorio.</mat-error>
+              }
+            </mat-form-field>
+
+            @if (formVacante.get('experienciaFlores')?.value === 'Sí') {
+            <mat-form-field appearance="outline">
+              <mat-label>Tipo de experiencia en flores</mat-label>
+              <mat-select formControlName="tipoExperienciaFlores" required>
+                <mat-option value="CULTIVO">CULTIVO</mat-option>
+                <mat-option value="POSCOSECHA">POSCOSECHA</mat-option>
+                <mat-option value="AMBAS">AMBAS</mat-option>
+                <mat-option value="OTROS">OTROS</mat-option>
+              </mat-select>
+
+              @let tef = formVacante.get('tipoExperienciaFlores');
+              @if (tef?.hasError('required') && (tef?.touched || tef?.dirty)) {
+              <mat-error>Este campo es obligatorio.</mat-error>
+              }
+            </mat-form-field>
+            }
+
+            @if (formVacante.get('tipoExperienciaFlores')?.value === 'OTROS') {
+            <mat-form-field appearance="outline">
+              <mat-label>¿Cuál?</mat-label>
+              <input
+                matInput
+                formControlName="otroExperiencia"
+                maxlength="64"
+                placeholder="Especifique otro tipo de experiencia" />
+
+              @let oe = formVacante.get('otroExperiencia');
+              @if (oe?.hasError('required') && (oe?.touched || oe?.dirty)) {
+              <mat-error>Este campo es obligatorio.</mat-error>
+              }
+            </mat-form-field>
+            }
+          </div>
+
+          <div class="step-actions">
+            <button mat-stroked-button matStepperPrevious
+              type="button">Anterior</button>
+            <button
+              mat-flat-button
+              color="primary"
+              matStepperNext
+              type="button"
+              [disabled]="step5Ctrl.invalid">
+              Siguiente
+            </button>
+          </div>
+        </mat-step>
+
+        <!-- =========================
+                 Paso 6: Historial laboral
+          ========================== -->
+        <mat-step [stepControl]="step6Ctrl">
+          <ng-template matStepLabel>
+            <span class="stepper-label">
+              <mat-icon inline="true" aria-hidden="true">work_history</mat-icon>
+              <span>Historial laboral</span>
+            </span>
+          </ng-template>
+
+          <section class="section">
+            <div class="section-head">
+              <h3 class="section-title">
+                Empresas donde ha laborado (llénelo si tiene experiencia)
+              </h3>
+              <span class="spacer"></span>
+              <button type="button" mat-stroked-button color="primary"
+                (click)="addExperiencia()">
+                <mat-icon>add</mat-icon>&nbsp;Agregar experiencia
               </button>
             </div>
-          </mat-step>
-        </mat-horizontal-stepper>
-      </div>
-    </form>
-  } @else {
-    <div class="form-locked">
-      <mat-icon inline="true">info</mat-icon>
-      Primero realiza la búsqueda para habilitar el formulario.
-    </div>
-  }
 
+            <div formArrayName="experiencias" class="cards-stack">
+              @for (exp of experienciasFA.controls; track $index; let i =
+              $index) {
+              <div class="card" [formGroupName]="i">
+                <div class="card-title">
+                  <span>Experiencia {{ i + 1 }}</span>
+                  <span class="spacer"></span>
+                  <button
+                    type="button"
+                    mat-icon-button
+                    color="warn"
+                    (click)="removeExperiencia(i)"
+                    [disabled]="i < SEED_EXP_COUNT">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+
+                <div class="grid-2">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Nombre de la empresa</mat-label>
+                    <input matInput formControlName="empresa" />
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Tiempo (meses/años)</mat-label>
+                    <input matInput formControlName="tiempo_trabajado" />
+                  </mat-form-field>
+                </div>
+
+                <div class="grid-1">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Labores realizadas</mat-label>
+                    <textarea matInput rows="2"
+                      formControlName="labores_realizadas"></textarea>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Labores principales</mat-label>
+                    <textarea matInput rows="2"
+                      formControlName="labores_principales"></textarea>
+                  </mat-form-field>
+                </div>
+              </div>
+              }
+            </div>
+          </section>
+
+          <div class="step-actions">
+            <button mat-stroked-button matStepperPrevious
+              type="button">Anterior</button>
+            <button
+              mat-flat-button
+              color="primary"
+              matStepperNext
+              type="button"
+              [disabled]="step6Ctrl.invalid">
+              Siguiente
+            </button>
+          </div>
+        </mat-step>
+
+        <!-- =========================
+                 Paso 7: Confirmación y envío
+          ========================== -->
+        <mat-step>
+          <ng-template matStepLabel>
+            <span class="stepper-label">
+              <mat-icon inline="true" aria-hidden="true">check_circle</mat-icon>
+              <span>Confirmación</span>
+            </span>
+          </ng-template>
+
+          <p>Revisa que la información sea correcta antes de enviar.</p>
+
+          <div class="form-actions">
+            <button mat-stroked-button matStepperPrevious
+              type="button">Anterior</button>
+            <button type="submit" mat-flat-button color="primary"
+              class="submit-button">
+              Enviar
+            </button>
+          </div>
+        </mat-step>
+      </mat-horizontal-stepper>
+    </div>
+  </form>
+  } @else {
+  <div class="form-locked">
+    <mat-icon inline="true">info</mat-icon>
+    Primero realiza la búsqueda para habilitar el formulario.
+  </div>
+  }
 </div>

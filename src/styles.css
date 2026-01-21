@@ -1,3 +1,5 @@
+@import "leaflet/dist/leaflet.css";
+
 /* ======================
    Importación de fuentes
    ====================== */
@@ -81,60 +83,5 @@ body {
   background-repeat: no-repeat;
 }
 
-mat-card {
-  background-color: #fff !important;
-  width: 100%;
-  max-width: 93vw;
-  height: auto;
-  padding: 12px;
-  margin: 0 auto;
-}
 
-/* ======================
-      Tabla
-      ====================== */
-.table-container {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-height: 60vh;
-  overflow: auto;
-}
 
-.table-container table {
-  width: 100%;
-  text-align: center;
-  font-size: 14px;
-}
-
-.table-container th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background-color: #1b1e36 !important;
-  color: white;
-  align-items: center;
-}
-
-.mat-table th.mat-header-cell {
-  background-color: #182540 !important;
-}
-
-.mat-table {
-  width: 100%;
-}
-
-.table-container tr:nth-child(even) {
-  background-color: #fff;
-}
-
-.table-container tr:nth-child(odd) {
-  background-color: #fff;
-}
-
-.table-container td,
-.table-container th {
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
