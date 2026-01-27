@@ -1,4 +1,5 @@
-import { Component, ElementRef, ViewChild } from '@angular/core';
+import { Component, ElementRef, ViewChild, OnInit } from '@angular/core';
+import { Title, Meta } from '@angular/platform-browser';
 import { SharedModule } from '../../../../../../shared/shared-module';
 import Swal from 'sweetalert2';
 import { HttpClient } from '@angular/common/http';
@@ -14,7 +15,7 @@ import { TransferEpsS } from '../../services/transfer-eps-s/transfer-eps-s';
   templateUrl: './form-transfer-request.html',
   styleUrl: './form-transfer-request.css'
 })
-export class FormTransferRequest {
+export class FormTransferRequest implements OnInit {
   formtraslados!: FormGroup;
   fileName: string = '';
   base64String: string = ''; // Para almacenar la representación en Base64 del archivo
@@ -24,13 +25,20 @@ export class FormTransferRequest {
   constructor(
     private http: HttpClient,
     private candidateService: CandidateS,
-    private transferEpsService: TransferEpsS
+    private transferEpsService: TransferEpsS,
+    private titleService: Title,
+    private metaService: Meta
   ) {
     this.formtraslados = new FormGroup({
       numero_cedula: new FormControl('', [Validators.required]),
       eps_a_trasladar: new FormControl('', [Validators.required]),
-      solicitud_traslado: new FormControl(null, [Validators.required]), // Aunque no es necesario porque no usamos este campo para el archivo
     });
+  }
+
+  ngOnInit(): void {
+    this.titleService.setTitle('Solicitud de Traslado EPS | Gestión Gerencial');
+    this.metaService.updateTag({ name: 'description', content: 'Formulario oficial para solicitar traslado de EPS. Trámite seguro y eficiente.' });
+    this.metaService.updateTag({ name: 'robots', content: 'noindex, nofollow' });
   }
 
   uploadFile(event: Event): void {
@@ -50,10 +58,20 @@ export class FormTransferRequest {
   enviarSolicitudTraslado(): void {
     // Validar que el formulario sea válido
     if (this.formtraslados.invalid) {
+      this.formtraslados.markAllAsTouched(); // Mostrar errores visualmente
       Swal.fire({
         icon: 'error',
-        title: 'Error',
-        text: 'Por favor, complete el formulario correctamente.',
+        title: 'Formulario incompleto',
+        text: 'Por favor, complete todos los campos obligatorios.',
+      });
+      return;
+    }
+
+    if (!this.base64String) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Archivo requerido',
+        text: 'Por favor adjunte el documento de solicitud de traslado.',
       });
       return;
     }
@@ -76,8 +94,6 @@ export class FormTransferRequest {
     });
 
   }
-
-
 
   enviarDatos(): void {
     Swal.fire({

@@ -1,0 +1,420 @@
+/* =========================
+   Base + Tokens
+========================= */
+:host {
+  display: block;
+
+  --bg: #ffffff;
+  /* All white */
+  --surface: #ffffff;
+  /* All white */
+  --surface-2: #ffffff;
+  /* All white (was light grey) */
+
+  --text: #111827;
+  --muted: #6b7280;
+
+  --border: #e5e7eb;
+  --border-2: #d1d5db;
+  --primary: #2563eb;
+  --primary-soft: rgba(37, 99, 235, .10);
+
+  --r-lg: 16px;
+  --pad-lg: 24px;
+  --gap: 16px;
+
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* =========================
+   Layout Containers
+========================= */
+.main-container {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+  background-color: #ffffff;
+  /* User requested full white background */
+  /* Outer background */
+  font-family: 'Roboto', sans-serif;
+}
+
+.form-card {
+  width: 100%;
+  max-width: 900px;
+  background-color: #fff;
+  /* White background requested */
+  padding: 32px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border);
+}
+
+/* =========================
+   Header
+========================= */
+.form-header {
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.form-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0;
+}
+
+.form-subtitle {
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+/* Stats */
+.stepper-stats {
+  margin-top: 16px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.stats-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.progress-bar {
+  height: 6px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--primary);
+  transition: width 0.3s ease;
+}
+
+/* =========================
+   Stepper Frame
+========================= */
+
+
+.step-header {
+  background: var(--surface-2);
+  padding: 16px;
+  border-radius: 12px;
+  border-left: 4px solid var(--primary);
+  margin-bottom: 24px;
+}
+
+.step-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--text);
+}
+
+.step-header p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* =========================
+   Grid System
+========================= */
+.grid-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: var(--gap);
+  align-items: start;
+}
+
+.grid-layout.compact {
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+
+.full-width {
+  grid-column: 1 / -1;
+}
+
+.grid-col-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--gap);
+  align-items: start;
+}
+
+.grid-col-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--gap);
+  align-items: start;
+}
+
+.sub-section {
+  margin-top: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sub-section h4 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+/* =========================
+   Components
+========================= */
+/* Action Buttons */
+.actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.btn-next,
+.btn-save {
+  min-width: 120px;
+}
+
+/* File Upload */
+.box-upload {
+  background: var(--surface-2);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px dashed var(--border-2);
+}
+
+.upload-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.file-name {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-weight: 500;
+}
+
+/* Cards (Hijos / Hermanos) */
+.child-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.child-card h5 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* =========================
+   Material Overrides
+========================= */
+.w-100 {
+  width: 100%;
+}
+
+/* Fix height consistency */
+.mat-mdc-form-field {
+  width: 100%;
+}
+
+/* Mat Stepper Header Scroll */
+::ng-deep .mat-horizontal-stepper-header-container {
+  white-space: nowrap;
+  overflow-x: auto;
+  padding-bottom: 12px;
+  background-color: #ffffff;
+  /* Explicit white background */
+}
+
+/* Force Label Visibility (always or desktop too? User said mobile, but safest everywhere if scrollable) */
+::ng-deep .mat-step-label {
+  overflow: visible !important;
+}
+
+/* Responsive */
+/* Default: Hide Mobile Sticky Header */
+.mobile-sticky-group {
+  display: none;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .main-container {
+    padding: 0;
+  }
+
+  .form-card {
+    padding: 16px;
+    border-radius: 0;
+    box-shadow: none;
+    border: none;
+  }
+
+  /* Hide Desktop Header */
+  .desktop-only {
+    display: none;
+  }
+
+  /* Show Mobile Sticky Group */
+  .mobile-sticky-group {
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: #ffffff;
+    border-bottom: 1px solid var(--border);
+    margin: 0 -16px;
+    /* Full Bleed */
+    padding: 0;
+  }
+
+  /* Mobile Title Style */
+  .mobile-title {
+    padding: 12px 16px;
+    background: #ffffff;
+    text-align: center;
+  }
+
+  .mobile-title h2 {
+    margin: 0;
+    font-size: 16px;
+    /* Compact */
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  /* Sticky Stats Bar (Inside Group) */
+  .stepper-stats {
+    padding: 8px 16px 12px 16px;
+    background: #ffffff;
+    margin-top: 0;
+    /* No sticky pos here, the parent group is sticky */
+  }
+
+  /* Sticky Stepper Header (Below Group) */
+  ::ng-deep .mat-horizontal-stepper-header-container {
+    position: sticky;
+    top: var(--mobile-sticky-height, 100px);
+    /* Dynamic Height */
+    z-index: 999;
+    background: #ffffff;
+    padding: 8px 0;
+    width: 100vw;
+    margin-left: -16px;
+    padding-left: 16px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+
+    display: flex !important;
+    white-space: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Force Headers to NOT shrink */
+  ::ng-deep .mat-step-header {
+    box-sizing: content-box !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: fit-content !important;
+    padding: 0 16px !important;
+  }
+
+  /* Force Full Label Visibility */
+  ::ng-deep .mat-step-label {
+    display: block !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+    max-width: none !important;
+    opacity: 1 !important;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  /* Selected state override color */
+  ::ng-deep .mat-step-header.cdk-program-focused,
+  ::ng-deep .mat-step-header.cdk-mouse-focused,
+  ::ng-deep .mat-step-header.cdk-touch-focused {
+    background-color: transparent !important;
+  }
+
+  .grid-layout,
+  .grid-col-2,
+  .grid-col-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+
+  .grid-layout,
+  .actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* SEARCH CONTAINER */
+.search-container {
+  max-width: 600px;
+  margin: 40px auto;
+  border: 1px solid #e0e0e0;
+  padding: 40px;
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.search-container .grid-col-2 {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  100% {
+    -webkit-transform: rotate(360deg);
+    transform: rotate(360deg);
+  }
+}

@@ -1,57 +1,162 @@
-<div class="firma-page" [formGroup]="form">
-  <!-- Buscador -->
-  <mat-card class="finder-card">
-    <h1 class="title">Buscar candidato</h1>
+<div class="firma-layout" [formGroup]="form">
 
-    <div class="cajabusqueda">
-      <mat-form-field appearance="fill" class="cedula-field">
-        <mat-label>Escriba el número de cédula a buscar</mat-label>
-        <input matInput type="text" formControlName="numeroCedula" placeholder="Ej: 10058478963" inputmode="numeric"
-          (keyup.enter)="buscarCedula()" />
-        <mat-error *ngIf="f.numeroCedula.hasError('required')">La cédula es obligatoria.</mat-error>
-        <mat-error *ngIf="f.numeroCedula.hasError('pattern')">Solo dígitos (5–15).</mat-error>
-      </mat-form-field>
-      <p></p>
-
-      <button type="button" class="boton" mat-flat-button color="primary" (click)="buscarCedula()"
-        [disabled]="form.invalid || searching">
-        {{ searching ? 'Buscando…' : 'Buscar' }}
-      </button>
+  <!-- Header Global: SEO & Branding -->
+  <header class="page-header">
+    <div class="header-content">
+      <h1 class="main-title">Módulo de Firma Digital</h1>
+      <p class="main-subtitle">Geste y formalice la contratación de candidatos de manera ágil y segura.</p>
     </div>
-    <div *ngIf="nombreCompleto" class="resultado">
-      <mat-card class="res-card">
-        <mat-card-title>{{ nombreCompleto }}</mat-card-title>
-        <mat-card-subtitle>Cédula: {{ form.value.numeroCedula }}</mat-card-subtitle>
-      </mat-card>
+    <div class="header-logo">
+      <!-- Optional: Place for a small logo if needed, or just keep it text based -->
+      <span class="brand-tag">TUAPO ENTERPRISE</span>
     </div>
+  </header>
 
-  </mat-card>
+  <!-- COLUMNA IZQUIERDA: Búsqueda y Datos -->
+  <aside class="col-left">
 
-  <!-- Firma -->
-  <mat-card class="sign-card">
-    <div class="sign-header">
-      <h2>Firma del solicitante</h2>
-      <span class="hint">Use el dedo o el mouse. En móvil, gire el dispositivo a horizontal para más espacio.</span>
-    </div>
+    <!-- Card de Búsqueda -->
+    <section class="v-card search-card">
+      <header class="card-header">
+        <h2 class="section-title">Buscar Candidato</h2>
+        <p class="section-subtitle">Ingrese el documento para validar</p>
+      </header>
 
-    <!-- Aviso orientación (móvil retrato) -->
-    <div class="orient-overlay" *ngIf="showRotateHint">
-      <mat-icon>screen_rotation</mat-icon>
-      <div>Gira tu dispositivo a horizontal para firmar cómodamente</div>
-    </div>
+      <div class="search-body">
+        <mat-form-field appearance="outline" class="v-field full-width">
+          <mat-label>Número de documento</mat-label>
+          <input matInput type="text" formControlName="numeroCedula" placeholder="Ej: 10058478963" inputmode="numeric"
+            (keyup.enter)="buscarCedula()" />
+          <mat-hint>Debe tener entre 5 y 15 dígitos</mat-hint>
+          <mat-error *ngIf="f.numeroCedula.hasError('pattern')">Solo números permitidos</mat-error>
+          <mat-error *ngIf="f.numeroCedula.hasError('required')">El documento es obligatorio</mat-error>
+        </mat-form-field>
 
-    <div class="canvas-wrap">
-      <canvas #sigCanvas class="sig-canvas"></canvas>
-    </div>
+        <button mat-flat-button class="v-btn-primary full-width" (click)="buscarCedula()"
+          [disabled]="form.invalid || searching">
+          <ng-container *ngIf="!searching">
+            <mat-icon>search</mat-icon> Consultar
+          </ng-container>
+          <ng-container *ngIf="searching">
+            <!-- Spinner CSS Puro -->
+            <div class="v-spinner"></div> Buscando...
+          </ng-container>
+        </button>
+      </div>
+    </section>
 
-    <div class="sign-toolbar">
-      <button mat-stroked-button (click)="undo()" [disabled]="!canUndo">Deshacer</button>
-      <button mat-stroked-button (click)="clear()" [disabled]="isEmpty">Borrar</button>
-      <span class="spacer"></span>
-      <button mat-flat-button color="primary" (click)="guardarFirma()" [disabled]="isEmpty || saving">
-        {{ saving ? 'Guardando…' : 'Guardar firma' }}
-      </button>
-      <button mat-button (click)="descargarPNG()" [disabled]="isEmpty">Descargar PNG</button>
-    </div>
-  </mat-card>
+    <!-- Card de Resultado (Solo visible si hay data o buscando) -->
+    <section class="v-card result-card" *ngIf="nombreCompleto || searching">
+
+      <!-- Estado: Cargando -->
+      <div class="result-state loading-state" *ngIf="searching">
+        <div class="skeleton-avatar"></div>
+        <div class="skeleton-text"></div>
+        <div class="skeleton-text short"></div>
+      </div>
+
+      <!-- Estado: Encontrado -->
+      <div class="result-state found-state" *ngIf="nombreCompleto && !searching">
+        <div class="candidate-avatar">
+          <span>{{ nombreCompleto.charAt(0) }}</span>
+        </div>
+        <div class="candidate-details">
+          <h3 class="candidate-name">{{ nombreCompleto }}</h3>
+          <div class="candidate-meta">
+            <span class="meta-label">ID:</span>
+            <span class="meta-value">{{ form.value.numeroCedula }}</span>
+          </div>
+          <div class="candidate-badges">
+            <span class="v-badge success">
+              <mat-icon>check_circle</mat-icon> Validado
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </aside>
+
+  <!-- COLUMNA DERECHA: Firma -->
+  <main class="col-right">
+    <section class="v-card signature-card">
+      <header class="card-header flex-header">
+        <div>
+          <h2 class="section-title">Firma Digital</h2>
+          <p class="section-subtitle">Formalización del proceso</p>
+        </div>
+        <!-- Chip de estado -->
+        <div class="status-chip" [class.ready]="!!signaturePreview">
+          <span *ngIf="!signaturePreview">Pendiente</span>
+          <span *ngIf="signaturePreview">Firmado</span>
+        </div>
+      </header>
+
+      <div class="signature-body">
+
+        <!-- Área Visual / Preview -->
+        <div class="signature-preview-container" [class.has-signature]="!!signaturePreview">
+
+          <!-- Empty State -->
+          <div *ngIf="!signaturePreview" class="empty-placeholder" (click)="openSignatureModal()">
+            <div class="icon-box">
+              <mat-icon>draw</mat-icon>
+            </div>
+            <p class="placeholder-text">Toque aquí para firmar en pantalla</p>
+            <span class="placeholder-hint">Se abrirá el panel de firma</span>
+          </div>
+
+          <!-- Preview Real -->
+          <ng-container *ngIf="signaturePreview">
+            <img [src]="signaturePreview" alt="Firma del solicitante" class="preview-image">
+
+            <!-- Sello Digital -->
+            <div class="digital-stamp">
+              <mat-icon>verified</mat-icon>
+              <div class="stamp-info">
+                <strong>FIRMADO DIGITALMENTE</strong>
+                <small>TUAPO • SEGURO</small>
+              </div>
+            </div>
+          </ng-container>
+
+        </div>
+
+        <!-- Recomendación UX -->
+        <p class="ux-hint" *ngIf="!signaturePreview">
+          <mat-icon>info</mat-icon> Asegúrese de firmar dentro del recuadro sin salirse de los bordes.
+        </p>
+
+        <!-- Barra de Acciones -->
+        <div class="actions-panel">
+
+          <!-- Botón Secundario: Firmar/Cambiar -->
+          <button type="button" mat-stroked-button class="v-btn-secondary" (click)="openSignatureModal()"
+            [disabled]="saving">
+            <mat-icon>edit</mat-icon>
+            {{ signaturePreview ? 'Cambiar firma' : 'Firmar' }}
+          </button>
+
+          <!-- Botón Primario: Guardar -->
+          <button type="button" mat-flat-button class="v-btn-accent" (click)="guardarFirma()"
+            [disabled]="!signaturePreview || saving">
+            <ng-container *ngIf="!saving">
+              <mat-icon>save_alt</mat-icon> Guardar y Finalizar
+            </ng-container>
+            <ng-container *ngIf="saving">
+              <div class="v-spinner inverted"></div> Procesando...
+            </ng-container>
+          </button>
+
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <!-- Componente Full Screen (Overlay) - Intacto -->
+  <app-full-screen-signature *ngIf="showSignatureModal" (save)="onSignatureSaved($event)"
+    (cancel)="onSignatureCancelled()">
+  </app-full-screen-signature>
+
 </div>

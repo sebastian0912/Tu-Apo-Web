@@ -1,0 +1,254 @@
+/* =========================================
+   FULL SCREEN SIGNATURE - TUAPO ENTERPRISE
+   ========================================= */
+
+/* --- 1. Main Overlay Shell --- */
+.fs-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    /* Dynamic Height for Mobile Browsers */
+    z-index: 9999;
+
+    background-color: rgba(33, 38, 60, 0.95);
+    /* Navy Backdrop */
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.25s ease-out;
+}
+
+/* --- 2. Flex Container (The Modal) --- */
+.fs-container {
+    background: #ffffff;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    /* HEADER -> BODY -> FOOTER */
+    overflow: hidden;
+
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* --- 3. Header --- */
+.fs-header {
+    flex: 0 0 auto;
+    padding: 16px 24px;
+    background: #ffffff;
+    border-bottom: 1px solid #f1f5f9;
+    z-index: 10;
+}
+
+.fs-header h2 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #21263C;
+}
+
+.fs-header p {
+    margin: 4px 0 0 0;
+    font-size: 0.875rem;
+    color: #64748b;
+}
+
+/* --- 4. Canvas Body (Elastic) --- */
+.fs-canvas-wrapper {
+    flex: 1 1 auto;
+    /* Grows to fill available space */
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    cursor: crosshair;
+    background-color: #ffffff;
+
+    /* Dot Grid Background */
+    background-image: radial-gradient(circle, rgba(33, 38, 60, 0.1) 1.5px, transparent 1.5px);
+    background-size: 24px 24px;
+}
+
+.fs-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    user-select: none;
+}
+
+/* --- 5. Footer Actions (Sticky Bottom) --- */
+.fs-actions {
+    flex: 0 0 auto;
+    /* Never shrink */
+    padding: 16px 24px;
+    /* Extra padding for safe areas on mobile */
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+
+    background: rgba(255, 255, 255, 0.95);
+    border-top: 1px solid #e2e8f0;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    z-index: 50;
+    backdrop-filter: blur(4px);
+}
+
+.group-tools {
+    display: flex;
+    gap: 8px;
+}
+
+/* Button Overrides */
+button.mat-mdc-button-base {
+    height: 48px;
+    font-weight: 600;
+}
+
+.btn-cancel {
+    color: #ef4444 !important;
+}
+
+/* --- 6. Orientation Alert (Hidden by default) --- */
+.rotate-alert {
+    display: none;
+}
+
+
+/* --- 7. Responsive Logic --- */
+
+/* Desktop / Tablet Landscape */
+@media (min-width: 1025px) {
+    .fs-container {
+        max-width: 960px;
+        max-height: 85vh;
+        border-radius: 16px;
+    }
+}
+
+/* Mobile Landscape (Safety Mode) */
+@media (max-width: 1024px) and (orientation: landscape) {
+    .fs-container {
+        /* Force full screen on mobile landscape */
+        width: 100vw !important;
+        height: 100dvh !important;
+        max-width: none !important;
+        max-height: none !important;
+        border-radius: 0 !important;
+    }
+
+    /* Hide Header to save vertical space */
+    .fs-header {
+        display: none !important;
+    }
+
+    /* Compact Footer */
+    .fs-actions {
+        padding: 8px 16px;
+        padding-bottom: env(safe-area-inset-bottom, 4px);
+        height: auto;
+    }
+
+    button.mat-mdc-button-base {
+        height: 36px;
+        line-height: 36px;
+        font-size: 0.85rem;
+    }
+
+    .hide-mobile {
+        display: none;
+    }
+}
+
+/* Portrait Mobile */
+@media (orientation: portrait) {
+    .fs-actions {
+        flex-wrap: wrap;
+        /* Allow wrapping if needed */
+        justify-content: center;
+        padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    }
+
+    .group-tools {
+        width: 100%;
+        justify-content: center;
+        margin-bottom: 8px;
+    }
+}
+
+/* --- Guide Overlay --- */
+.guide-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    opacity: 0.4;
+    animation: pulseGuide 2.5s infinite ease-in-out;
+    z-index: 20;
+}
+
+.guide-overlay mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    color: #21263C;
+}
+
+.guide-overlay span {
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    color: #64748b;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes scaleUp {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes pulseGuide {
+
+    0%,
+    100% {
+        opacity: 0.3;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.6;
+        transform: scale(1.05);
+    }
+}

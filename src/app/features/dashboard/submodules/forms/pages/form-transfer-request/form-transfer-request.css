@@ -1,154 +1,225 @@
-.contenedor {
-  max-width: 100vw;
-  margin: 0 auto;
-  padding: 0;
+/* =========================================
+   Transfer Page - Premium / Gerencia Style
+   ========================================= */
+
+:host {
+  display: block;
+  min-height: 100svh;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  /* Slate 100 to 200 */
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  padding: 40px 24px;
   box-sizing: border-box;
 }
 
-.head {
+.contenedor {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* --- Tarjeta Principal --- */
+.request-card {
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.05),
+    0 10px 15px -3px rgba(0, 0, 0, 0.05),
+    0 0 0 1px rgba(0, 0, 0, 0.02);
+  padding: 40px 32px;
+  width: 100%;
+  box-sizing: border-box;
+  animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* --- Títulos --- */
+.page-header {
+  margin-bottom: 32px;
+  text-align: left;
+}
+
+.page-title {
+  font-size: 1.75rem;
+  /* 28px */
+  font-weight: 700;
+  color: #0f172a;
+  /* Slate 900 */
+  margin: 0 0 8px 0;
+  letter-spacing: -0.025em;
   display: flex;
   align-items: center;
-  background-color: #8dd603;
-  padding: 16px;
+  gap: 12px;
 }
 
-.head h1 {
-  margin: 0;
-  line-height: 1.2;
-  font-size: 2rem;
+.page-title::before {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 28px;
+  background: #3b82f6;
+  /* Blue 500 */
+  border-radius: 2px;
 }
 
-.title {
+.page-subtitle {
+  color: #64748b;
+  /* Slate 500 */
+  font-size: 0.95rem;
+  margin-left: 16px;
+}
+
+/* --- Formulario --- */
+.formulario {
   display: flex;
-  align-items: center;
-  background-color: #8dd603;
-  padding: 16px;
-  color: white;
-  margin-top: 16px;
-  font-size: 1.2rem;
-  line-height: 1.2;
-}
-
-h1 {
-  font-family: "Oswald", Arial, sans-serif;
-  font-size: 2.1rem;
-  margin: 0 0 0 0;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .datos {
-  width: 100%;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 18px;
-  margin-bottom: 30px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
 }
 
-mat-form-field.input {
-  width: 360px;
-  min-width: 220px;
-  flex: 1 1 320px;
-  margin: 12px;
-  box-sizing: border-box;
+/* Inputs y Selects */
+mat-form-field {
+  width: 100%;
 }
 
-.archivo {
-  width: 100%;
+/* --- File Input Personalizado --- */
+.file-upload-wrapper {
+  margin-top: 8px;
+}
+
+.file-drop-zone {
+  border: 2px dashed #cbd5e1;
+  /* Slate 300 */
+  border-radius: 12px;
+  padding: 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 18px;
-}
-
-.file-input {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
+  justify-content: center;
   gap: 12px;
-  width: 100%;
-  max-width: 400px;
+  background: #f8fafc;
+  /* Slate 50 */
+  transition: all 0.2s ease;
+  cursor: pointer;
+  text-align: center;
 }
 
-.file-input button {
-  min-width: 180px;
-  font-size: 1rem;
+.file-drop-zone:hover {
+  border-color: #3b82f6;
+  /* Blue 500 */
+  background: #eff6ff;
+  /* Blue 50 */
 }
 
-.file-input mat-form-field {
-  flex: 1 1 220px;
-  min-width: 120px;
-  margin: 0;
+.file-drop-zone.has-file {
+  border-style: solid;
+  border-color: #10b981;
+  /* Emerald 500 */
+  background: #ecfdf5;
+  /* Emerald 50 */
 }
 
-/* Botón enviar */
-button[type="submit"] {
-  display: block;
-  margin: 32px auto 0 auto;
-  width: 100%;
-  max-width: 340px;
-  font-size: 1.1rem;
-  border-radius: 8px;
-  padding: 10px 0;
+.upload-icon {
+  color: #64748b;
+  font-size: 32px;
+  width: 32px;
+  height: 32px;
+  transition: color 0.2s;
 }
 
-/* ========== RESPONSIVE ========== */
+.file-drop-zone:hover .upload-icon {
+  color: #3b82f6;
+}
 
-@media (max-width: 1024px) {
-  mat-form-field.input {
-    width: 46vw;
-    min-width: 180px;
+.file-drop-zone.has-file .upload-icon {
+  color: #10b981;
+}
+
+.file-label {
+  font-weight: 500;
+  color: #334155;
+  font-size: 0.95rem;
+}
+
+.file-name {
+  font-size: 0.85rem;
+  color: #64748b;
+  word-break: break-all;
+}
+
+/* --- Botón Enviar --- */
+.actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.submit-btn {
+  background-color: #0f172a !important;
+  /* Slate 900 */
+  color: white !important;
+  font-weight: 600;
+  padding: 0 40px !important;
+  height: 48px !important;
+  border-radius: 8px !important;
+  font-size: 1rem !important;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background-color: #1e293b !important;
+  /* Slate 800 */
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.3);
+}
+
+.submit-btn:disabled {
+  background-color: #94a3b8 !important;
+  /* Slate 400 */
+}
+
+/* --- Animaciones --- */
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
   }
-  .file-input {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
-  .head h1 {
-    font-size: 1.6rem;
+}
+
+/* --- Responsive --- */
+@media (min-width: 768px) {
+  .datos {
+    grid-template-columns: 1fr 1fr;
+    /* 2 columnas en desktop */
+  }
+
+  .file-upload-wrapper {
+    grid-column: 1 / -1;
+    /* File upload ocupa todo el ancho */
   }
 }
 
 @media (max-width: 600px) {
-  .head,
-  .title {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 10px 8px;
-    font-size: 1rem;
+  :host {
+    padding: 16px;
   }
-  .head h1 {
-    font-size: 2rem;
-    margin-bottom: 8px;
-  }
-  .datos {
-    gap: 0;
-    padding: 0 4px;
-  }
-  mat-form-field.input {
-    width: 96vw;
-    min-width: unset;
-    margin: 8px 0;
-  }
-  .archivo,
-  .file-input {
-    width: 100%;
-    max-width: 100vw;
-    flex-direction: column;
-    align-items: stretch;
-  }
-  button[type="submit"] {
-    max-width: 96vw;
-    padding: 10px 0;
-    font-size: 1rem;
-  }
-}
 
-@media (max-width: 400px) {
-  .head h1,
-  .title h1 {
-    font-size: 0.9rem;
+  .request-card {
+    padding: 24px 20px;
   }
-  button[type="submit"] {
-    font-size: 0.9rem;
+
+  .page-title {
+    font-size: 1.5rem;
+  }
+
+  .submit-btn {
+    width: 100%;
   }
 }

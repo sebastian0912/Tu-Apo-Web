@@ -1,13 +1,15 @@
 import {
-  Component, ViewChild, ElementRef, AfterViewInit, OnDestroy, HostListener
+  Component, OnInit
 } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators, FormGroup } from '@angular/forms';
+import { Title, Meta } from '@angular/platform-browser';
 import Swal from 'sweetalert2';
-import SignaturePad from 'signature_pad';
+import { CommonModule } from '@angular/common'; // Importante para *ngIf
 
 // Ajusta esta ruta a tu estructura real si difiere
 import { SharedModule } from '../../../../../../shared/shared-module';
 import { CandidatoNewS } from '../../../../../../shared/services/candidato-new/candidato-new-s';
+import { FullScreenSignatureComponent } from '../../components/full-screen-signature/full-screen-signature.component';
 
 interface CandidateData {
   primer_nombre?: string;
@@ -20,30 +22,29 @@ interface CandidateData {
 @Component({
   selector: 'app-firma',
   standalone: true,
-  imports: [SharedModule, ReactiveFormsModule],
+  imports: [SharedModule, ReactiveFormsModule, CommonModule, FullScreenSignatureComponent],
   templateUrl: './firma.html',
   styleUrls: ['./firma.css'],
 })
-export class Firma implements AfterViewInit, OnDestroy {
-  @ViewChild('sigCanvas', { static: true }) sigCanvas!: ElementRef<HTMLCanvasElement>;
-
+export class Firma implements OnInit {
   form: FormGroup;
   searching = false;
   saving = false;
 
-  private pad!: SignaturePad;
-  private handlePadEnd = () => this.updateState();
+  // Estado del modal full screen
+  showSignatureModal = false;
 
-  isEmpty = true;
-  canUndo = false;
-  showRotateHint = false;
+  // Preview de la firma capturada
+  signaturePreview: string | null = null;
 
   // Mostrar nombre completo cuando exista el registro
   nombreCompleto: string | null = null;
 
   constructor(
     private fb: FormBuilder,
-    private candidateS: CandidatoNewS
+    private candidateS: CandidatoNewS,
+    private titleService: Title,
+    private metaService: Meta
   ) {
     this.form = this.fb.group({
       numeroCedula: ['', [Validators.required, Validators.pattern(/^\d{5,15}$/)]],
@@ -54,36 +55,16 @@ export class Firma implements AfterViewInit, OnDestroy {
   get f() { return this.form.controls as any; }
 
   // ───────── Ciclo de vida ─────────
-  ngAfterViewInit(): void {
-    this.pad = new SignaturePad(this.sigCanvas.nativeElement, {
-      minWidth: 0.8,
-      maxWidth: 2.2,
-      throttle: 16,
-    });
-
-    this.updateState();
-
-    this.resizeCanvas();
-    this.checkOrientation();
-    setTimeout(() => this.resizeCanvas(), 0);
-
-    const anyPad = this.pad as any;
-    if (typeof anyPad.addEventListener === 'function') {
-      anyPad.addEventListener('endStroke', this.handlePadEnd as EventListener);
-    } else if ('onEnd' in anyPad) {
-      anyPad.onEnd = this.handlePadEnd;
-    }
-  }
-
-  ngOnDestroy(): void {
-    if (!this.pad) return;
-    const anyPad = this.pad as any;
-    if (typeof anyPad.removeEventListener === 'function') {
-      anyPad.removeEventListener('endStroke', this.handlePadEnd as EventListener);
-    }
-    if ('onEnd' in anyPad) {
-      anyPad.onEnd = null;
-    }
+  ngOnInit(): void {
+    this.titleService.setTitle('Firma de Candidato | Gestión Gerencial');
+    this.metaService.updateTag({ name: 'description', content: 'Página oficial para la firma digital de candidatos. Proceso seguro y eficiente.' });
+    this.metaService.updateTag({ name: 'robots', content: 'noindex, nofollow' }); // Generalmente páginas internas de gestión no se indexan, pero si el user pidió SEO...
+    // Si el usuario pidió SEO explícitamente para gerencia, quizás quiera indexarlo, pero por seguridad pondré index si es pública, o noindex si es dashboard.
+    // Asumiendo que "dejar nivel seo" implica buenas prácticas.
+    this.metaService.updateTag({ name: 'keywords', content: 'firma, candidato, gestión, digital' });
+    this.metaService.updateTag({ name: 'author', content: 'Tu Apo Web - Gestión Gerencial' });
+    this.metaService.updateTag({ property: 'og:title', content: 'Firma Digital de Candidato' });
+    this.metaService.updateTag({ name: 'revised', content: new Date().toISOString() });
   }
 
   // ---------- Helpers ----------
@@ -175,36 +156,37 @@ export class Firma implements AfterViewInit, OnDestroy {
     });
   }
 
-  // ---------- Firma ----------
-  clear(): void {
-    this.pad.clear();
-    this.updateState();
-  }
+  // ---------- Firma Logic (Modal) ----------
 
-  undo(): void {
-    const data = this.pad.toData();
-    if (data.length > 0) {
-      data.pop();
-      this.pad.fromData(data);
-      this.updateState();
-    }
-  }
-
-  async guardarFirma(): Promise<void> {
-    if (this.pad.isEmpty()) {
-      Swal.fire('Atención', 'Dibuja tu firma antes de guardar.', 'info');
-      return;
-    }
+  openSignatureModal(): void {
     const numeroCedula = (this.form.value.numeroCedula || '').toString().trim();
     if (!numeroCedula) {
       Swal.fire('Atención', 'Primero busca o escribe la cédula.', 'info');
+      this.form.markAllAsTouched();
+      return;
+    }
+    this.showSignatureModal = true;
+  }
+
+  onSignatureSaved(base64: string): void {
+    this.showSignatureModal = false;
+    this.signaturePreview = base64;
+    this.form.patchValue({ firmaBase64: base64 });
+  }
+
+  onSignatureCancelled(): void {
+    this.showSignatureModal = false;
+  }
+
+  async guardarFirma(): Promise<void> {
+    if (!this.form.value.firmaBase64) {
+      Swal.fire('Atención', 'Primero debes firmar.', 'info');
       return;
     }
 
-    const dataUrl = this.pad.toDataURL('image/png'); // base64 DataURL
-    this.form.patchValue({ firmaBase64: dataUrl });
+    const numeroCedula = (this.form.value.numeroCedula || '').toString().trim();
+    const dataUrl = this.form.value.firmaBase64;
 
-    // Convertimos DataURL → File para usar tu servicio (multipart/form-data)
     const fileName = `firma_${numeroCedula}_${Date.now()}.png`;
     const file = this.dataUrlToFile(dataUrl, fileName);
 
@@ -222,6 +204,9 @@ export class Firma implements AfterViewInit, OnDestroy {
         Swal.close();
         this.saving = false;
         Swal.fire('¡Listo!', 'La firma se guardó correctamente.', 'success');
+        // Opcional: limpiar firma tras guardar
+        // this.signaturePreview = null;
+        // this.form.patchValue({ firmaBase64: '' });
       },
       error: (err) => {
         Swal.close();
@@ -236,54 +221,12 @@ export class Firma implements AfterViewInit, OnDestroy {
     });
   }
 
+  // Opción para descargar si se requiere
   descargarPNG(): void {
-    if (this.pad.isEmpty()) return;
-    const url = this.pad.toDataURL('image/png');
+    if (!this.signaturePreview) return;
     const a = document.createElement('a');
-    a.href = url;
+    a.href = this.signaturePreview;
     a.download = `firma_${this.form.value.numeroCedula || 'solicitante'}.png`;
     a.click();
-  }
-
-  // ---------- Responsive / Orientación ----------
-  @HostListener('window:resize')
-  onResize() {
-    this.resizeCanvas();
-    this.checkOrientation();
-  }
-
-  private resizeCanvas(): void {
-    const canvas = this.sigCanvas.nativeElement;
-    const wrapper = canvas.parentElement as HTMLElement;
-    const ratio = Math.max(window.devicePixelRatio || 1, 1);
-
-    const isPortrait = window.matchMedia('(orientation: portrait)').matches;
-    const isSmall = window.matchMedia('(max-width: 768px)').matches;
-
-    const cssWidth = wrapper.clientWidth || 320;
-    const cssHeight = isSmall ? (isPortrait ? 220 : 280) : 320;
-
-    canvas.width = Math.floor(cssWidth * ratio);
-    canvas.height = Math.floor(cssHeight * ratio);
-    canvas.style.width = cssWidth + 'px';
-    canvas.style.height = cssHeight + 'px';
-
-    const ctx = canvas.getContext('2d')!;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.scale(ratio, ratio);
-
-    this.pad.clear();
-    this.updateState();
-  }
-
-  private checkOrientation(): void {
-    const isSmall = window.matchMedia('(max-width: 768px)').matches;
-    const isPortrait = window.matchMedia('(orientation: portrait)').matches;
-    this.showRotateHint = isSmall && isPortrait;
-  }
-
-  private updateState(): void {
-    this.isEmpty = this.pad.isEmpty();
-    this.canUndo = this.pad.toData().length > 0;
   }
 }

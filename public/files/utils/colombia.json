@@ -556,7 +556,7 @@
       "Uni\u00f3n Panamericana",
       "Ungu\u00eda"
     ]
-  },
+  },  
   {
     "id": 12,
     "departamento": "Cundinamarca",
@@ -568,8 +568,7 @@
       "Apulo",
       "Arbel\u00e1ez",
       "Beltr\u00e1n",
-      "Bituima",
-      "Bogot\u00e1",
+      "Bituima",      
       "Bojac\u00e1",
       "Cabrera",
       "Cachipay",
@@ -1300,6 +1299,13 @@
     "departamento": "Venezuela",
     "ciudades": [
       "Venezuela"
+    ]
+  } ,
+  {
+    "id": 33,
+    "departamento": "Bogotá D.C",
+    "ciudades": [
+      "Bogotá D.C"
     ]
   }
 ]

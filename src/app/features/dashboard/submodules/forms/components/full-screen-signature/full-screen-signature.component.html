@@ -1,0 +1,42 @@
+<div class="fs-overlay">
+    <div class="fs-container">
+
+        <!-- Cabecera flotante -->
+        <div class="fs-header">
+            <h2>Firma del Solicitante</h2>
+            <p>Por favor firme en el recuadro blanco</p>
+        </div>
+
+        <!-- Área de firma: Ocupa todo el espacio disponible -->
+        <div class="fs-canvas-wrapper" (click)="hideGuide()">
+            <canvas #sigCanvas class="fs-canvas"></canvas>
+
+            <!-- Guía visual "Firma Aquí" (desaparece al interactuar) -->
+            <div class="guide-overlay" *ngIf="showGuide">
+                <mat-icon>touch_app</mat-icon>
+                <span>Firme aquí</span>
+            </div>
+        </div>
+
+        <!-- Barra de acciones flotante -->
+        <div class="fs-actions">
+            <button mat-stroked-button color="warn" (click)="onCancel()" class="btn-cancel">
+                <mat-icon>close</mat-icon> Cancelar
+            </button>
+
+            <div class="group-tools">
+                <button mat-stroked-button (click)="undo()" [disabled]="!canUndo">
+                    <mat-icon>undo</mat-icon> <span class="hide-mobile">Deshacer</span>
+                </button>
+                <button mat-stroked-button (click)="clear()" [disabled]="isEmpty">
+                    <mat-icon>delete_outline</mat-icon> <span class="hide-mobile">Limpiar</span>
+                </button>
+            </div>
+
+            <button mat-flat-button color="primary" (click)="onSave()" [disabled]="isEmpty" class="btn-save">
+                <mat-icon>check_circle</mat-icon> Confirmar
+            </button>
+        </div>
+
+    </div>
+</div>

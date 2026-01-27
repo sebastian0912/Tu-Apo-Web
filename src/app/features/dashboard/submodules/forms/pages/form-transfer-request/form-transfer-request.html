@@ -1,47 +1,63 @@
 <div class="contenedor">
-    <div class="head">
-        <h1> Solicitud de traslado </h1>
-    </div>
+    <section class="request-card" aria-labelledby="page-title">
 
-    <form class="formulario" [formGroup]="formtraslados" id="formulario" (submit)="enviarSolicitudTraslado()">
-        <div>
-            <div class="title">
-                <h1>Llena por favor los siguientes campos</h1>
-            </div>
+        <header class="page-header">
+            <h1 id="page-title" class="page-title">Solicitud de Traslado</h1>
+            <p class="page-subtitle">Complete el formulario para iniciar su proceso de traslado de EPS.</p>
+        </header>
+
+        <form class="formulario" [formGroup]="formtraslados" (ngSubmit)="enviarSolicitudTraslado()">
+
             <div class="datos">
 
-                <mat-form-field class="input">
+                <!-- Documento -->
+                <mat-form-field appearance="outline">
                     <mat-label>Número de documento de identidad</mat-label>
-                    <input matInput placeholder="10058547896" formControlName="numero_cedula">
+                    <input matInput placeholder="Ej: 10058547896" formControlName="numero_cedula" type="number">
+                    <mat-error *ngIf="formtraslados.get('numero_cedula')?.hasError('required')">
+                        El documento es obligatorio
+                    </mat-error>
                 </mat-form-field>
 
-                <mat-form-field class="input">
+                <!-- EPS -->
+                <mat-form-field appearance="outline">
                     <mat-label>EPS a trasladar</mat-label>
                     <mat-select formControlName="eps_a_trasladar">
                         <mat-option value="Nueva_Eps">Nueva EPS</mat-option>
                         <mat-option value="Salud_Total">Salud Total</mat-option>
-                        <!--Famisanar-->
                         <mat-option value="Famisanar">Famisanar</mat-option>
                     </mat-select>
+                    <mat-error *ngIf="formtraslados.get('eps_a_trasladar')?.hasError('required')">
+                        Seleccione una EPS
+                    </mat-error>
                 </mat-form-field>
 
-                <div class="archivo">
-                    <!-- Omitir mat-form-field para el input de tipo file -->
-                    <div class="file-input">
-                        <input type="file" #fileInput (change)="uploadFile($event)" formControlName="solicitud_traslado"
-                            [hidden]="true">
-                        <button (click)="fileInput.click()" matButton="filled" type="button">
-                            <mat-icon>attach_file</mat-icon> Adjuntar solicitud de traslado
-                        </button>
-                        <mat-form-field appearance="fill">
-                            <input matInput [value]="fileName" placeholder="No file selected" readonly>
-                        </mat-form-field>
+                <!-- File Upload Personalizado -->
+                <div class="file-upload-wrapper">
+                    <input type="file" #fileInput (change)="uploadFile($event)" [hidden]="true"
+                        accept=".pdf,.jpg,.jpeg,.png">
+
+                    <div class="file-drop-zone" [class.has-file]="!!fileName" (click)="fileInput.click()" role="button"
+                        tabindex="0" (keydown.enter)="fileInput.click()">
+                        <mat-icon class="upload-icon">{{ fileName ? 'check_circle' : 'cloud_upload' }}</mat-icon>
+                        <span class="file-label">
+                            {{ fileName ? 'Archivo seleccionado' : 'Adjuntar solicitud de traslado' }}
+                        </span>
+                        <span class="file-name" *ngIf="fileName">{{ fileName }}</span>
+                        <span class="file-name" *ngIf="!fileName" style="font-size: 0.75rem;">Clic para subir
+                            archivo</span>
                     </div>
+                    <!-- Campo oculto para validador si se requiere, pero ya lo manejamos con lógica visual -->
                 </div>
 
-                <button matButton="filled" style="width: 40vw;" type="submit">Enviar</button>
-
             </div>
-        </div>
-    </form>
+
+            <div class="actions">
+                <button mat-flat-button class="submit-btn" type="submit" [disabled]="formtraslados.invalid">
+                    Enviar Solicitud
+                </button>
+            </div>
+
+        </form>
+    </section>
 </div>

@@ -1,178 +1,496 @@
-/* Página centrada y limpia */
-.firma-page {
-  min-height: 100svh;
-  display: grid;
-  place-items: center;
-  gap: 20px;
-  padding: 24px;
-  background: #f8fafc;
+/* =========================================
+   VIGÍAS ENTERPRISE - FIRMA PAGE
+   ========================================= */
+
+:host {
+  /* --- Palette --- */
+  --brand-accent: #8CD50A;
+  /* Lime */
+  --brand-dark: #21263C;
+  /* Navy */
+  --brand-dark-rgb: 33, 38, 60;
+
+  --surface: #ffffff;
+
+  /* =========================================
+   0. PAGE HEADER (SEO)
+   ========================================= */
+  .page-header {
+    grid-column: 1 / -1;
+    /* Span full width */
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+  }
+
+  --text-secondary: #64748b;
+  --text-invert: #ffffff;
+
+  /* --- Spacing & Radius --- */
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --shadow-soft: 0 10px 30px -5px rgba(0, 0, 0, 0.05);
+
+  display: block;
+  min-height: 100vh;
+  background-color: var(--bg-page);
+  font-family: 'Inter',
+  system-ui,
+  sans-serif;
+  color: var(--text-primary);
 }
 
-/* Tarjetas principales */
-.finder-card,
-.sign-card {
-  width: min(880px, 92vw);
-  background: #ffffff;
-  border-radius: 16px;
-  border: 1px solid rgba(2, 8, 23, 0.06);
-  box-shadow: 0 8px 30px rgba(2, 8, 23, 0.08);
-  padding: 20px 22px;
+/* =========================================
+   1. GRID LAYOUT
+   ========================================= */
+.firma-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  /* Mobile First */
+  gap: 24px;
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+@media (min-width: 960px) {
+  .firma-layout {
+    grid-template-columns: 360px 1fr;
+    /* Sidebar fixed + Fluid content */
+    align-items: start;
+    padding: 40px;
+  }
+}
+
+/* =========================================
+   2. CARDS (Base Component)
+   ========================================= */
+.v-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Hover effect on cards */
+/* .v-card:hover { transform: translateY(-2px); box-shadow: 0 15px 35px -5px rgba(0,0,0,0.08); } */
+
+.card-header {
+  padding: 24px 24px 16px;
+  border-bottom: 1px solid transparent;
+}
+
+.flex-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--brand-dark);
+  letter-spacing: -0.02em;
+}
+
+.section-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+/* =========================================
+   3. LEFT COLUMN (Search & Result)
+   ========================================= */
+.col-left {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.search-body {
+  padding: 0 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Input Styles Override */
+.full-width {
+  width: 100%;
+}
+
+/* --- Result Card --- */
+.result-card {
+  padding: 24px;
+  position: relative;
+  border-left: 4px solid transparent;
+}
+
+/* Loading State (Skeleton) */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: pulse 1.5s infinite;
+}
+
+.skeleton-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #f1f5f9;
+}
+
+.skeleton-text {
+  height: 16px;
+  width: 80%;
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.skeleton-text.short {
+  width: 50%;
+}
+
+/* Found State */
+.found-state {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.candidate-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--brand-dark) 0%, #334155 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.candidate-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.candidate-name {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--brand-dark);
+}
+
+.candidate-meta {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 2px 0 8px;
+}
+
+.v-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+
+  background-color: rgba(140, 213, 10, 0.15);
+  color: #5e9104;
+  /* Dark Lime for text readability */
+}
+
+.v-badge mat-icon {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+}
+
+/* =========================================
+   4. RIGHT COLUMN (Signature)
+   ========================================= */
+
+.status-chip {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  background: var(--bg-page);
+  color: var(--text-secondary);
+  border-radius: 12px;
+}
+
+.status-chip.ready {
+  background: var(--brand-dark);
+  color: var(--brand-accent);
+}
+
+.signature-body {
+  padding: 0 24px 32px;
+}
+
+/* Preview Container */
+.signature-preview-container {
+  height: 280px;
+  background-color: #f8fafc;
+  border: 2px dashed #cbd5e1;
+  border-radius: var(--radius-md);
   position: relative;
   overflow: hidden;
-  animation: fadeIn 0.25s ease-out both;
-}
-
-.title {
-  margin: 0 0 12px;
-  font-size: 20px;
-  font-weight: 700;
-  color: #0f172a;
-  letter-spacing: .2px;
-}
-
-/* Layout del buscador */
-.cajabusqueda {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 12px;
-  align-items: end;
-}
-
-.cedula-field { width: 100%; }
-.boton { height: 48px; }
-
-/* Tarjeta de firma */
-.sign-header {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-.sign-header h2 {
-  margin: 4px 0;
-  font-weight: 700;
-  color: #0f172a;
-}
-.hint {
-  font-size: 12px;
-  color: #64748b;
-}
-
-/* Contenedor del canvas (controla el ancho) */
-.canvas-wrap {
-  position: relative;
-  width: 100%;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  background: #ffffff;
-  padding: 8px;
-  box-sizing: border-box;
-}
-
-/* Canvas con bordes suaves */
-.sig-canvas {
-  display: block;
-  width: 100%;
-  border-radius: 8px;
-  background: #fbfbfb;
-  touch-action: none; /* mejora input táctil */
-}
-
-/* Toolbar de acciones */
-.sign-toolbar {
-  margin-top: 10px;
-  display: flex;
-  gap: 10px;
   align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
 }
-.sign-toolbar .spacer { flex: 1; }
 
-/* Overlay orientación en móvil retrato */
-.orient-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  display: grid;
-  place-items: center;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 12px;
-  text-align: center;
-  color: #0f172a;
-  padding: 16px;
-  font-weight: 600;
+.signature-preview-container:hover {
+  border-color: #94a3b8;
+  background-color: #f1f5f9;
 }
-.orient-overlay mat-icon {
+
+.signature-preview-container.has-signature {
+  background-color: white;
+  border: 1px solid var(--border);
+  cursor: default;
+}
+
+/* Empty State */
+.empty-placeholder {
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.icon-box {
+  width: 64px;
+  height: 64px;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.icon-box mat-icon {
   font-size: 32px;
   width: 32px;
   height: 32px;
-  color: #3f51b5;
+  color: var(--brand-accent);
 }
 
-/* Resultado (tarjeta con nombre + cédula) */
-.resultado {
-  margin-top: 12px;
-  padding: 0 12px;
-  display: flex;
-  justify-content: center;
+.placeholder-text {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
-.res-card {
-  width: 100%;
-  max-width: 560px;
-  border-radius: 16px;
-  background: #ffffff;
-  color: #0f172a;
-  border: 1px solid rgba(2, 8, 23, 0.06);
-  box-shadow: 0 8px 30px rgba(2, 8, 23, 0.08);
-  position: relative;
-  overflow: hidden;
-  animation: fadeIn 0.25s ease-out both;
+.placeholder-hint {
+  font-size: 0.875rem;
 }
 
-/* Barra de acento superior */
-.res-card::before {
-  content: "";
+/* Image */
+.preview-image {
+  max-width: 100%;
+  max-height: 100%;
+  padding: 24px;
+  object-fit: contain;
+}
+
+/* Digital Stamp */
+.digital-stamp {
   position: absolute;
-  inset: 0 0 auto 0;
-  height: 4px;
-  background: linear-gradient(90deg, #3f51b5, #22c55e);
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgb(140, 213, 10);
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(4px);
+  z-index: 5;
 }
 
-/* Tipografía Material (MDC y legacy) */
-.res-card .mat-mdc-card-title,
-.res-card .mat-card-title {
+.digital-stamp mat-icon {
+  color: var(--brand-accent);
+  font-size: 24px;
+  width: 24px;
+  height: 24px;
+}
+
+.stamp-info {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.stamp-info strong {
+  font-size: 0.7rem;
+  color: var(--brand-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stamp-info small {
+  font-size: 0.6rem;
+  color: var(--text-secondary);
+}
+
+/* UX Hint */
+.ux-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 12px;
+}
+
+.ux-hint mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+/* Actions Panel */
+.actions-panel {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* =========================================
+   5. BUTTONS (Vigías Theme)
+   ========================================= */
+.v-btn-primary {
+  background-color: var(--brand-dark) !important;
+  color: white !important;
+  font-weight: 600;
+  height: 48px;
+  border-radius: var(--radius-md) !important;
+}
+
+.v-btn-accent {
+  background-color: var(--brand-accent) !important;
+  color: var(--brand-dark) !important;
   font-weight: 700;
-  font-size: clamp(18px, 2.4vw, 22px);
-  line-height: 1.2;
-  letter-spacing: .2px;
+  height: 48px;
+  border-radius: var(--radius-md) !important;
+  padding: 0 32px;
+  box-shadow: 0 4px 15px rgba(140, 213, 10, 0.3) !important;
 }
 
-.res-card .mat-mdc-card-subtitle,
-.res-card .mat-card-subtitle {
-  color: #64748b;
-  font-size: clamp(13px, 2vw, 14px);
-  margin-top: 2px;
+.v-btn-accent:disabled {
+  box-shadow: none !important;
+  background-color: var(--border) !important;
+  color: var(--text-secondary) !important;
 }
 
-/* Hover/focus sutil */
-.res-card:hover {
-  box-shadow: 0 10px 36px rgba(2, 8, 23, 0.12);
-}
-.res-card:focus-within {
-  outline: 2px solid rgba(63, 81, 181, 0.15);
-  outline-offset: 2px;
+.v-btn-secondary {
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+  height: 48px;
+  border-radius: var(--radius-md) !important;
 }
 
-/* Animación de entrada */
+/* =========================================
+   6. SPINNER (CSS ONLY)
+   ========================================= */
+.v-spinner {
+  display: inline-block;
+  vertical-align: middle;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 0.8s ease-in-out infinite;
+  margin-right: 8px;
+}
+
+.v-spinner.inverted {
+  border-color: rgba(33, 38, 60, 0.2);
+  border-top-color: var(--brand-dark);
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
-/* Responsivo */
-@media (max-width: 768px) {
-  .cajabusqueda {
-    grid-template-columns: 1fr;
+/* =========================================
+   7. MEDIA QUERIES (Mobile)
+   ========================================= */
+@media (max-width: 600px) {
+  .firma-layout {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .v-card {
+    border-radius: 16px;
+  }
+
+  .card-header,
+  .search-body,
+  .signature-body {
+    padding: 20px;
+  }
+
+  .actions-panel {
+    flex-direction: column-reverse;
+    /* Save button top */
+  }
+
+  .v-btn-primary,
+  .v-btn-accent,
+  .v-btn-secondary {
+    width: 100%;
+  }
+
+  .signature-preview-container {
+    height: 220px;
   }
 }

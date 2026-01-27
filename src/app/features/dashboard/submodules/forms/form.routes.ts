@@ -5,6 +5,7 @@ import { FormReadingAndWritingTest } from './pages/form-reading-and-writing-test
 import { FormTransferRequest } from './pages/form-transfer-request/form-transfer-request';
 import { FormVacancies } from './pages/form-vacancies/form-vacancies';
 import { Firma } from './pages/firma/firma';
+import { FormsTestContratation } from './pages/forms-test-contratation/forms-test-contratation';
 
 export const routes: Routes = [
   { path: 'formulario-seguridad-salud-trabajo', component: FormOccupationalHealthAndSafetyTest },
@@ -12,6 +13,7 @@ export const routes: Routes = [
   { path: 'formulario-lectura-escritura', component: FormReadingAndWritingTest },
   { path: 'formulario-solicitud-traslado', component: FormTransferRequest },
   { path: 'formulario-vacantes', component: FormVacancies },
-  { path: 'firma', component: Firma }
+  { path: 'firma', component: Firma },
+  { path: 'formulario-contratation', component: FormsTestContratation }
 ];
 
