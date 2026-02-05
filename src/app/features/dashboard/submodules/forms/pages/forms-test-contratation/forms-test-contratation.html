@@ -26,628 +26,665 @@
     </div>
 
     <!-- MAIN FORM (Only if showForm is true) -->
-    <form *ngIf="showForm" [formGroup]="formHojaDeVida2" (ngSubmit)="imprimirInformacion2()">
-      <div class="stepper-wrapper">
+    <div class="content-wrapper">
+      <form *ngIf="showForm" [formGroup]="formHojaDeVida2" (ngSubmit)="imprimirInformacion2()" class="form-container"
+        translate="no">
+        <div class="step-indicator-wrapper">
 
-        <!-- Mobile Sticky Header Group (Title + Stats) -->
-        <div class="mobile-sticky-group">
-          <div class="mobile-title">
-            <h2>REGISTRO DE CONTRATACIÓN</h2>
-            <p class="form-subtitle" style="margin: 0; font-size: 13px; color: #6b7280; font-weight: normal;">Formulario
-              de registro y actualización de datos.</p>
+          <!-- Mobile Sticky Header Group (Title + Stats) -->
+          <div class="mobile-sticky-group">
+            <div class="mobile-title">
+              <h2>REGISTRO DE CONTRATACIÓN</h2>
+              <p class="form-subtitle" style="margin: 0; font-size: 13px; color: #6b7280; font-weight: normal;">
+                Formulario
+                de registro y actualización de datos.</p>
+            </div>
+
+            <div class="stepper-stats" *ngIf="stepperTotal > 0">
+              <div class="stats-info">
+                <span>Paso <strong>{{ stepperIndex }}</strong> de <strong>{{ stepperTotal }}</strong></span>
+                <span>{{ stepperProgress | number:'1.0-0' }}%</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" [style.width.%]="stepperProgress"></div>
+              </div>
+            </div>
           </div>
 
-          <div class="stepper-stats" *ngIf="stepperTotal > 0">
-            <div class="stats-info">
-              <span>Paso <strong>{{ stepperIndex }}</strong> de <strong>{{ stepperTotal }}</strong></span>
-              <span>{{ stepperProgress | number:'1.0-0' }}%</span>
-            </div>
-            <div class="progress-bar">
-              <div class="progress-fill" [style.width.%]="stepperProgress"></div>
-            </div>
-          </div>
-        </div>
+          <!-- Stepper -->
+          <mat-horizontal-stepper #stepper [linear]="false" class="custom-stepper">
 
-        <!-- Stepper -->
-        <mat-horizontal-stepper #stepper [linear]="false" class="custom-stepper">
-
-          <!-- STEP 1: PRE-REGISTRO (PERSONAL + CONTACTO BASICO) -->
-          <mat-step [stepControl]="formHojaDeVida2">
-            <ng-template matStepLabel>Pre-registro</ng-template>
-            <ng-template matStepContent>
-              <div class="step-header">
-                <h3>Información Básica</h3>
-                <p>Complete sus datos personales y de contacto para iniciar.</p>
-              </div>
-
-              <!-- B) Identificación -->
-              <div class="full-width sub-section">
-                <h4>Identificación</h4>
-              </div>
-              <div class="grid-layout">
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'oficina', label: 'Oficina', options: oficinas, disabled: oficinaBloqueada}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'tipoDoc', label: 'Tipo de documento', options: tipoDocs, optionsKey: 'description', valueKey: 'abbreviation'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'numeroCedula', label: 'Número de documento'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="dateField; context: {control: 'fechaExpedicionCC', label: 'Fecha Expedición'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'departamentoExpedicionCC', label: 'Dpto. Expedición', options: filteredDeptoExp, optionsKey: 'departamento', valueKey: 'departamento', searchControl: searchDeptoExp}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'municipioExpedicionCC', label: 'Ciudad Expedición', options: filteredMunExp, searchControl: searchMunExp}"></ng-container>
-              </div>
-
-              <!-- C) Datos personales -->
-              <div class="full-width sub-section">
-                <h4>Datos Personales</h4>
-              </div>
-              <div class="grid-layout">
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'pApellido', label: 'Primer Apellido'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'sApellido', label: 'Segundo Apellido'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'pNombre', label: 'Primer Nombre'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'sNombre', label: 'Segundo Nombre'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="dateField; context: {control: 'fechaNacimiento', label: 'Fecha Nacimiento'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'departamentoNacimiento', label: 'Dpto. Nacimiento', options: filteredDeptoNac, optionsKey: 'departamento', valueKey: 'departamento', searchControl: searchDeptoNac}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'municipioNacimiento', label: 'Ciudad Nacimiento', options: filteredMunNac, searchControl: searchMunNac}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'genero', label: 'Género', options: generos}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'estadoCivil', label: 'Estado Civil', options: estadosCiviles, optionsKey: 'descripcion', valueKey: 'codigo'}"></ng-container>
-              </div>
-
-              <!-- D) Contacto y domicilio -->
-              <div class="full-width sub-section">
-                <h4>Contacto y Domicilio</h4>
-              </div>
-              <div class="grid-layout">
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'zonaResidencia', label: 'Barrio'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'departamento', label: 'Departamento Residencia', options: filteredDeptoRes, optionsKey: 'departamento', valueKey: 'departamento', searchControl: searchDeptoRes}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'ciudad', label: 'Ciudad Residencia', options: filteredMunRes, searchControl: searchMunRes}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'direccionResidencia', label: 'Dirección Residencia', isAddress: true}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'numCelular', label: 'Celular', type: 'tel'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'numWha', label: 'WhatsApp', type: 'tel'}"></ng-container>
-
-                <div class="full-width">
-                  <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'conQuienViveChecks', label: '¿Con quién vive?', options: listaPosiblesRespuestasConquienVive, multiple: true}"></ng-container>
-                </div>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'tiempoResidenciaZona', label: 'Tiempo en zona', options: haceCuantoViveEnlaZona}"></ng-container>
-              </div>
-
-              <!-- E) Correo electrónico -->
-              <div class="full-width sub-section">
-                <h4>Correo Electrónico</h4>
-              </div>
-              <div class="grid-layout" style="display: flex; gap: 8px; align-items: flex-start;">
-                <!-- Usuario Input -->
-                <div style="flex: 1;">
-                  <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'correoUsuario', label: 'Usuario', placeholder: 'ej: juan.perez'}"></ng-container>
-                  <mat-error *ngIf="formHojaDeVida2.get('correoUsuario')?.hasError('pattern')" style="font-size: 11px;">
-                    Sin "&#64;"
-                  </mat-error>
+            <!-- STEP 1: PRE-REGISTRO (PERSONAL + CONTACTO BASICO) -->
+            <mat-step [stepControl]="formHojaDeVida2">
+              <ng-template matStepLabel>Pre-registro</ng-template>
+              <ng-template matStepContent>
+                <div class="step-header">
+                  <h3>Información Básica</h3>
+                  <p>Complete sus datos personales y de contacto para iniciar.</p>
                 </div>
 
-                <div style="display: flex; align-items: center; padding-top: 15px; font-weight: bold; color: #555;">
-                  &#64;</div>
+                <!-- B) Identificación -->
+                <div class="full-width sub-section">
+                  <h4>Identificación</h4>
+                </div>
+                <div class="grid-layout">
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'oficina', label: 'Oficina', options: oficinas, disabled: oficinaBloqueada}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'tipoDoc', label: 'Tipo de documento', options: tipoDocs, optionsKey: 'description', valueKey: 'abbreviation'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'numeroCedula', label: 'Número de documento'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="dateField; context: {control: 'fechaExpedicionCC', label: 'Fecha Expedición'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'departamentoExpedicionCC', label: 'Dpto. Expedición', options: filteredDeptoExp, optionsKey: 'departamento', valueKey: 'departamento', searchControl: searchDeptoExp}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'municipioExpedicionCC', label: 'Ciudad Expedición', options: filteredMunExp, searchControl: searchMunExp}"></ng-container>
+                </div>
 
-                <!-- Dominio Dropdown -->
-                <div style="flex: 1;">
-                  <ng-container *ngTemplateOutlet="selectField; context: {
+                <!-- C) Datos personales -->
+                <div class="full-width sub-section">
+                  <h4>Datos Personales</h4>
+                </div>
+                <div class="grid-layout">
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'pApellido', label: 'Primer Apellido'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'sApellido', label: 'Segundo Apellido'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'pNombre', label: 'Primer Nombre'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'sNombre', label: 'Segundo Nombre'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="dateField; context: {control: 'fechaNacimiento', label: 'Fecha Nacimiento'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'departamentoNacimiento', label: 'Dpto. Nacimiento', options: filteredDeptoNac, optionsKey: 'departamento', valueKey: 'departamento', searchControl: searchDeptoNac}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'municipioNacimiento', label: 'Ciudad Nacimiento', options: filteredMunNac, searchControl: searchMunNac}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'genero', label: 'Género', options: generos}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'estadoCivil', label: 'Estado Civil', options: estadosCiviles, optionsKey: 'descripcion', valueKey: 'codigo'}"></ng-container>
+                </div>
+
+                <!-- D) Contacto y domicilio -->
+                <div class="full-width sub-section">
+                  <h4>Contacto y Domicilio</h4>
+                </div>
+                <div class="grid-layout">
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'zonaResidencia', label: 'Barrio'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'departamento', label: 'Departamento Residencia', options: filteredDeptoRes, optionsKey: 'departamento', valueKey: 'departamento', searchControl: searchDeptoRes}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'ciudad', label: 'Ciudad Residencia', options: filteredMunRes, searchControl: searchMunRes}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'direccionResidencia', label: 'Dirección Residencia', isAddress: true}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'numCelular', label: 'Celular', type: 'tel'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'numWha', label: 'WhatsApp', type: 'tel'}"></ng-container>
+
+                  <div class="full-width">
+                    <ng-container
+                      *ngTemplateOutlet="selectField; context: {control: 'conQuienViveChecks', label: '¿Con quién vive?', options: listaPosiblesRespuestasConquienVive, multiple: true}"></ng-container>
+                  </div>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'tiempoResidenciaZona', label: 'Tiempo en zona', options: haceCuantoViveEnlaZona}"></ng-container>
+                </div>
+
+                <!-- E) Correo electrónico -->
+                <div class="full-width sub-section">
+                  <h4>Correo Electrónico</h4>
+                </div>
+                <div class="grid-layout" style="display: flex; gap: 8px; align-items: flex-start;">
+                  <!-- Usuario Input -->
+                  <div style="flex: 1;">
+                    <ng-container
+                      *ngTemplateOutlet="textField; context: {control: 'correoUsuario', label: 'Usuario', placeholder: 'ej: juan.perez'}"></ng-container>
+                    <mat-error *ngIf="formHojaDeVida2.get('correoUsuario')?.hasError('pattern')"
+                      style="font-size: 11px;">
+                      Sin "&#64;"
+                    </mat-error>
+                  </div>
+
+                  <div style="display: flex; align-items: center; padding-top: 15px; font-weight: bold; color: #555;">
+                    &#64;</div>
+
+                  <!-- Dominio Dropdown -->
+                  <div style="flex: 1;">
+                    <ng-container *ngTemplateOutlet="selectField; context: {
                       control: 'correoDominio', 
                       label: 'Dominio', 
                       options: filteredDominios, 
                       searchControl: searchDominio
                     }">
-                  </ng-container>
-                  <mat-error *ngIf="formHojaDeVida2.get('correoDominio')?.hasError('pattern')" style="font-size: 11px;">
-                    Dominio válido (sin &#64;)
-                  </mat-error>
-                </div>
-              </div>
-              <p class="hint-text" style="margin-top:-10px; margin-bottom: 20px; font-size: 12px; color: #666;">
-                El correo se formará automáticamente: <strong>{{ formHojaDeVida2.get('correo')?.value || '...'
-                  }}</strong>
-              </p>
-
-              <div class="actions">
-                <button mat-raised-button color="primary" type="button" class="btn-next"
-                  (click)="saveStep1InBackgroundAndNext()">Siguiente</button>
-              </div>
-            </ng-template>
-          </mat-step>
-
-          <!-- STEP 2: DETALLES ADICIONALES -->
-          <mat-step [stepControl]="formHojaDeVida2">
-            <ng-template matStepLabel>Detalles</ng-template>
-            <ng-template matStepContent>
-              <div class="step-header">
-                <h3>Información Adicional</h3>
-              </div>
-
-              <div class="grid-layout">
-                <!-- Moved fields from Step 1 that are not in the new Step 1 list -->
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'rh', label: 'RH', options: listatiposdesangre}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'lateralidad', label: 'Lateralidad', options: listamanos, optionsKey: 'descripcion', valueKey: 'mano'}"></ng-container>
-
-                <div class="full-width sub-section">
-                  <h4>Tallas</h4>
-                </div>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'tallaCamisa', label: 'Camisa', options: tallas}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'tallaPantalon', label: 'Pantalón', options: tallas}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'tallaChaqueta', label: 'Chaqueta', options: tallas}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'tallaCalzado', label: 'Calzado', options: tallasCalzado}"></ng-container>
-
-                <div class="full-width sub-section">
-                  <h4>Residencia (Detalles)</h4>
-                </div>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'lugarAnteriorResidencia', label: 'Lugar anterior'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'razonCambioResidencia', label: 'Razón cambio'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'zonasConocidas', label: 'Zonas que conoce'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'preferenciaResidencia', label: 'Preferencia laboral'}"></ng-container>
-
-                <!-- Emergency Contact -->
-                <div class="full-width sub-section">
-                  <h4>Contacto de Emergencia</h4>
-                </div>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'familiarEmergencia', label: 'Nombre Completo'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'parentescoFamiliarEmergencia', label: 'Parentesco', options: listaParentescosFamiliares, optionsKey: 'descripcion', valueKey: 'codigo'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'telefonoFamiliarEmergencia', label: 'Teléfono', type: 'tel'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'ocupacionFamiliarEmergencia', label: 'Ocupación', options: Ocupacion}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'direccionFamiliarEmergencia', label: 'Dirección Residencia', isAddress: true}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'barrioFamiliarEmergencia', label: 'Barrio / Municipio'}"></ng-container>
-
-                <!-- Education -->
-                <div class="full-width sub-section">
-                  <h4>Formación Académica</h4>
-                </div>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'escolaridad', label: 'Nivel Escolaridad', options: listaEscolaridad}"></ng-container>
-                <!-- Conditional Education Fields -->
-                <ng-container *ngIf="formHojaDeVida2.get('escolaridad')?.value !== 'SIN ESTUDIOS'">
-                  <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'nombreInstitucion', label: 'Institución'}"></ng-container>
-                  <ng-container
-                    *ngTemplateOutlet="dateField; context: {control: 'anoFinalizacion', label: 'Fecha Finalización'}"></ng-container>
-                  <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'tituloObtenido', label: 'Título'}"></ng-container>
-                  <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'estudiosExtrasSelect', label: 'Otros estudios', options: cursosDespuesColegio, multiple: true}"></ng-container>
-                </ng-container>
-
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'estudiaActualmente', label: '¿Estudia Actualmente?', options: opcionBinaria, optionsKey: 'display', valueKey: 'value'}"></ng-container>
-
-              </div>
-
-              <div class="actions">
-                <button mat-button matStepperPrevious type="button">Anterior</button>
-                <button mat-button matStepperNext type="button" class="btn-next">Siguiente</button>
-              </div>
-            </ng-template>
-          </mat-step>
-
-          <!-- STEP 3: FAMILIA Y REFERENCIAS -->
-          <mat-step [stepControl]="formHojaDeVida2">
-            <ng-template matStepLabel>Familia</ng-template>
-            <ng-template matStepContent>
-              <div class="step-header">
-                <h3>Familia y Referencias</h3>
-              </div>
-              <div class="grid-layout">
-                <!-- Conyuge -->
-                <!-- Conyuge -->
-                <!-- Conyuge -->
-                <div class="full-width sub-section" *ngIf="['CA', 'UL'].includes(getControl('estadoCivil').value)">
-                  <h4>Cónyuge</h4>
-                  <!-- Row 1: Names & Vive Check -->
-                  <div class="grid-col-3">
-                    <ng-container
-                      *ngTemplateOutlet="textField; context: {control: 'nombresConyuge', label: 'Nombres'}"></ng-container>
-                    <ng-container
-                      *ngTemplateOutlet="textField; context: {control: 'apellidosConyuge', label: 'Apellidos'}"></ng-container>
-                    <ng-container
-                      *ngTemplateOutlet="selectField; context: {control: 'viveConyuge', label: '¿Vive con cónyuge?', options: opcionBinaria, optionsKey: 'display', valueKey: 'value'}"></ng-container>
+                    </ng-container>
+                    <mat-error *ngIf="formHojaDeVida2.get('correoDominio')?.hasError('pattern')"
+                      style="font-size: 11px;">
+                      Dominio válido (sin &#64;)
+                    </mat-error>
                   </div>
+                </div>
+                <p class="hint-text" style="margin-top:-10px; margin-bottom: 20px; font-size: 12px; color: #666;">
+                  El correo se formará automáticamente: <strong>{{ formHojaDeVida2.get('correo')?.value || '...'
+                    }}</strong>
+                </p>
 
-                  <!-- Details (Visible if Vive=SI) -->
-                  <ng-container *ngIf="getControl('viveConyuge').value === 'SI'">
+                <!-- F) Contraseña & Extras (Moved per request) -->
+                <div class="full-width sub-section">
+                  <h4>Información de Cuenta y Perfil</h4>
+                </div>
+                <div class="grid-layout">
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'password', label: 'Contraseña', type: 'password'}"></ng-container>
+
+                  <!-- MOVED: Formación Académica -->
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'escolaridad', label: 'Nivel Escolaridad', options: listaEscolaridad}"></ng-container>
+
+                  <!-- MOVED: Expectativas -->
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'expectativasVidaChecks', label: '¿Cómo se proyecta?', options: expectativasVida, multiple: true}"></ng-container>
+                </div>
+
+                <div class="actions">
+                  <button mat-raised-button color="primary" type="button" class="btn-next"
+                    (click)="saveStep1InBackgroundAndNext()">Siguiente</button>
+                </div>
+              </ng-template>
+            </mat-step>
+
+            <!-- STEP 2: DETALLES ADICIONALES -->
+            <mat-step [stepControl]="formHojaDeVida2">
+              <ng-template matStepLabel>Detalles</ng-template>
+              <ng-template matStepContent>
+                <div class="step-header">
+                  <h3>Información Adicional</h3>
+                </div>
+
+                <div class="grid-layout">
+                  <!-- Moved fields from Step 1 that are not in the new Step 1 list -->
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'rh', label: 'RH', options: listatiposdesangre}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'lateralidad', label: 'Lateralidad', options: listamanos, optionsKey: 'descripcion', valueKey: 'mano'}"></ng-container>
+
+                  <div class="full-width sub-section">
+                    <h4>Tallas</h4>
+                  </div>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'tallaCamisa', label: 'Camisa', options: tallas}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'tallaPantalon', label: 'Pantalón', options: tallas}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'tallaChaqueta', label: 'Chaqueta', options: tallas}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'tallaCalzado', label: 'Calzado', options: tallasCalzado}"></ng-container>
+
+                  <div class="full-width sub-section">
+                    <h4>Residencia (Detalles)</h4>
+                  </div>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'lugarAnteriorResidencia', label: 'Lugar anterior'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'razonCambioResidencia', label: 'Razón cambio'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'zonasConocidas', label: 'Zonas que conoce'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'preferenciaResidencia', label: 'Preferencia laboral'}"></ng-container>
+
+                  <!-- Emergency Contact -->
+                  <div class="full-width sub-section">
+                    <h4>Contacto de Emergencia</h4>
+                  </div>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'familiarEmergencia', label: 'Nombre Completo'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'parentescoFamiliarEmergencia', label: 'Parentesco', options: listaParentescosFamiliares, optionsKey: 'descripcion', valueKey: 'codigo'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'telefonoFamiliarEmergencia', label: 'Teléfono', type: 'tel'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'ocupacionFamiliarEmergencia', label: 'Ocupación', options: Ocupacion}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'direccionFamiliarEmergencia', label: 'Dirección y Barrio', isAddress: true}"></ng-container>
+                  <!-- barrioFamiliarEmergencia REMOVED -->
+
+                  <!-- Education -->
+                  <!-- Education -->
+                  <div class="full-width sub-section">
+                    <h4>Formación Académica (Detalles)</h4>
+                  </div>
+                  <!-- Conditional Education Fields (Moved back per request) -->
+                  <ng-container *ngIf="formHojaDeVida2.get('escolaridad')?.value !== 'SIN ESTUDIOS'">
+                    <ng-container
+                      *ngTemplateOutlet="textField; context: {control: 'nombreInstitucion', label: 'Institución'}"></ng-container>
+                    <ng-container
+                      *ngTemplateOutlet="dateField; context: {control: 'anoFinalizacion', label: 'Fecha Finalización'}"></ng-container>
+                    <ng-container
+                      *ngTemplateOutlet="textField; context: {control: 'tituloObtenido', label: 'Título'}"></ng-container>
+                    <ng-container
+                      *ngTemplateOutlet="selectField; context: {control: 'estudiosExtrasSelect', label: 'Otros estudios', options: cursosDespuesColegio, multiple: true}"></ng-container>
+                  </ng-container>
+
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'estudiaActualmente', label: '¿Estudia Actualmente?', options: opcionBinaria, optionsKey: 'display', valueKey: 'value'}"></ng-container>
+
+                </div>
+
+                <div class="actions">
+                  <button mat-button matStepperPrevious type="button">Anterior</button>
+                  <button mat-button matStepperNext type="button" class="btn-next">Siguiente</button>
+                </div>
+              </ng-template>
+            </mat-step>
+
+            <!-- STEP 3: FAMILIA Y REFERENCIAS -->
+            <mat-step [stepControl]="formHojaDeVida2">
+              <ng-template matStepLabel>Familia</ng-template>
+              <ng-template matStepContent>
+                <div class="step-header">
+                  <h3>Familia y Referencias</h3>
+                </div>
+                <div class="grid-layout">
+                  <!-- Conyuge -->
+                  <!-- Conyuge -->
+                  <!-- Conyuge -->
+                  <div class="full-width sub-section" *ngIf="['CA', 'UL'].includes(getControl('estadoCivil').value)">
+                    <h4>Cónyuge</h4>
+                    <!-- Row 1: Names & Vive Check -->
                     <div class="grid-col-3">
                       <ng-container
-                        *ngTemplateOutlet="textField; context: {control: 'documentoIdentidadConyuge', label: 'Documento'}"></ng-container>
+                        *ngTemplateOutlet="textField; context: {control: 'nombresConyuge', label: 'Nombres'}"></ng-container>
                       <ng-container
-                        *ngTemplateOutlet="selectField; context: {control: 'ocupacionConyuge', label: 'Ocupación', options: Ocupacion}"></ng-container>
+                        *ngTemplateOutlet="textField; context: {control: 'apellidosConyuge', label: 'Apellidos'}"></ng-container>
                       <ng-container
-                        *ngTemplateOutlet="textField; context: {control: 'telefonoConyuge', label: 'Teléfono', type: 'tel'}"></ng-container>
+                        *ngTemplateOutlet="selectField; context: {control: 'viveConyuge', label: '¿Vive con cónyuge?', options: opcionBinaria, optionsKey: 'display', valueKey: 'value'}"></ng-container>
                     </div>
-                    <div class="grid-col-2">
-                      <ng-container
-                        *ngTemplateOutlet="textField; context: {control: 'direccionConyuge', label: 'Dirección', isAddress: true}"></ng-container>
-                      <ng-container
-                        *ngTemplateOutlet="textField; context: {control: 'barrioConyuge', label: 'Barrio'}"></ng-container>
-                    </div>
+
+                    <!-- Details (Visible if Vive=SI) -->
+                    <ng-container *ngIf="getControl('viveConyuge').value === 'SI'">
+                      <div class="grid-col-3">
+                        <ng-container
+                          *ngTemplateOutlet="textField; context: {control: 'documentoIdentidadConyuge', label: 'Documento'}"></ng-container>
+                        <ng-container
+                          *ngTemplateOutlet="selectField; context: {control: 'ocupacionConyuge', label: 'Ocupación', options: Ocupacion}"></ng-container>
+                        <ng-container
+                          *ngTemplateOutlet="textField; context: {control: 'telefonoConyuge', label: 'Teléfono', type: 'tel'}"></ng-container>
+                      </div>
+                      <div class="grid-col-2">
+                        <ng-container
+                          *ngTemplateOutlet="textField; context: {control: 'direccionConyuge', label: 'Dirección y Barrio', isAddress: true}"></ng-container>
+                        <!-- barrioConyuge REMOVED -->
+                      </div>
+                    </ng-container>
+                  </div>
+
+                  <!-- Padres -->
+                  <div class="full-width sub-section">
+                    <h4>Padres</h4>
+                  </div>
+                  <!-- Padre -->
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'nombrePadre', label: 'Nombre Padre'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'elPadreVive', label: 'Estado del padre', options: parentStatusOptions, optionsKey: 'display', valueKey: 'value'}"></ng-container>
+                  <ng-container *ngIf="formHojaDeVida2.get('elPadreVive')?.value === 'VIVE'">
+                    <ng-container
+                      *ngTemplateOutlet="selectField; context: {control: 'ocupacionPadre', label: 'Ocupación', options: Ocupacion}"></ng-container>
+                    <ng-container
+                      *ngTemplateOutlet="textField; context: {control: 'direccionPadre', label: 'Dirección y Barrio', isAddress: true}"></ng-container>
+                    <ng-container
+                      *ngTemplateOutlet="textField; context: {control: 'telefonoPadre', label: 'Teléfono', type: 'tel'}"></ng-container>
+                    <!-- barrioPadre REMOVED -->
                   </ng-container>
+
+                  <!-- Madre -->
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'nombreMadre', label: 'Nombre Madre'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'madreVive', label: 'Estado de la madre', options: parentStatusOptions, optionsKey: 'display', valueKey: 'value'}"></ng-container>
+                  <ng-container *ngIf="formHojaDeVida2.get('madreVive')?.value === 'VIVE'">
+                    <ng-container
+                      *ngTemplateOutlet="selectField; context: {control: 'ocupacionMadre', label: 'Ocupación', options: Ocupacion}"></ng-container>
+                    <ng-container
+                      *ngTemplateOutlet="textField; context: {control: 'direccionMadre', label: 'Dirección y Barrio', isAddress: true}"></ng-container>
+                    <ng-container
+                      *ngTemplateOutlet="textField; context: {control: 'telefonoMadre', label: 'Teléfono', type: 'tel'}"></ng-container>
+                    <!-- barrioMadre REMOVED -->
+                  </ng-container>
+
+                  <!-- Referencias Personales -->
+                  <div class="full-width sub-section">
+                    <h4>Referencia Personal 1</h4>
+                  </div>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'nombreReferenciaPersonal1', label: 'Nombre'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'telefonoReferencia1', label: 'Teléfono', type: 'tel'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'ocupacionReferencia1', label: 'Ocupación', options: Ocupacion}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'direccionReferenciaPersonal1', label: 'Dirección y Barrio', isAddress: true}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'tiempoConoceReferenciaPersonal1', label: 'Tiempo de conocerlo', options: tiempoTrabajado}"></ng-container>
+
+                  <div class="full-width sub-section">
+                    <h4>Referencia Personal 2</h4>
+                  </div>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'nombreReferenciaPersonal2', label: 'Nombre'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'telefonoReferencia2', label: 'Teléfono', type: 'tel'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'ocupacionReferencia2', label: 'Ocupación', options: Ocupacion}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'direccionReferenciaPersonal2', label: 'Dirección y Barrio', isAddress: true}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'tiempoConoceReferenciaPersonal2', label: 'Tiempo de conocerlo', options: tiempoTrabajado}"></ng-container>
+
+                  <!-- Referencias Familiares -->
+                  <div class="full-width sub-section">
+                    <h4>Referencia Familiar 1</h4>
+                  </div>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'nombreReferenciaFamiliar1', label: 'Nombre'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'telefonoReferenciaFamiliar1', label: 'Teléfono', type: 'tel'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'ocupacionReferenciaFamiliar1', label: 'Ocupación', options: Ocupacion}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'direccionReferenciaFamiliar1', label: 'Dirección y Barrio', isAddress: true}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'parentescoReferenciaFamiliar1', label: 'Parentesco', options: listaParentescosFamiliares, optionsKey: 'descripcion', valueKey: 'codigo'}"></ng-container>
+
+                  <div class="full-width sub-section">
+                    <h4>Referencia Familiar 2</h4>
+                  </div>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'nombreReferenciaFamiliar2', label: 'Nombre'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'telefonoReferenciaFamiliar2', label: 'Teléfono', type: 'tel'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'ocupacionReferenciaFamiliar2', label: 'Ocupación', options: Ocupacion}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'direccionReferenciaFamiliar2', label: 'Dirección y Barrio', isAddress: true}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'parentescoReferenciaFamiliar2', label: 'Parentesco', options: listaParentescosFamiliares, optionsKey: 'descripcion', valueKey: 'codigo'}"></ng-container>
+                </div>
+                <div class="actions">
+                  <button mat-button matStepperPrevious type="button">Anterior</button>
+                  <button mat-button matStepperNext type="button" class="btn-next">Siguiente</button>
+                </div>
+              </ng-template>
+            </mat-step>
+
+            <!-- STEP 4: EXPERIENCIA Y VIVIENDA (+HIJOS) -->
+            <mat-step [stepControl]="formHojaDeVida2">
+              <ng-template matStepLabel>Experiencia</ng-template>
+              <ng-template matStepContent>
+                <div class="step-header">
+                  <h3>Experiencia, Hijos y Vivienda</h3>
+                </div>
+                <div class="grid-layout">
+                  <!-- Experiencia -->
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'experienciaLaboral', label: '¿Experiencia Laboral?', options: opcionBinaria, optionsKey: 'display', valueKey: 'value'}"></ng-container>
+                  <ng-container *ngIf="formHojaDeVida2.get('experienciaLaboral')?.value === 'SI'">
+                    <ng-container
+                      *ngTemplateOutlet="textField; context: {control: 'nombreEmpresa1', label: 'Empresa'}"></ng-container>
+                    <ng-container
+                      *ngTemplateOutlet="textField; context: {control: 'telefonosEmpresa1', label: 'Teléfonos', type: 'tel'}"></ng-container>
+                    <ng-container
+                      *ngTemplateOutlet="textField; context: {control: 'direccionEmpresa1', label: 'Dirección y Barrio', isAddress: true}"></ng-container>
+                    <!-- barrioEmpresa1 REMOVED (Merged) -->
+                    <ng-container
+                      *ngTemplateOutlet="textField; context: {control: 'nombreJefe1', label: 'Jefe Inmediato'}"></ng-container>
+                    <ng-container
+                      *ngTemplateOutlet="textField; context: {control: 'cargoEmpresa1', label: 'Cargo'}"></ng-container>
+                    <ng-container
+                      *ngTemplateOutlet="selectField; context: {control: 'areaExperiencia', label: 'Áreas', options: areasExperiencia, multiple: true}"></ng-container>
+                    <ng-container
+                      *ngTemplateOutlet="dateField; context: {control: 'fechaRetiro1', label: 'Fecha Retiro'}"></ng-container>
+                    <ng-container
+                      *ngTemplateOutlet="selectField; context: {control: 'tiempoExperiencia', label: 'Tiempo Experiencia', options: tiempoTrabajado}"></ng-container>
+                    <ng-container
+                      *ngTemplateOutlet="selectField; context: {control: 'motivoRetiro1', label: 'Motivo Retiro', options: motivoRetiroOptions}"></ng-container>
+                    <ng-container
+                      *ngTemplateOutlet="textField; context: {control: 'empresas_laborado', label: 'Otras empresas (separadas por coma)'}"></ng-container>
+                  </ng-container>
+
+                  <!-- Hijos -->
+                  <div class="full-width sub-section">
+                    <h4>Hijos</h4>
+                  </div>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'numHijosDependientes', label: 'No. Hijos Dependientes', type: 'number'}"></ng-container>
+                  <ng-container *ngIf="formHojaDeVida2.get('numHijosDependientes')?.value > 0">
+                    <ng-container
+                      *ngTemplateOutlet="selectField; context: {control: 'cuidadorHijos', label: '¿Quién los cuida?', options: listaPersonasQueCuidan}"></ng-container>
+                  </ng-container>
+
+
+
+                  <!-- Hijos Details Grid -->
+                  <div class="full-width" formArrayName="hijos" *ngIf="hijosFormArray.length">
+                    <div *ngFor="let h of hijosFormArray.controls; let i=index" [formGroup]="asFormGroup(h)"
+                      class="child-card">
+                      <h5>Hijo {{i+1}}</h5>
+                      <div class="grid-layout compact">
+                        <mat-form-field appearance="outline"><mat-label>Nombre</mat-label><input matInput
+                            formControlName="nombreHijo">
+                          <mat-error *ngIf="h.get('nombreHijo')?.hasError('required')">Nombre requerido</mat-error>
+                          <mat-error *ngIf="h.get('nombreHijo')?.hasError('invalidName')">Nombre inválido</mat-error>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline"><mat-label>Sexo</mat-label><mat-select
+                            formControlName="sexoHijo"><mat-option value="M">M</mat-option><mat-option
+                              value="F">F</mat-option></mat-select>
+                          <mat-error *ngIf="h.get('sexoHijo')?.hasError('required')">Requerido</mat-error>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline"><mat-label>Nacimiento</mat-label><input matInput
+                            [matDatepicker]="pd" formControlName="fechaNacimientoHijo" readonly (click)="pd.open()"
+                            (focus)="pd.open()">
+                          <mat-datepicker-toggle matSuffix [for]="pd"></mat-datepicker-toggle><mat-datepicker
+                            #pd></mat-datepicker>
+                          <mat-error *ngIf="h.get('fechaNacimientoHijo')?.hasError('required')">Requerido</mat-error>
+                          <mat-error *ngIf="h.get('fechaNacimientoHijo')?.hasError('dateReasonable')">Fecha
+                            inválida</mat-error>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline"><mat-label>Doc ID</mat-label><input matInput
+                            formControlName="docIdentidadHijo">
+                          <mat-error *ngIf="h.get('docIdentidadHijo')?.hasError('required')">Requerido</mat-error>
+                        </mat-form-field>
+                        <mat-form-field appearance="outline"><mat-label>Ocupación</mat-label><mat-select
+                            formControlName="ocupacionHijo"><mat-option *ngFor="let o of Ocupacion"
+                              [value]="o">{{o}}</mat-option></mat-select>
+                          <mat-error *ngIf="h.get('ocupacionHijo')?.hasError('required')">Requerido</mat-error>
+                        </mat-form-field>
+
+                        <!-- Hidden unless student -->
+                        <mat-form-field appearance="outline" *ngIf="h.get('ocupacionHijo')?.value === 'ESTUDIANTE'">
+                          <mat-label>Curso</mat-label><input matInput formControlName="cursoHijo">
+                          <mat-error *ngIf="h.get('cursoHijo')?.hasError('required')">Requerido</mat-error>
+                        </mat-form-field>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Vivienda -->
+                  <div class="full-width sub-section">
+                    <h4>Vivienda y Economía</h4>
+                  </div>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'conQuienViveChecks', label: '¿Con quién vive?', options: listaPosiblesRespuestasConquienVive, multiple: true}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'familiaSolo', label: '¿Familia con un solo ingreso?', options: opcionBinaria, optionsKey: 'display', valueKey: 'value'}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'personas_a_cargo', label: 'Personas a cargo', options: personasACargoOptions, multiple: true}"></ng-container>
+
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'tiposViviendaChecks', label: 'Tipo vivienda', options: tiposVivienda, multiple: true}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'numeroHabitaciones', label: 'No. Habitaciones', options: [1,2,3,4,5,6,7,8]}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'personasPorHabitacion', label: 'Personas por habitación', options: [1,2,3,4,5,6,7,8]}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'caracteristicasVivienda', label: 'Características', options: caracteristicasVivienda}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'comodidadesChecks', label: 'Servicios', options: comodidades, multiple: true}"></ng-container>
+                  <!-- Expectativas moved to Step 1 -->
+                  <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'fuenteVacante', label: '¿Cómo se enteró?', options: opcionesPromocion}"></ng-container>
                 </div>
 
-                <!-- Padres -->
-                <div class="full-width sub-section">
-                  <h4>Padres</h4>
+                <div class="actions">
+                  <button mat-button matStepperPrevious type="button">Anterior</button>
+                  <button mat-button matStepperNext type="button" class="btn-next">Siguiente</button>
                 </div>
-                <!-- Padre -->
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'nombrePadre', label: 'Nombre Padre'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'elPadreVive', label: 'Estado del padre', options: parentStatusOptions, optionsKey: 'display', valueKey: 'value'}"></ng-container>
-                <ng-container *ngIf="formHojaDeVida2.get('elPadreVive')?.value === 'VIVE'">
-                  <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'ocupacionPadre', label: 'Ocupación', options: Ocupacion}"></ng-container>
-                  <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'direccionPadre', label: 'Dirección', isAddress: true}"></ng-container>
-                  <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'telefonoPadre', label: 'Teléfono', type: 'tel'}"></ng-container>
-                  <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'barrioPadre', label: 'Barrio'}"></ng-container>
-                </ng-container>
+              </ng-template>
+            </mat-step>
 
-                <!-- Madre -->
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'nombreMadre', label: 'Nombre Madre'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'madreVive', label: 'Estado de la madre', options: parentStatusOptions, optionsKey: 'display', valueKey: 'value'}"></ng-container>
-                <ng-container *ngIf="formHojaDeVida2.get('madreVive')?.value === 'VIVE'">
-                  <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'ocupacionMadre', label: 'Ocupación', options: Ocupacion}"></ng-container>
-                  <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'direccionMadre', label: 'Dirección', isAddress: true}"></ng-container>
-                  <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'telefonoMadre', label: 'Teléfono', type: 'tel'}"></ng-container>
-                  <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'barrioMadre', label: 'Barrio'}"></ng-container>
-                </ng-container>
-
-                <!-- Referencias Personales -->
-                <div class="full-width sub-section">
-                  <h4>Referencia Personal 1</h4>
+            <!-- STEP 5: FINAL -->
+            <mat-step [stepControl]="formHojaDeVida2">
+              <ng-template matStepLabel>Finalizar</ng-template>
+              <ng-template matStepContent>
+                <div class="step-header">
+                  <h3>Datos Finales y Adjuntos</h3>
                 </div>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'nombreReferenciaPersonal1', label: 'Nombre'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'telefonoReferencia1', label: 'Teléfono', type: 'tel'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'ocupacionReferencia1', label: 'Ocupación', options: Ocupacion}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'direccionReferenciaPersonal1', label: 'Dirección', isAddress: true}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'tiempoConoceReferenciaPersonal1', label: 'Tiempo de conocerlo', options: tiempoTrabajado}"></ng-container>
 
-                <div class="full-width sub-section">
-                  <h4>Referencia Personal 2</h4>
-                </div>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'nombreReferenciaPersonal2', label: 'Nombre'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'telefonoReferencia2', label: 'Teléfono', type: 'tel'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'ocupacionReferencia2', label: 'Ocupación', options: Ocupacion}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'direccionReferenciaPersonal2', label: 'Dirección', isAddress: true}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'tiempoConoceReferenciaPersonal2', label: 'Tiempo de conocerlo', options: tiempoTrabajado}"></ng-container>
-
-                <!-- Referencias Familiares -->
-                <div class="full-width sub-section">
-                  <h4>Referencia Familiar 1</h4>
-                </div>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'nombreReferenciaFamiliar1', label: 'Nombre'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'telefonoReferenciaFamiliar1', label: 'Teléfono', type: 'tel'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'ocupacionReferenciaFamiliar1', label: 'Ocupación', options: Ocupacion}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'direccionReferenciaFamiliar1', label: 'Dirección', isAddress: true}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'parentescoReferenciaFamiliar1', label: 'Parentesco', options: listaParentescosFamiliares, optionsKey: 'descripcion', valueKey: 'codigo'}"></ng-container>
-
-                <div class="full-width sub-section">
-                  <h4>Referencia Familiar 2</h4>
-                </div>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'nombreReferenciaFamiliar2', label: 'Nombre'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'telefonoReferenciaFamiliar2', label: 'Teléfono', type: 'tel'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'ocupacionReferenciaFamiliar2', label: 'Ocupación', options: Ocupacion}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'direccionReferenciaFamiliar2', label: 'Dirección', isAddress: true}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'parentescoReferenciaFamiliar2', label: 'Parentesco', options: listaParentescosFamiliares, optionsKey: 'descripcion', valueKey: 'codigo'}"></ng-container>
-              </div>
-              <div class="actions">
-                <button mat-button matStepperPrevious type="button">Anterior</button>
-                <button mat-button matStepperNext type="button" class="btn-next">Siguiente</button>
-              </div>
-            </ng-template>
-          </mat-step>
-
-          <!-- STEP 4: EXPERIENCIA Y VIVIENDA (+HIJOS) -->
-          <mat-step [stepControl]="formHojaDeVida2">
-            <ng-template matStepLabel>Experiencia</ng-template>
-            <ng-template matStepContent>
-              <div class="step-header">
-                <h3>Experiencia, Hijos y Vivienda</h3>
-              </div>
-              <div class="grid-layout">
-                <!-- Experiencia -->
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'experienciaLaboral', label: '¿Experiencia Laboral?', options: opcionBinaria, optionsKey: 'display', valueKey: 'value'}"></ng-container>
-                <ng-container *ngIf="formHojaDeVida2.get('experienciaLaboral')?.value === 'SI'">
-                  <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'nombreEmpresa1', label: 'Empresa'}"></ng-container>
-                  <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'telefonosEmpresa1', label: 'Teléfonos', type: 'tel'}"></ng-container>
-                  <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'direccionEmpresa1', label: 'Dirección Empresa', isAddress: true}"></ng-container>
-                  <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'nombreJefe1', label: 'Jefe Inmediato'}"></ng-container>
-                  <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'cargoEmpresa1', label: 'Cargo'}"></ng-container>
-                  <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'areaExperiencia', label: 'Áreas', options: areasExperiencia, multiple: true}"></ng-container>
-                  <ng-container
-                    *ngTemplateOutlet="dateField; context: {control: 'fechaRetiro1', label: 'Fecha Retiro'}"></ng-container>
-                  <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'tiempoExperiencia', label: 'Tiempo Experiencia', options: tiempoTrabajado}"></ng-container>
-                  <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'motivoRetiro1', label: 'Motivo Retiro', options: motivoRetiroOptions}"></ng-container>
-                  <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'empresas_laborado', label: 'Otras empresas (separadas por coma)'}"></ng-container>
-                </ng-container>
-
-                <!-- Hijos -->
-                <div class="full-width sub-section">
-                  <h4>Hijos</h4>
-                </div>
-                <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'numHijosDependientes', label: 'No. Hijos Dependientes', type: 'number'}"></ng-container>
-                <ng-container *ngIf="formHojaDeVida2.get('numHijosDependientes')?.value > 0">
-                  <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'cuidadorHijos', label: '¿Quién los cuida?', options: listaPersonasQueCuidan}"></ng-container>
-                </ng-container>
-
-
-
-                <!-- Hijos Details Grid -->
-                <div class="full-width" formArrayName="hijos" *ngIf="hijosFormArray.length">
-                  <div *ngFor="let h of hijosFormArray.controls; let i=index" [formGroup]="asFormGroup(h)"
-                    class="child-card">
-                    <h5>Hijo {{i+1}}</h5>
-                    <div class="grid-layout compact">
-                      <mat-form-field appearance="outline"><mat-label>Nombre</mat-label><input matInput
-                          formControlName="nombreHijo"></mat-form-field>
-                      <mat-form-field appearance="outline"><mat-label>Sexo</mat-label><mat-select
-                          formControlName="sexoHijo"><mat-option value="M">M</mat-option><mat-option
-                            value="F">F</mat-option></mat-select></mat-form-field>
-                      <mat-form-field appearance="outline"><mat-label>Nacimiento</mat-label><input matInput
-                          [matDatepicker]="pd" formControlName="fechaNacimientoHijo"><mat-datepicker-toggle matSuffix
-                          [for]="pd"></mat-datepicker-toggle><mat-datepicker #pd></mat-datepicker></mat-form-field>
-                      <mat-form-field appearance="outline"><mat-label>Doc ID</mat-label><input matInput
-                          formControlName="docIdentidadHijo"></mat-form-field>
-                      <mat-form-field appearance="outline"><mat-label>Ocupación</mat-label><mat-select
-                          formControlName="ocupacionHijo"><mat-option *ngFor="let o of Ocupacion"
-                            [value]="o">{{o}}</mat-option></mat-select></mat-form-field>
-                      <mat-form-field appearance="outline"><mat-label>Curso</mat-label><input matInput
-                          formControlName="cursoHijo"></mat-form-field>
+                <div class="grid-layout">
+                  <div class="full-width box-upload">
+                    <label>Hoja de Vida (PDF)</label>
+                    <div class="upload-controls">
+                      <input matInput [value]="uploadedFiles['hojaDeVida']?.fileName || 'Sin archivo'" readonly
+                        class="file-name">
+                      <button mat-mini-fab color="primary" type="button"
+                        (click)="fileIn.click()"><mat-icon>cloud_upload</mat-icon></button>
+                      <button mat-mini-fab *ngIf="uploadedFiles['hojaDeVida']?.fileName" type="button"
+                        (click)="verArchivo('hojaDeVida')"><mat-icon>visibility</mat-icon></button>
+                      <input #fileIn type="file" hidden accept=".pdf" (change)="subirArchivo($event, 'hojaDeVida')">
                     </div>
                   </div>
                 </div>
 
-                <!-- Vivienda -->
                 <div class="full-width sub-section">
-                  <h4>Vivienda y Economía</h4>
+                  <h4>Información Adicional</h4>
                 </div>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'conQuienViveChecks', label: '¿Con quién vive?', options: listaPosiblesRespuestasConquienVive, multiple: true}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'familiaSolo', label: '¿Familia con un solo ingreso?', options: opcionBinaria, optionsKey: 'display', valueKey: 'value'}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'personas_a_cargo', label: 'Personas a cargo', options: personasACargoOptions, multiple: true}"></ng-container>
-
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'tiposViviendaChecks', label: 'Tipo vivienda', options: tiposVivienda, multiple: true}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'numeroHabitaciones', label: 'No. Habitaciones', options: [1,2,3,4,5,6,7,8]}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'personasPorHabitacion', label: 'Personas por habitación', options: [1,2,3,4,5,6,7,8]}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'caracteristicasVivienda', label: 'Características', options: caracteristicasVivienda}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'comodidadesChecks', label: 'Servicios', options: comodidades, multiple: true}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'expectativasVidaChecks', label: 'Expectativas', options: expectativasVida, multiple: true}"></ng-container>
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'fuenteVacante', label: '¿Cómo se enteró?', options: opcionesPromocion}"></ng-container>
-              </div>
-
-              <div class="actions">
-                <button mat-button matStepperPrevious type="button">Anterior</button>
-                <button mat-button matStepperNext type="button" class="btn-next">Siguiente</button>
-              </div>
-            </ng-template>
-          </mat-step>
-
-          <!-- STEP 5: FINAL -->
-          <mat-step [stepControl]="formHojaDeVida2">
-            <ng-template matStepLabel>Finalizar</ng-template>
-            <ng-template matStepContent>
-              <div class="step-header">
-                <h3>Datos Finales y Adjuntos</h3>
-              </div>
-
-              <div class="grid-layout">
-                <div class="full-width box-upload">
-                  <label>Hoja de Vida (PDF)</label>
-                  <div class="upload-controls">
-                    <input matInput [value]="uploadedFiles['hojaDeVida']?.fileName || 'Sin archivo'" readonly
-                      class="file-name">
-                    <button mat-mini-fab color="primary" type="button"
-                      (click)="fileIn.click()"><mat-icon>cloud_upload</mat-icon></button>
-                    <button mat-mini-fab *ngIf="uploadedFiles['hojaDeVida']?.fileName" type="button"
-                      (click)="verArchivo('hojaDeVida')"><mat-icon>visibility</mat-icon></button>
-                    <input #fileIn type="file" hidden accept=".pdf" (change)="subirArchivo($event, 'hojaDeVida')">
-                  </div>
-                </div>
-              </div>
-
-              <div class="full-width sub-section">
-                <h4>Información Adicional</h4>
-              </div>
-              <div class="grid-layout">
-                <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'deseaGenerar', label: '¿Generar HV automática?', options: [{v:true, l:'Sí'}, {v:false, l:'No'}], optionsKey: 'l', valueKey: 'v'}"></ng-container>
-
-                <ng-container *ngIf="formHojaDeVida2.get('deseaGenerar')?.value">
+                <div class="grid-layout">
                   <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'tieneVehiculo', label: '¿Tiene Vehículo?', options: [{v:'SI', l:'Sí'}, {v:'NO', l:'No'}], optionsKey: 'l', valueKey: 'v'}"></ng-container>
-                  <ng-container *ngIf="formHojaDeVida2.get('tieneVehiculo')?.value === 'SI'">
+                    *ngTemplateOutlet="selectField; context: {control: 'deseaGenerar', label: '¿Generar HV automática?', options: [{v:true, l:'Sí'}, {v:false, l:'No'}], optionsKey: 'l', valueKey: 'v'}"></ng-container>
+
+                  <ng-container *ngIf="formHojaDeVida2.get('deseaGenerar')?.value">
                     <ng-container
-                      *ngTemplateOutlet="textField; context: {control: 'licenciaConduccion', label: 'Licencia'}"></ng-container>
+                      *ngTemplateOutlet="selectField; context: {control: 'tieneVehiculo', label: '¿Tiene Vehículo?', options: [{v:'SI', l:'Sí'}, {v:'NO', l:'No'}], optionsKey: 'l', valueKey: 'v'}"></ng-container>
+                    <ng-container *ngIf="formHojaDeVida2.get('tieneVehiculo')?.value === 'SI'">
+                      <ng-container
+                        *ngTemplateOutlet="textField; context: {control: 'licenciaConduccion', label: 'Licencia'}"></ng-container>
+                      <ng-container
+                        *ngTemplateOutlet="selectField; context: {control: 'categoriaLicencia', label: 'Categorías', options: categoriasLicencia, multiple: true}"></ng-container>
+                    </ng-container>
+
                     <ng-container
-                      *ngTemplateOutlet="selectField; context: {control: 'categoriaLicencia', label: 'Categorías', options: categoriasLicencia, multiple: true}"></ng-container>
+                      *ngTemplateOutlet="selectField; context: {control: 'estaTrabajando', label: '¿Trabaja actualmente?', options: [{v:'SI', l:'Sí'}, {v:'NO', l:'No'}], optionsKey: 'l', valueKey: 'v'}"></ng-container>
+                    <ng-container *ngIf="formHojaDeVida2.get('estaTrabajando')?.value === 'SI'">
+                      <ng-container
+                        *ngTemplateOutlet="textField; context: {control: 'empresaActual', label: 'Empresa Actual'}"></ng-container>
+                      <ng-container
+                        *ngTemplateOutlet="selectField; context: {control: 'tipoTrabajo', label: 'Tipo Trabajo', options: ['Empleado', 'Independiente']}"></ng-container>
+                      <ng-container
+                        *ngTemplateOutlet="selectField; context: {control: 'tipoContrato', label: 'Tipo Contrato', options: tiposContrato}"></ng-container>
+                    </ng-container>
+
+                    <ng-container
+                      *ngTemplateOutlet="selectField; context: {control: 'trabajoAntes', label: '¿Trabajó antes aquí?', options: [{v:'SI', l:'Sí'}, {v:'NO', l:'No'}], optionsKey: 'l', valueKey: 'v'}"></ng-container>
+                    <ng-container
+                      *ngTemplateOutlet="selectField; context: {control: 'solicitoAntes', label: '¿Solicitó antes?', options: [{v:'SI', l:'Sí'}, {v:'NO', l:'No'}], optionsKey: 'l', valueKey: 'v'}"></ng-container>
+
+                    <ng-container
+                      *ngTemplateOutlet="selectField; context: {control: 'tieneHermanos', label: '¿Tiene Hermanos?', options: [{v:'SI', l:'Sí'}, {v:'NO', l:'No'}], optionsKey: 'l', valueKey: 'v'}"></ng-container>
+                    <ng-container *ngIf="formHojaDeVida2.get('tieneHermanos')?.value === 'SI'">
+                      <ng-container
+                        *ngTemplateOutlet="selectField; context: {control: 'numeroHermanos', label: 'No. Hermanos', options: [1,2,3,4,5]}"></ng-container>
+                    </ng-container>
                   </ng-container>
 
-                  <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'estaTrabajando', label: '¿Trabaja actualmente?', options: [{v:'SI', l:'Sí'}, {v:'NO', l:'No'}], optionsKey: 'l', valueKey: 'v'}"></ng-container>
-                  <ng-container *ngIf="formHojaDeVida2.get('estaTrabajando')?.value === 'SI'">
-                    <ng-container
-                      *ngTemplateOutlet="textField; context: {control: 'empresaActual', label: 'Empresa Actual'}"></ng-container>
-                    <ng-container
-                      *ngTemplateOutlet="selectField; context: {control: 'tipoTrabajo', label: 'Tipo Trabajo', options: ['Empleado', 'Independiente']}"></ng-container>
-                    <ng-container
-                      *ngTemplateOutlet="selectField; context: {control: 'tipoContrato', label: 'Tipo Contrato', options: tiposContrato}"></ng-container>
-                  </ng-container>
-
-                  <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'trabajoAntes', label: '¿Trabajó antes aquí?', options: [{v:'SI', l:'Sí'}, {v:'NO', l:'No'}], optionsKey: 'l', valueKey: 'v'}"></ng-container>
-                  <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'solicitoAntes', label: '¿Solicitó antes?', options: [{v:'SI', l:'Sí'}, {v:'NO', l:'No'}], optionsKey: 'l', valueKey: 'v'}"></ng-container>
-
-                  <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'tieneHermanos', label: '¿Tiene Hermanos?', options: [{v:'SI', l:'Sí'}, {v:'NO', l:'No'}], optionsKey: 'l', valueKey: 'v'}"></ng-container>
-                  <ng-container *ngIf="formHojaDeVida2.get('tieneHermanos')?.value === 'SI'">
-                    <ng-container
-                      *ngTemplateOutlet="selectField; context: {control: 'numeroHermanos', label: 'No. Hermanos', options: [1,2,3,4,5]}"></ng-container>
-                  </ng-container>
-                </ng-container>
-
-                <!-- Hermanos List -->
-                <div class="full-width" formArrayName="hermanos" *ngIf="hermanosArray.length">
-                  <div *ngFor="let h of hermanosArray.controls; let i=index" [formGroup]="asFormGroup(h)"
-                    class="child-card">
-                    <h5>Hermano {{i+1}}</h5>
-                    <div class="grid-layout compact">
-                      <mat-form-field appearance="outline"><mat-label>Nombre</mat-label><input matInput
-                          formControlName="nombre"></mat-form-field>
-                      <mat-form-field appearance="outline"><mat-label>Profesión</mat-label><input matInput
-                          formControlName="profesion"></mat-form-field>
-                      <mat-form-field appearance="outline"><mat-label>Teléfono</mat-label><input matInput
-                          formControlName="telefono"></mat-form-field>
+                  <!-- Hermanos List -->
+                  <div class="full-width" formArrayName="hermanos" *ngIf="hermanosArray.length">
+                    <div *ngFor="let h of hermanosArray.controls; let i=index" [formGroup]="asFormGroup(h)"
+                      class="child-card">
+                      <h5>Hermano {{i+1}}</h5>
+                      <div class="grid-layout compact">
+                        <mat-form-field appearance="outline"><mat-label>Nombre</mat-label><input matInput
+                            formControlName="nombre"></mat-form-field>
+                        <mat-form-field appearance="outline"><mat-label>Profesión</mat-label><input matInput
+                            formControlName="profesion"></mat-form-field>
+                        <mat-form-field appearance="outline"><mat-label>Teléfono</mat-label><input matInput
+                            formControlName="telefono"></mat-form-field>
+                      </div>
                     </div>
                   </div>
+
                 </div>
 
-              </div>
+                <div class="actions">
+                  <button mat-button matStepperPrevious type="button">Anterior</button>
+                  <button mat-raised-button color="primary" type="submit" class="btn-save">ENVIAR FORMULARIO</button>
+                </div>
+              </ng-template>
+            </mat-step>
 
-              <div class="actions">
-                <button mat-button matStepperPrevious type="button">Anterior</button>
-                <button mat-raised-button color="primary" type="submit" class="btn-save">ENVIAR FORMULARIO</button>
-              </div>
-            </ng-template>
-          </mat-step>
-
-        </mat-horizontal-stepper>
-      </div>
-    </form>
+          </mat-horizontal-stepper>
+        </div>
+      </form>
+    </div>
   </div>
-</div>
 
-<!-- TEMPLATES -->
-<ng-template #textField let-control="control" let-label="label" let-type="type" let-formGroup="formGroup"
-  let-isAddress="isAddress" let-hint="hint">
-  <mat-form-field appearance="outline" class="w-100 check-field">
-    <mat-label>{{label}}</mat-label>
-    <input matInput [formControl]="getControl(control, formGroup)" [type]="type || 'text'"
-      [placeholder]="isAddress ? 'CL 12 33 24' : ''"
-      (blur)="isAddress ? normalizeAddressControl(control, formGroup) : null">
-    <mat-hint *ngIf="isAddress">Ej: CL 12 33 24 / CR 35 B 25 53. Se normaliza.</mat-hint>
-    <mat-hint *ngIf="hint">{{hint}}</mat-hint>
-    <mat-error *ngIf="shouldShowError(control, formGroup)">{{ getErrorMessage(control, formGroup) }}</mat-error>
-  </mat-form-field>
-</ng-template>
+  <!-- TEMPLATES -->
+  <ng-template #textField let-control="control" let-label="label" let-type="type" let-formGroup="formGroup"
+    let-isAddress="isAddress" let-hint="hint">
+    <mat-form-field appearance="outline" class="w-100 check-field">
+      <mat-label>{{label}}</mat-label>
+      <input matInput [formControl]="getControl(control, formGroup)" [type]="type || 'text'"
+        [placeholder]="isAddress ? 'CL 12 33 24' : ''"
+        (blur)="isAddress ? normalizeAddressControl(control, formGroup) : null">
+      <mat-hint *ngIf="isAddress">Ej: CL 12 33 24 / CR 35 B 25 53. Se normaliza.</mat-hint>
+      <mat-hint *ngIf="hint">{{hint}}</mat-hint>
+      <mat-error *ngIf="shouldShowError(control, formGroup)">{{ getErrorMessage(control, formGroup) }}</mat-error>
+    </mat-form-field>
+  </ng-template>
 
-<ng-template #selectField let-control="control" let-label="label" let-options="options" let-optionsKey="optionsKey"
-  let-valueKey="valueKey" let-multiple="multiple" let-disabled="disabled" let-formGroup="formGroup"
-  let-searchControl="searchControl">
-  <mat-form-field appearance="outline" class="w-100 check-field">
-    <mat-label>{{label}}</mat-label>
-    <mat-select [formControl]="getControl(control, formGroup)" [multiple]="multiple" [disabled]="disabled">
+  <ng-template #selectField let-control="control" let-label="label" let-options="options" let-optionsKey="optionsKey"
+    let-valueKey="valueKey" let-multiple="multiple" let-disabled="disabled" let-formGroup="formGroup"
+    let-searchControl="searchControl">
+    <mat-form-field appearance="outline" class="w-100 check-field">
+      <mat-label>{{label}}</mat-label>
+      <mat-select [formControl]="getControl(control, formGroup)" [multiple]="multiple" [disabled]="disabled">
 
-      <!-- Search Input -->
-      <mat-option *ngIf="searchControl" class="search-option sticky-header">
-        <input [formControl]="searchControl" placeholder="Buscar..." (keydown)="$event.stopPropagation()"
-          (click)="$event.stopPropagation()"
-          style="width: 100%; padding: 8px; border: none; border-bottom: 1px solid #ccc; outline: none;">
-      </mat-option>
+        <!-- Search Input -->
+        <mat-option *ngIf="searchControl" class="search-option sticky-header">
+          <input [formControl]="searchControl" placeholder="Buscar..." (keydown)="$event.stopPropagation()"
+            (click)="$event.stopPropagation()"
+            style="width: 100%; padding: 8px; border: none; border-bottom: 1px solid #ccc; outline: none;">
+        </mat-option>
 
-      <ng-container *ngFor="let op of options">
-        <mat-option [value]="valueKey ? op[valueKey] : op">{{ optionsKey ? op[optionsKey] : op }}</mat-option>
-      </ng-container>
+        <ng-container *ngFor="let op of options">
+          <mat-option [value]="valueKey ? op[valueKey] : op">{{ optionsKey ? op[optionsKey] : op }}</mat-option>
+        </ng-container>
 
-      <mat-option *ngIf="searchControl && options?.length === 0" disabled>Sin resultados</mat-option>
+        <mat-option *ngIf="searchControl && options?.length === 0" disabled>Sin resultados</mat-option>
 
-    </mat-select>
-    <mat-error *ngIf="shouldShowError(control, formGroup)">{{ getErrorMessage(control, formGroup) }}</mat-error>
-  </mat-form-field>
-</ng-template>
+      </mat-select>
+      <mat-error *ngIf="shouldShowError(control, formGroup)">{{ getErrorMessage(control, formGroup) }}</mat-error>
+    </mat-form-field>
+  </ng-template>
 
-<ng-template #dateField let-control="control" let-label="label" let-formGroup="formGroup">
-  <mat-form-field appearance="outline" class="w-100 check-field">
-    <mat-label>{{label}}</mat-label>
-    <input matInput [matDatepicker]="dp" [formControl]="getControl(control, formGroup)">
-    <mat-datepicker-toggle matSuffix [for]="dp"></mat-datepicker-toggle>
-    <mat-datepicker #dp></mat-datepicker>
-    <mat-error *ngIf="shouldShowError(control, formGroup)">{{ getErrorMessage(control, formGroup) }}</mat-error>
-  </mat-form-field>
-</ng-template>
+  <ng-template #dateField let-control="control" let-label="label" let-formGroup="formGroup">
+    <mat-form-field appearance="outline" class="w-100 check-field">
+      <mat-label>{{label}}</mat-label>
+      <input matInput [matDatepicker]="dp" [formControl]="getControl(control, formGroup)" readonly (click)="dp.open()"
+        (focus)="dp.open()">
+      <mat-datepicker-toggle matSuffix [for]="dp"></mat-datepicker-toggle>
+      <mat-datepicker #dp></mat-datepicker>
+      <mat-error *ngIf="shouldShowError(control, formGroup)">{{ getErrorMessage(control, formGroup) }}</mat-error>
+    </mat-form-field>
+  </ng-template>

@@ -1,5 +1,5 @@
 
-import { Component, Inject, OnInit, Optional, PLATFORM_ID, ViewChild, ChangeDetectorRef, AfterViewInit, OnDestroy } from '@angular/core';
+import { Component, Inject, OnInit, Optional, PLATFORM_ID, ViewChild, ChangeDetectorRef, AfterViewInit, OnDestroy, Injectable } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, FormControl, FormArray, ReactiveFormsModule, AbstractControl, ValidatorFn, ValidationErrors } from '@angular/forms';
 import { MatStepper, MatStepperModule } from '@angular/material/stepper';
@@ -8,7 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule, MAT_DATE_LOCALE } from '@angular/material/core';
+import { MatNativeDateModule, MAT_DATE_LOCALE, DateAdapter, MAT_DATE_FORMATS, NativeDateAdapter } from '@angular/material/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatRadioModule } from '@angular/material/radio';
@@ -42,7 +42,27 @@ const PARENT_STATUS_OPTIONS = [
 ];
 const MOTIVO_RETIRO_OPTIONS = ['VOLUNTARIO', 'TERMINACION DE CONTRATO', 'ABANDONO DE CARGO'];
 
-const OFICINAS = ['ANDES', 'BOSA', 'CARTAGENITA', 'FACA_PRIMERA', 'FACA_PRINCIPAL', 'FONTIBÓN', 'FORANEOS', 'FUNZA', 'MADRID', 'MONTE_VERDE', 'ROSAL', 'SOACHA', 'SUBA', 'TOCANCIPÁ', 'USME'];
+const OFICINAS = [
+  'ADMINISTRATIVOS',
+  'ANDES',
+  'BOSA',
+  'CARTAGENITA',
+  'FACA_PRIMERA',
+  'FACA_PRINCIPAL',
+  'FONTIBON',
+  'FORANEOS',
+  'FUNZA',
+  'MADRID',
+  'MONTE_VERDE',
+  'ROSAL',
+  'SOACHA',
+  'SOTAQUIRA',
+  'SUBA',
+  'TOCANCIPA',
+  'USME',
+  'VIRTUAL',
+  'ZIPAQUIRA',
+];
 
 interface BulItem {
   activo?: boolean;
@@ -51,6 +71,19 @@ interface BulItem {
 interface Option {
   value: string;
   viewValue: string;
+}
+
+@Injectable()
+export class CustomDateAdapter extends NativeDateAdapter {
+  override format(date: Date, displayFormat: Object): string {
+    if (displayFormat === 'input') {
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+    return date.toDateString();
+  }
 }
 
 @Component({
@@ -63,7 +96,21 @@ interface Option {
   ],
   templateUrl: './forms-test-contratation.html',
   styleUrl: './forms-test-contratation.css',
-  providers: [{ provide: MAT_DATE_LOCALE, useValue: 'es-ES' }],
+  providers: [
+    { provide: DateAdapter, useClass: CustomDateAdapter },
+    {
+      provide: MAT_DATE_FORMATS, useValue: {
+        parse: { dateInput: { month: 'short', year: 'numeric', day: 'numeric' } },
+        display: {
+          dateInput: 'input',
+          monthYearLabel: { year: 'numeric', month: 'short' },
+          dateA11yLabel: { year: 'numeric', month: 'long', day: 'numeric' },
+          monthYearA11yLabel: { year: 'numeric', month: 'long' },
+        }
+      }
+    },
+    { provide: MAT_DATE_LOCALE, useValue: 'es-CO' }
+  ],
 
 })
 export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
@@ -343,6 +390,12 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       tiempoResidenciaZona: ['', req],
       conQuienViveChecks: [[], req],
 
+      // New Step 1 Fields (Moved/Added)
+      password: ['', [req, Validators.minLength(6)]],
+      // Escolaridad moved here effectively by validation keys logic, control stays same
+      // Expectativas moved here effectively
+
+
       // Fields NOT in Step 1 but required later
       rh: ['', req], // Moved out of step 1 list
       lateralidad: ['', req],
@@ -361,8 +414,8 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       parentescoFamiliarEmergencia: ['', req],
       telefonoFamiliarEmergencia: ['', phone],
       ocupacionFamiliarEmergencia: [''],
-      direccionFamiliarEmergencia: ['', address],
-      barrioFamiliarEmergencia: [''],
+      direccionFamiliarEmergencia: ['', [Validators.required]],
+      // barrioFamiliarEmergencia REMOVED
 
       // Education
       escolaridad: ['', req],
@@ -382,11 +435,10 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       viveConElConyugue: [''],
 
       documentoIdentidadConyuge: ['', doc],
-      direccionConyuge: ['', address],
+      direccionConyuge: ['', [Validators.required]],
       telefonoConyuge: ['', phone],
-      barrioConyuge: [''], // Wait, "barrioMunicipioConyugue" in service. "barrioConyuge" here? 
-      // Keeping existing keys from initForm to avoid breaking binding.
-      barrioMunicipioConyuge: [''],
+      // barrioConyuge REMOVED
+      // barrioMunicipioConyuge REMOVED (if present)
       ocupacionConyuge: [''],
 
       // REMOVED dead singular fields: nombreConyuge, apellidoConyuge
@@ -396,49 +448,49 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       nombrePadre: [{ value: '', disabled: false }, this.fullNameValidator(true)],
       elPadreVive: ['', req],
       ocupacionPadre: [''],
-      direccionPadre: ['', address],
+      direccionPadre: ['', [Validators.required]],
       telefonoPadre: ['', phone],
-      barrioPadre: [''],
+      // barrioPadre REMOVED
 
       nombreMadre: [{ value: '', disabled: false }, this.fullNameValidator(true)],
       madreVive: ['', req],
       ocupacionMadre: [''],
-      direccionMadre: ['', address],
+      direccionMadre: ['', [Validators.required]],
       telefonoMadre: ['', phone],
-      barrioMadre: [''],
+      // barrioMadre REMOVED
 
       // Referencias
       nombreReferenciaPersonal1: ['', fullName],
       telefonoReferencia1: ['', phone],
       ocupacionReferencia1: [''],
-      direccionReferenciaPersonal1: ['', address],
+      direccionReferenciaPersonal1: ['', [Validators.required]],
       tiempoConoceReferenciaPersonal1: [''], // Was tiempoConoceReferencia1 in HTML bound? 
       // Old initForm calls it 'tiempoConoceReferenciaPersonal1'. HTML binding 'tiempoConoceReferencia1'.
       // Wait, let's verify old code key.
       tiempoConoceReferencia1: [''], // Binding alias if needed or actual control.
-      barrioReferenciaPersonal1: [''],
+      // barrioReferenciaPersonal1 REMOVED
 
       nombreReferenciaPersonal2: ['', fullName],
       telefonoReferencia2: ['', phone],
       ocupacionReferencia2: [''],
-      direccionReferenciaPersonal2: ['', address],
+      direccionReferenciaPersonal2: ['', [Validators.required]],
       tiempoConoceReferenciaPersonal2: [''],
       tiempoConoceReferencia2: [''], // Match
-      barrioReferenciaPersonal2: [''],
+      // barrioReferenciaPersonal2 REMOVED
 
       nombreReferenciaFamiliar1: ['', fullName],
       telefonoReferenciaFamiliar1: ['', phone],
       ocupacionReferenciaFamiliar1: [''],
-      direccionReferenciaFamiliar1: ['', address],
+      direccionReferenciaFamiliar1: ['', [Validators.required]],
       parentescoReferenciaFamiliar1: ['', req],
-      barrioReferenciaFamiliar1: [''],
+      // barrioReferenciaFamiliar1 REMOVED
 
       nombreReferenciaFamiliar2: ['', fullName],
       telefonoReferenciaFamiliar2: ['', phone],
       ocupacionReferenciaFamiliar2: [''],
-      direccionReferenciaFamiliar2: ['', address],
+      direccionReferenciaFamiliar2: ['', [Validators.required]],
       parentescoReferenciaFamiliar2: ['', req],
-      barrioReferenciaFamiliar2: [''],
+      // barrioReferenciaFamiliar2 REMOVED
 
       // Step 4: Experience & Housing
       experienciaLaboral: ['', req],
@@ -453,21 +505,22 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       motivoRetiro1: [''],
       empresas_laborado: [''],
       direccionEmpresa1: [''],
+      // barrioEmpresa1 MERGED into direccionEmpresa1 per request
 
       // Utils (from Step 5 but some used earlier?)
       vehiculo: [''],
       licenciaConduccion: [''],
       categoriaLicencia: [''],
-      tieneVehiculo: ['', req],
-      estaTrabajando: ['', req],
+      tieneVehiculo: [''],
+      estaTrabajando: [''],
       empresaActual: [''],
       salarioActual: [''],
       horarioActual: [''],
-      tipoTrabajo: ['', req],
+      tipoTrabajo: [''],
       tipoContrato: [''],
-      trabajoAntes: ['', req],
-      solicitoAntes: ['', req],
-      tieneHermanos: ['', req],
+      trabajoAntes: [''],
+      solicitoAntes: [''],
+      tieneHermanos: [''],
       numeroHermanos: [0],
 
       // Hijos
@@ -487,7 +540,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       fuenteVacante: ['', req],
 
       // Step 5: Final
-      deseaGenerar: [null, req],
+      deseaGenerar: [false, req],
       hojaDeVida: [''],
       hermanos: this.fb.array([])
     }, { validators: this.groupCrossValidator() });
@@ -623,6 +676,12 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     // Hijos Logic (Consolidated)
     f.get('numHijosDependientes')?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(num => {
       const n = Number(num) || 0;
+
+      // Sanitize input (remove leading zeros, e.g. "01" -> "1")
+      if (String(num) !== String(n)) {
+        f.get('numHijosDependientes')?.setValue(n, { emitEvent: false });
+      }
+
       this.actualizarHijos(n);
       toggle('cuidadorHijos', n > 0);
     });
@@ -632,12 +691,17 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       const req = val === 'SI';
       toggle('nombreEmpresa1', req);
       toggle('telefonosEmpresa1', req);
-      toggle('nombreJefe1', req, [this.fullNameValidator()]); // Full name for boss
+      // Relaxed Validator: Just required, no full name enforcement
+      toggle('nombreJefe1', req, [Validators.required]);
       toggle('cargoEmpresa1', req);
       toggle('fechaRetiro1', req);
       toggle('tiempoExperiencia', req);
       toggle('motivoRetiro1', req);
-      toggle('direccionEmpresa1', req, [this.addressCOValidator()]);
+      toggle('tiempoExperiencia', req);
+      toggle('motivoRetiro1', req);
+      toggle('direccionEmpresa1', req, [Validators.required]);
+      // toggle('barrioEmpresa1', req); // MERGED into address
+
       // Area check is multi-select
       const area = f.get('areaExperiencia');
       if (req) area?.setValidators(Validators.required); else area?.clearValidators();
@@ -652,9 +716,9 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       toggle('apellidosConyuge', req, [this.nameValidator()]);
 
       toggle('documentoIdentidadConyuge', req);
-      toggle('direccionConyuge', req, [this.addressCOValidator()]);
+      toggle('direccionConyuge', req, [Validators.required]);
       toggle('telefonoConyuge', req);
-      toggle('barrioConyuge', req);
+      // toggle('barrioConyuge', req); // REMOVED
       toggle('ocupacionConyuge', req);
     });
 
@@ -690,9 +754,9 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       const isNoVive = val === 'NO VIVE';
 
       // Address/Phone/Job -> Required ONLY if Alive (VIVE)
-      toggle(`direccion${prefix}`, isVive, [this.addressCOValidator()]);
+      toggle(`direccion${prefix}`, isVive, [Validators.required]);
       toggle(`telefono${prefix}`, isVive);
-      toggle(`barrio${prefix}`, isVive);
+      // toggle(`barrio${prefix}`, isVive); // REMOVED
       toggle(`ocupacion${prefix}`, isVive);
 
       // Name: 
@@ -789,14 +853,31 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     const arr = this.formHojaDeVida2.get('hijos') as FormArray;
     while (arr.length > num) arr.removeAt(arr.length - 1);
     while (arr.length < num) {
-      arr.push(this.fb.group({
-        nombreHijo: ['', [this.fullNameValidator()]], // Full name for child
+      const g = this.fb.group({
+        nombreHijo: ['', [Validators.required]],
         sexoHijo: ['', Validators.required],
         fechaNacimientoHijo: ['', [Validators.required, this.dateReasonableValidator(2000)]],
-        docIdentidadHijo: ['', [Validators.required, Validators.minLength(3)]],
+        // Doc ID Required
+        docIdentidadHijo: ['', Validators.required],
         ocupacionHijo: ['', [Validators.required]],
-        cursoHijo: ['', Validators.required]
-      }));
+        // Curso conditional
+        cursoHijo: ['']
+      });
+
+      // Conditional Logic for Curso
+      g.get('ocupacionHijo')?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(occ => {
+        const isEstudiante = occ === 'ESTUDIANTE';
+        const curso = g.get('cursoHijo');
+        if (isEstudiante) {
+          curso?.setValidators(Validators.required);
+        } else {
+          curso?.clearValidators();
+          curso?.setValue(''); // Reset value
+        }
+        curso?.updateValueAndValidity({ emitEvent: false });
+      });
+
+      arr.push(g);
     }
   }
 
@@ -997,7 +1078,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       familiarEmergencia: g('familiarEmergencia'),
       parentescoFamiliarEmergencia: g('parentescoFamiliarEmergencia'),
       direccionFamiliarEmergencia: addr('direccionFamiliarEmergencia'),
-      barrioFamiliarEmergencia: g('barrioFamiliarEmergencia'),
+      barrioFamiliarEmergencia: '',
       telefonoFamiliarEmergencia: g('telefonoFamiliarEmergencia'),
       ocupacionFamiliarEmergencia: g('ocupacionFamiliarEmergencia'),
       oficina: g('oficina'),
@@ -1016,20 +1097,20 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       viveConElConyugue: g('viveConyuge'),
       direccionConyugue: addr('direccionConyugue'),
       telefonoConyugue: g('telefonoConyugue'),
-      barrioMunicipioConyugue: g('barrioConyuge'),
+      barrioMunicipioConyugue: '',
       ocupacion_conyugue: g('ocupacionConyuge'),
       nombrePadre: g('nombrePadre'),
       vivePadre: g('elPadreVive'),
       ocupacionPadre: g('ocupacionPadre'),
       direccionPadre: addr('direccionPadre'),
       telefonoPadre: g('telefonoPadre'),
-      barrioPadre: g('barrioPadre'),
+      barrioPadre: '',
       nombreMadre: g('nombreMadre'),
       viveMadre: g('madreVive'),
       ocupacionMadre: g('ocupacionMadre'),
       direccionMadre: addr('direccionMadre'),
       telefonoMadre: g('telefonoMadre'),
-      barrioMadre: g('barrioMadre'),
+      barrioMadre: '',
       nombreReferenciaPersonal1: g('nombreReferenciaPersonal1'),
       telefonoReferenciaPersonal1: g('telefonoReferencia1'),
       ocupacionReferenciaPersonal1: g('ocupacionReferencia1'),
@@ -1489,7 +1570,10 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     'fechaNacimiento', 'departamentoNacimiento', 'municipioNacimiento', 'estadoCivil',
     'correoUsuario', 'correoDominio', 'correo',
     'numCelular', 'numWha', 'direccionResidencia', 'zonaResidencia',
-    'departamento', 'ciudad', 'tiempoResidenciaZona', 'conQuienViveChecks'
+    'departamento', 'ciudad', 'tiempoResidenciaZona', 'conQuienViveChecks',
+    // Moved/New Fields
+    'escolaridad',
+    'expectativasVidaChecks', 'password'
   ];
 
   /*
@@ -1631,7 +1715,60 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     }
 
     // Prepare Payload (Subset)
-    const formValue = f.getRawValue();
+    const raw = f.getRawValue();
+    const g = (k: string) => (raw[k] || ''); // Safe accessor
+    const upper = (v: string) => String(v || '').toUpperCase().trim();
+
+    // Construct Dynamic Payload
+    const formValue = {
+      "oficina": upper(g('oficina')),
+      "tipo_doc": g('tipoDoc'),
+      "numero_documento": g('numeroCedula'),
+      "primer_apellido": upper(g('pApellido')),
+      "segundo_apellido": upper(g('sApellido')),
+      "primer_nombre": upper(g('pNombre')),
+      "segundo_nombre": upper(g('sNombre')),
+      "fecha_nacimiento": this.toYmd(g('fechaNacimiento')),
+      "sexo": g('genero'),
+      "estado_civil": g('estadoCivil'),
+
+      "contacto": {
+        "email": (g('correo') || '').toLowerCase(),
+        "celular": g('numCelular'),
+        "whatsapp": g('numWha')
+      },
+
+      "residencia": {
+        "barrio": upper(g('zonaResidencia')),
+        "hace_cuanto_vive": upper(g('tiempoResidenciaZona'))
+      },
+
+      "info_cc": {
+        "fecha_expedicion": this.toYmd(g('fechaExpedicionCC')),
+        "mpio_expedicion": upper(g('municipioExpedicionCC')),
+        "mpio_nacimiento": upper(g('municipioNacimiento'))
+      },
+
+      "vivienda": {
+        "personas_con_quien_convive": (g('conQuienViveChecks') || []).join(', ')
+      },
+
+      "formaciones": [
+        { "nivel": g('escolaridad') }
+      ],
+
+      "entrevistas": [
+        {
+          "oficina": upper(g('oficina')),
+          "como_se_proyecta": (g('expectativasVidaChecks') || []).join(', ')
+        }
+      ],
+
+      // Hidden password at root (or move to custom location if needed? User didn't specify, likely root is fine for systems)
+      // User request didn't explicitly show password in the JSON snippet, but previously requested it. 
+      // I will keep it at root for now to ensure account creation still works unless told otherwise.
+      "password": g('password')
+    };
 
     // Silent Call
     this.registroProcesoContratacion.crearActualizarCandidato(formValue)

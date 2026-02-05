@@ -13,7 +13,7 @@ export interface CandidatoUpsertPayload {
   tipo_doc?: string;
   numeroCedula: string;
   numero_documento?: string;
-  
+
   pApellido?: string;
   sApellido?: string;
   pNombre?: string;
@@ -207,10 +207,15 @@ export class RegistroProcesoContratacion {
    * - Crea o actualiza sin duplicar.
    */
   crearActualizarCandidato(form: any): Observable<CandidatoUpsertResponse> {
-    const payload = this.buildUpsertPayload(form);
+    // Si ya viene con tipoDoc/numeroCedula lo tratamos como payload directo.
+    const isPayload = form && typeof form === 'object' &&
+      (('tipoDoc' in form && 'numeroCedula' in form) ||
+        ('tipo_doc' in form && 'numero_documento' in form));
 
-    // ⬇️ MAYÚSCULAS excepto correo
-    const upperPayload = this.uppercaseDeepExcept(payload, new Set(['correo']));
+    const payload = isPayload ? form : this.buildUpsertPayload(form);
+
+    // ⬇️ MAYÚSCULAS excepto correo/email
+    const upperPayload = this.uppercaseDeepExcept(payload, new Set(['correo', 'email']));
 
     const url = `${this.apiUrl}/gestion_contratacion/candidatos/`;
 
