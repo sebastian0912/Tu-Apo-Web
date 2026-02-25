@@ -13,7 +13,8 @@ export const routes: Routes = [
   { path: 'formulario-lectura-escritura', component: FormReadingAndWritingTest },
   { path: 'formulario-solicitud-traslado', component: FormTransferRequest },
   { path: 'formulario-vacantes', component: FormVacancies },
-  { path: 'firma', component: Firma },
+  { path: 'firma/:empresa', component: Firma },
+  { path: 'firma', redirectTo: 'firma/apoyo-laboral', pathMatch: 'full' },
   { path: 'formulario-contratation', component: FormsTestContratation }
 ];
 

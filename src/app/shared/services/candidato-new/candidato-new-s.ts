@@ -93,9 +93,24 @@ export class CandidatoNewS {
       .pipe(this.handle$());
   }
 
-  /** Azúcar sintáctico */
-  uploadFirma(numero_documento: string | number, file: File) {
-    return this.uploadBiometria('firma', numero_documento, file);
+  /** Upload firma con datos de consentimiento biométrico (Ley 1581/2012) */
+  uploadFirma(
+    numero_documento: string | number,
+    file: File,
+    consentimiento?: { hash: string; version: string; timestamp: string; userAgent: string }
+  ): Observable<DocumentInfo> {
+    const fd = new FormData();
+    fd.append('numero_documento', String(numero_documento));
+    fd.append('file', file);
+    if (consentimiento) {
+      fd.append('consentimiento_hash', consentimiento.hash);
+      fd.append('consentimiento_version', consentimiento.version);
+      fd.append('consentimiento_timestamp', consentimiento.timestamp);
+      fd.append('consentimiento_user_agent', consentimiento.userAgent);
+    }
+    return this.http
+      .post<DocumentInfo>(this.url('biometria/upload/firma/'), fd)
+      .pipe(this.handle$());
   }
   uploadHuella(numero_documento: string | number, file: File) {
     return this.uploadBiometria('huella', numero_documento, file);

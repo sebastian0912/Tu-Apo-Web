@@ -8,7 +8,7 @@
     </div>
     <div class="header-logo">
       <!-- Optional: Place for a small logo if needed, or just keep it text based -->
-      <span class="brand-tag">TUAPO ENTERPRISE</span>
+      <span class="brand-tag">{{ empresaNombre }}</span>
     </div>
   </header>
 
@@ -33,7 +33,7 @@
         </mat-form-field>
 
         <button mat-flat-button class="v-btn-primary full-width" (click)="buscarCedula()"
-          [disabled]="form.invalid || searching">
+          [disabled]="f.numeroCedula.invalid || searching">
           <ng-container *ngIf="!searching">
             <mat-icon>search</mat-icon> Consultar
           </ng-container>
@@ -152,6 +152,7 @@
 
       </div>
     </section>
+
   </main>
 
   <!-- Componente Full Screen (Overlay) - Intacto -->
