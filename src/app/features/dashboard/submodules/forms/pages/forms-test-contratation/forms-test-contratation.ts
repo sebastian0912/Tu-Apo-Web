@@ -1,4 +1,3 @@
-
 import { Component, Inject, OnInit, Optional, PLATFORM_ID, ViewChild, ChangeDetectorRef, AfterViewInit, OnDestroy, Injectable } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, FormControl, FormArray, ReactiveFormsModule, AbstractControl, ValidatorFn, ValidationErrors } from '@angular/forms';
@@ -19,20 +18,17 @@ import { Subject, merge, firstValueFrom, fromEvent } from 'rxjs';
 import { takeUntil, debounceTime, startWith } from 'rxjs/operators';
 import Swal from 'sweetalert2';
 
-// Corrected Imports
 import { ParametrizacionS } from '../../services/parametrizacion/parametrizacion-s';
 import { RegistroProcesoContratacion } from '../../services/registro-proceso-contratacion/registro-proceso-contratacion';
 import { CandidateS } from '../../../../../../shared/services/candidate-s/candidate-s';
 import { DocumentManagementS } from '../../../../../../shared/services/document-management-s/document-management-s';
 
-// --- Constants ---
 const STORAGE_KEY = 'formHojaDeVida2';
 const CEDULA_KEY = 'numeroCedula';
 
-// Strict Regex Patterns (Colombian Context)
-const REGEX_NAMES = /^[a-zA-ZñÑáéíóúÁÉÍÓÚ\s]+$/; // Only letters and spaces
-const REGEX_NUMERIC = /^\d+$/; // Only numbers
-const REGEX_PHONE_CO = /^3\d{9}$/; // 3xxxxxxxxx (10 digits)
+const REGEX_NAMES = /^[a-zA-ZñÑáéíóúÁÉÍÓÚ\s]+$/;
+const REGEX_NUMERIC = /^\d+$/;
+const REGEX_PHONE_CO = /^3\d{9}$/;
 
 const OPCION_BINARIA = [{ value: 'SI', display: 'SÍ' }, { value: 'NO', display: 'NO' }];
 const PARENT_STATUS_OPTIONS = [
@@ -1690,7 +1686,11 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
         const filesOk = await this.subirTodosLosArchivos().catch(() => false);
         Swal.fire(filesOk ? '¡Éxito!' : 'Advertencia', filesOk ? 'Guardado exitoso.' : 'Guardado, pero fallaron archivos.', filesOk ? 'success' : 'warning');
       },
-      error: (err: any) => Swal.fire('Error', err?.message || 'Error al guardar.', 'error')
+      error: (err: any) => {
+        // Prioritize backend message
+        const msg = err.error?.message || err.error?.detail || err.message || 'Error al guardar.';
+        Swal.fire('Error', msg, 'error');
+      }
     });
   }
 

@@ -1,7 +1,7 @@
 import { Inject, Injectable, PLATFORM_ID } from '@angular/core';
 import { Observable } from 'rxjs/internal/Observable';
 import { HttpClient } from '@angular/common/http';
-import { environment } from '../../../../environments/environment.development';
+import { environment } from '../../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
@@ -15,24 +15,36 @@ export class DocumentManagementS {
     throw error;
   }
 
-  // Método para subir un documento
+  // Método para subida
   guardarDocumento(
     title: any,
     owner_id: string,
     type: number,
     file: File,
-    contract_number?: string  // Hacer que el número de contrato sea opcional
+    contract_number?: string
   ): Observable<any> {
     const formData = new FormData();
-    formData.append('title', title); // Nombre del archivo
-    formData.append('owner_id', owner_id); // Cédula
-    formData.append('type', type.toString()); // Tipo de documento (entero)
-    formData.append('file', file); // Archivo PDF
-    // Solo agregar el número de contrato si está presente
+    formData.append('title', title);
+    formData.append('owner_id', owner_id);
+    formData.append('type', type.toString());
+    formData.append('file', file);
     if (contract_number) {
       formData.append('contract_number', contract_number);
     }
-
     return this.http.post(`${this.apiUrl}/gestion_documental/documentosPruebas/`, formData);
+  }
+
+  // Método para obtener documentos de un usuario
+  getDocuments(cedula: string, type?: number, contract_number?: string): Observable<any> {
+    let params = new URLSearchParams();
+    params.set('cedula', cedula);
+    if (type !== undefined && type !== null) {
+      params.set('type', type.toString());
+    }
+    if (contract_number) {
+      params.set('contract_number', contract_number);
+    }
+    const query = params.toString();
+    return this.http.get(`${this.apiUrl}/gestion_documental/documentos/?${query}`);
   }
 }

@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "../.."
+		},
+		{
+			"path": "../../../back-tu-apo-django"
+		},
+		{
+			"path": "../../../TesoroApp"
+		},
+		{
+			"path": "../../../tu_alianza_web"
+		}
+	],
+	"settings": {}
+}

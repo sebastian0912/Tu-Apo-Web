@@ -77,8 +77,54 @@
 
   </aside>
 
-  <!-- COLUMNA DERECHA: Firma -->
+  <!-- COLUMNA DERECHA: Documentos y Firma -->
   <main class="col-right">
+
+    <!-- Carrusel de Documentos (Solo si hay documentos cargados) -->
+    <section class="v-card carousel-card" *ngIf="documentosList.length > 0">
+      <header class="card-header flex-header">
+        <div>
+          <h2 class="section-title">Revisión de Documentos</h2>
+          <p class="section-subtitle">Por favor, lea los documentos antes de firmar.</p>
+        </div>
+        <div class="carousel-counter">
+          Documento {{ currentDocIndex + 1 }} de {{ documentosList.length }}
+        </div>
+      </header>
+
+      <div class="carousel-body">
+        <div class="carousel-title-bar">
+          <h3 class="doc-title">{{ documentosList[currentDocIndex].title | uppercase }}</h3>
+        </div>
+
+        <div class="carousel-frame-container">
+          <iframe [src]="documentosList[currentDocIndex].safeUrl" class="doc-iframe" frameborder="0"></iframe>
+        </div>
+
+        <div class="carousel-actions">
+          <button mat-stroked-button class="carousel-btn" (click)="prevDocument()" [disabled]="currentDocIndex === 0">
+            <mat-icon>chevron_left</mat-icon> Anterior
+          </button>
+
+          <div class="carousel-dots">
+            <span class="carousel-dot" *ngFor="let doc of documentosList; let i = index"
+              [class.active]="i === currentDocIndex" (click)="currentDocIndex = i"></span>
+          </div>
+
+          <button mat-stroked-button class="carousel-btn right-btn" (click)="nextDocument()"
+            [disabled]="currentDocIndex === documentosList.length - 1">
+            Siguiente <mat-icon>chevron_right</mat-icon>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Estado: Cargando Documentos -->
+    <section class="v-card loading-card" *ngIf="loadingDocs">
+      <div class="v-spinner inverted"></div>
+      <p>Cargando documentos del candidato...</p>
+    </section>
+
     <section class="v-card signature-card">
       <header class="card-header flex-header">
         <div>
