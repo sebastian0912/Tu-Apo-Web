@@ -763,11 +763,15 @@ export class FormVacancies {
 
   async imprimirInformacion2(): Promise<void> {
     // veririficar q ese correo no exista en la base de datos
-    await this.candidateS.validarCorreoCedula(this.formHojaDeVida2.value.correo, this.formHojaDeVida2.value.numeroCedula).subscribe((res) => {
+    await this.candidateS.validarCorreoCedula(this.formHojaDeVida2.value.correo, this.formHojaDeVida2.value.numeroCedula).subscribe((res: any) => {
       if (res.correo_repetido) {
+        let msg = 'El correo ingresado ya se encuentra registrado por otra persona, tiene que cambiarlo';
+        if (res.duplicado_info) {
+          msg = `El correo ya está en uso por:<br><b>${res.duplicado_info.nombres} ${res.duplicado_info.apellidos}</b><br>Documento: <b>${res.duplicado_info.documento}</b>`;
+        }
         Swal.fire({
           title: '¡Correo duplicado!',
-          text: 'El correo ingresado ya se encuentra registrado por otra persona, tiene que cambiarlo',
+          html: msg,
           icon: 'error',
           confirmButtonText: 'Aceptar',
         });

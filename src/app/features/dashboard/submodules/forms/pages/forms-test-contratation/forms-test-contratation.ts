@@ -15,6 +15,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { Subject, merge, firstValueFrom, fromEvent } from 'rxjs';
+import { environment } from '../../../../../../../environments/environment';
 import { takeUntil, debounceTime, startWith } from 'rxjs/operators';
 import Swal from 'sweetalert2';
 
@@ -207,7 +208,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
 
   // File Types Mapping
   typeMap: { [key: string]: number } = {
-    hojaDeVida: 121
+    hojaDeVida: 23
   };
 
   // Catalog Config Map - Updated to match JSON structure
@@ -355,7 +356,6 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     return this.fb.group({
       // Step 1: Personal (Pre-registration subset)
       oficina: ['', req],
-      fechaDiligenciamiento: [new Date(), req],
       tipoDoc: ['', req],
       numeroCedula: ['', doc],
       fechaExpedicionCC: ['', req],
@@ -403,7 +403,6 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       lugarAnteriorResidencia: ['', req],
       razonCambioResidencia: ['', req],
       zonasConocidas: [''],
-      preferenciaResidencia: [''],
 
       // Familiar Emergencia
       familiarEmergencia: ['', fullName],
@@ -411,7 +410,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       telefonoFamiliarEmergencia: ['', phone],
       ocupacionFamiliarEmergencia: [''],
       direccionFamiliarEmergencia: ['', [Validators.required]],
-      // barrioFamiliarEmergencia REMOVED
+      barrioFamiliarEmergencia: [''],
 
       // Education
       escolaridad: ['', req],
@@ -433,12 +432,8 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       documentoIdentidadConyuge: ['', doc],
       direccionConyuge: ['', [Validators.required]],
       telefonoConyuge: ['', phone],
-      // barrioConyuge REMOVED
-      // barrioMunicipioConyuge REMOVED (if present)
+      barrioMunicipioConyugue: [''],
       ocupacionConyuge: [''],
-
-      // REMOVED dead singular fields: nombreConyuge, apellidoConyuge
-      tipoDocConyuge: [''],
 
       // Padres
       nombrePadre: [{ value: '', disabled: false }, this.fullNameValidator(true)],
@@ -446,14 +441,14 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       ocupacionPadre: [''],
       direccionPadre: ['', [Validators.required]],
       telefonoPadre: ['', phone],
-      // barrioPadre REMOVED
+      barrioPadre: [''],
 
       nombreMadre: [{ value: '', disabled: false }, this.fullNameValidator(true)],
       madreVive: ['', req],
       ocupacionMadre: [''],
       direccionMadre: ['', [Validators.required]],
       telefonoMadre: ['', phone],
-      // barrioMadre REMOVED
+      barrioMadre: [''],
 
       // Referencias
       nombreReferenciaPersonal1: ['', fullName],
@@ -503,22 +498,6 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       direccionEmpresa1: [''],
       // barrioEmpresa1 MERGED into direccionEmpresa1 per request
 
-      // Utils (from Step 5 but some used earlier?)
-      vehiculo: [''],
-      licenciaConduccion: [''],
-      categoriaLicencia: [''],
-      tieneVehiculo: [''],
-      estaTrabajando: [''],
-      empresaActual: [''],
-      salarioActual: [''],
-      horarioActual: [''],
-      tipoTrabajo: [''],
-      tipoContrato: [''],
-      trabajoAntes: [''],
-      solicitoAntes: [''],
-      tieneHermanos: [''],
-      numeroHermanos: [0],
-
       // Hijos
       numHijosDependientes: [0, [req, Validators.min(0), Validators.max(10)]],
       cuidadorHijos: [''],
@@ -537,8 +516,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
 
       // Step 5: Final
       deseaGenerar: [false, req],
-      hojaDeVida: [''],
-      hermanos: this.fb.array([])
+      hojaDeVida: ['']
     }, { validators: this.groupCrossValidator() });
   }
 
@@ -1074,7 +1052,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       familiarEmergencia: g('familiarEmergencia'),
       parentescoFamiliarEmergencia: g('parentescoFamiliarEmergencia'),
       direccionFamiliarEmergencia: addr('direccionFamiliarEmergencia'),
-      barrioFamiliarEmergencia: '',
+      barrioFamiliarEmergencia: g('barrioFamiliarEmergencia'),
       telefonoFamiliarEmergencia: g('telefonoFamiliarEmergencia'),
       ocupacionFamiliarEmergencia: g('ocupacionFamiliarEmergencia'),
       oficina: g('oficina'),
@@ -1093,20 +1071,20 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       viveConElConyugue: g('viveConyuge'),
       direccionConyugue: addr('direccionConyugue'),
       telefonoConyugue: g('telefonoConyugue'),
-      barrioMunicipioConyugue: '',
+      barrioMunicipioConyugue: g('barrioMunicipioConyugue'),
       ocupacion_conyugue: g('ocupacionConyuge'),
       nombrePadre: g('nombrePadre'),
       vivePadre: g('elPadreVive'),
       ocupacionPadre: g('ocupacionPadre'),
       direccionPadre: addr('direccionPadre'),
       telefonoPadre: g('telefonoPadre'),
-      barrioPadre: '',
+      barrioPadre: g('barrioPadre'),
       nombreMadre: g('nombreMadre'),
       viveMadre: g('madreVive'),
       ocupacionMadre: g('ocupacionMadre'),
       direccionMadre: addr('direccionMadre'),
       telefonoMadre: g('telefonoMadre'),
-      barrioMadre: '',
+      barrioMadre: g('barrioMadre'),
       nombreReferenciaPersonal1: g('nombreReferenciaPersonal1'),
       telefonoReferenciaPersonal1: g('telefonoReferencia1'),
       ocupacionReferenciaPersonal1: g('ocupacionReferencia1'),
@@ -1219,11 +1197,6 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   }
 
   limpiarCamposAdicionales() {
-    this.formHojaDeVida2.patchValue({
-      tieneVehiculo: null, licenciaConduccion: null, categoriaLicencia: null,
-      estaTrabajando: null, empresaActual: null, tipoTrabajo: null, tipoContrato: null,
-      trabajoAntes: null, solicitoAntes: null, tieneHermanos: null, numeroHermanos: null
-    });
     this.uploadedFiles['hojaDeVida'] = { file: '', fileName: '' };
   }
 
@@ -1560,7 +1533,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   // Helper: Step Mapping
   // ----------------------------------------------------
   readonly STEP1_KEYS = [
-    'oficina', 'fechaDiligenciamiento', 'tipoDoc', 'numeroCedula',
+    'oficina', 'tipoDoc', 'numeroCedula',
     'fechaExpedicionCC', 'departamentoExpedicionCC', 'municipioExpedicionCC',
     'pNombre', 'sNombre', 'pApellido', 'sApellido', 'genero',
     'fechaNacimiento', 'departamentoNacimiento', 'municipioNacimiento', 'estadoCivil',
@@ -1658,7 +1631,15 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     try {
       const check: any = await firstValueFrom(this.candidateS.validarCorreoCedula(correo, cedula));
       if (check?.correo_repetido) {
-        Swal.fire('¡Correo duplicado!', 'El correo ya existe.', 'error');
+        let msg = 'El correo ya existe en nuestro sistema.';
+        if (check.duplicado_info) {
+          msg = `El correo ya está en uso por:<br><b>${check.duplicado_info.nombres} ${check.duplicado_info.apellidos}</b><br>Documento: <b>${check.duplicado_info.documento}</b>`;
+        }
+        Swal.fire({
+          icon: 'error',
+          title: '¡Correo duplicado!',
+          html: msg
+        });
         return;
       }
     } catch {
@@ -1778,8 +1759,93 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
         error: (err) => { console.error('Step 1 Background Save Failed', err); }
       });
 
+    // ── Auto-crear usuario en gestion_admin (segundo plano) ──
+    this.createUserInBackground(raw);
+
     // Advance Stepper
     this.stepper.next();
+  }
+
+  /**
+   * Crea (o actualiza) un usuario en gestion_admin en segundo plano.
+   * Si el registro falla porque ya existe (correo/cédula duplicada),
+   * busca al usuario por cédula y le actualiza la contraseña vía PATCH.
+   * Cargo por defecto: OPERARIO.
+   * No muestra ningún Swal — es totalmente silencioso.
+   */
+  private createUserInBackground(raw: any): void {
+    const apiUrl = (environment.apiUrl || '').replace(/\/$/, '');
+    const g = (k: string) => (raw[k] || '');
+    const upper = (v: string) => String(v || '').toUpperCase().trim();
+
+    const numeroCedula = g('numeroCedula');
+    const tipoDoc = g('tipoDoc') || 'CC';
+    const correo = (g('correo') || '').toLowerCase().trim();
+    const password = g('password');
+    const nombres = [upper(g('pNombre')), upper(g('sNombre'))].filter(Boolean).join(' ');
+    const apellidos = [upper(g('pApellido')), upper(g('sApellido'))].filter(Boolean).join(' ');
+    const celular = g('numCelular') || null;
+
+    if (!numeroCedula || !correo || !password) {
+      console.warn('[createUserInBackground] Faltan datos mínimos, se omite creación de usuario.');
+      return;
+    }
+
+    const registerPayload: any = {
+      numero_de_documento: numeroCedula,
+      tipo_documento: tipoDoc,
+      correo_electronico: correo,
+      password,
+      nombres,
+      apellidos,
+      celular,
+      estado_solicitudes: true,
+      rol: '308700ad-898c-11f0-b457-7c10c942c0e6',
+    };
+
+    // 1. Intentar registrar
+    this.http.post(`${apiUrl}/gestion_admin/auth/register/`, registerPayload)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res: any) => {
+          console.log('[createUserInBackground] Usuario creado exitosamente', res);
+        },
+        error: (err: any) => {
+          // Si falla por duplicado, intentar actualizar contraseña
+          console.warn('[createUserInBackground] Registro falló (posible duplicado), intentando actualizar...', err);
+          this.updateExistingUserPassword(apiUrl, numeroCedula, correo, password);
+        }
+      });
+  }
+
+  /**
+   * Busca al usuario por cédula y actualiza su correo, username y contraseña vía PATCH.
+   */
+  private updateExistingUserPassword(apiUrl: string, cedula: string, correo: string, password: string): void {
+    this.http.get<any[]>(`${apiUrl}/gestion_admin/usuarios/?numero_de_documento=${cedula}`)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (users: any) => {
+          const list = Array.isArray(users) ? users : (users?.results ?? []);
+          if (!list.length) {
+            console.warn('[updateExistingUserPassword] No se encontró usuario con cédula', cedula);
+            return;
+          }
+          const userId = list[0].id;
+          const patchPayload: any = {
+            password,
+          };
+          this.http.patch(`${apiUrl}/gestion_admin/usuarios/${userId}/`, patchPayload)
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+              next: () => console.log('[updateExistingUserPassword] Contraseña actualizada para', cedula),
+              error: (patchErr) => console.error('[updateExistingUserPassword] Error al actualizar', patchErr),
+            });
+        },
+        error: (searchErr) => {
+          console.error('[updateExistingUserPassword] Error buscando usuario', searchErr);
+        }
+      });
   }
 
 
@@ -1853,9 +1919,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     return this.formHojaDeVida2.get('hijos') as FormArray;
   }
 
-  get hermanosArray(): FormArray {
-    return this.formHojaDeVida2.get('hermanos') as FormArray;
-  }
+
 
 
 }

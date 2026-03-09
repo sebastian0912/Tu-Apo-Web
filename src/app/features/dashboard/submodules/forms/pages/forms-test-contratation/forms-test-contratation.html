@@ -208,7 +208,7 @@
                   <ng-container
                     *ngTemplateOutlet="selectField; context: {control: 'rh', label: 'RH', options: listatiposdesangre}"></ng-container>
                   <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'lateralidad', label: 'Lateralidad', options: listamanos, optionsKey: 'descripcion', valueKey: 'mano'}"></ng-container>
+                    *ngTemplateOutlet="selectField; context: {control: 'lateralidad', label: 'Mano dominante', options: listamanos, optionsKey: 'descripcion', valueKey: 'mano'}"></ng-container>
 
                   <div class="full-width sub-section">
                     <h4>Tallas</h4>
@@ -231,8 +231,6 @@
                     *ngTemplateOutlet="textField; context: {control: 'razonCambioResidencia', label: 'Razón cambio'}"></ng-container>
                   <ng-container
                     *ngTemplateOutlet="textField; context: {control: 'zonasConocidas', label: 'Zonas que conoce'}"></ng-container>
-                  <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'preferenciaResidencia', label: 'Preferencia laboral'}"></ng-container>
 
                   <!-- Emergency Contact -->
                   <div class="full-width sub-section">
@@ -247,8 +245,9 @@
                   <ng-container
                     *ngTemplateOutlet="selectField; context: {control: 'ocupacionFamiliarEmergencia', label: 'Ocupación', options: Ocupacion}"></ng-container>
                   <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'direccionFamiliarEmergencia', label: 'Dirección y Barrio', isAddress: true}"></ng-container>
-                  <!-- barrioFamiliarEmergencia REMOVED -->
+                    *ngTemplateOutlet="textField; context: {control: 'direccionFamiliarEmergencia', label: 'Dirección', isAddress: true}"></ng-container>
+                  <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'barrioFamiliarEmergencia', label: 'Barrio'}"></ng-container>
 
                   <!-- Education -->
                   <!-- Education -->
@@ -312,10 +311,9 @@
                         <ng-container
                           *ngTemplateOutlet="textField; context: {control: 'telefonoConyuge', label: 'Teléfono', type: 'tel'}"></ng-container>
                       </div>
-                      <div class="grid-col-2">
+                      <div class="grid-col-1">
                         <ng-container
-                          *ngTemplateOutlet="textField; context: {control: 'direccionConyuge', label: 'Dirección y Barrio', isAddress: true}"></ng-container>
-                        <!-- barrioConyuge REMOVED -->
+                          *ngTemplateOutlet="textField; context: {control: 'direccionConyuge', label: 'Dirección (Ej: CR 35 B 25 53. Se normaliza)', isAddress: true}"></ng-container>
                       </div>
                     </ng-container>
                   </div>
@@ -333,10 +331,9 @@
                     <ng-container
                       *ngTemplateOutlet="selectField; context: {control: 'ocupacionPadre', label: 'Ocupación', options: Ocupacion}"></ng-container>
                     <ng-container
-                      *ngTemplateOutlet="textField; context: {control: 'direccionPadre', label: 'Dirección y Barrio', isAddress: true}"></ng-container>
+                      *ngTemplateOutlet="textField; context: {control: 'direccionPadre', label: 'Dirección (Ej: CR 35 B 25 53. Se normaliza)', isAddress: true}"></ng-container>
                     <ng-container
                       *ngTemplateOutlet="textField; context: {control: 'telefonoPadre', label: 'Teléfono', type: 'tel'}"></ng-container>
-                    <!-- barrioPadre REMOVED -->
                   </ng-container>
 
                   <!-- Madre -->
@@ -348,10 +345,9 @@
                     <ng-container
                       *ngTemplateOutlet="selectField; context: {control: 'ocupacionMadre', label: 'Ocupación', options: Ocupacion}"></ng-container>
                     <ng-container
-                      *ngTemplateOutlet="textField; context: {control: 'direccionMadre', label: 'Dirección y Barrio', isAddress: true}"></ng-container>
+                      *ngTemplateOutlet="textField; context: {control: 'direccionMadre', label: 'Dirección (Ej: CR 35 B 25 53. Se normaliza)', isAddress: true}"></ng-container>
                     <ng-container
                       *ngTemplateOutlet="textField; context: {control: 'telefonoMadre', label: 'Teléfono', type: 'tel'}"></ng-container>
-                    <!-- barrioMadre REMOVED -->
                   </ng-container>
 
                   <!-- Referencias Personales -->
@@ -573,57 +569,6 @@
                 <div class="grid-layout">
                   <ng-container
                     *ngTemplateOutlet="selectField; context: {control: 'deseaGenerar', label: '¿Generar HV automática?', options: [{v:true, l:'Sí'}, {v:false, l:'No'}], optionsKey: 'l', valueKey: 'v'}"></ng-container>
-
-                  <ng-container *ngIf="formHojaDeVida2.get('deseaGenerar')?.value">
-                    <ng-container
-                      *ngTemplateOutlet="selectField; context: {control: 'tieneVehiculo', label: '¿Tiene Vehículo?', options: [{v:'SI', l:'Sí'}, {v:'NO', l:'No'}], optionsKey: 'l', valueKey: 'v'}"></ng-container>
-                    <ng-container *ngIf="formHojaDeVida2.get('tieneVehiculo')?.value === 'SI'">
-                      <ng-container
-                        *ngTemplateOutlet="textField; context: {control: 'licenciaConduccion', label: 'Licencia'}"></ng-container>
-                      <ng-container
-                        *ngTemplateOutlet="selectField; context: {control: 'categoriaLicencia', label: 'Categorías', options: categoriasLicencia, multiple: true}"></ng-container>
-                    </ng-container>
-
-                    <ng-container
-                      *ngTemplateOutlet="selectField; context: {control: 'estaTrabajando', label: '¿Trabaja actualmente?', options: [{v:'SI', l:'Sí'}, {v:'NO', l:'No'}], optionsKey: 'l', valueKey: 'v'}"></ng-container>
-                    <ng-container *ngIf="formHojaDeVida2.get('estaTrabajando')?.value === 'SI'">
-                      <ng-container
-                        *ngTemplateOutlet="textField; context: {control: 'empresaActual', label: 'Empresa Actual'}"></ng-container>
-                      <ng-container
-                        *ngTemplateOutlet="selectField; context: {control: 'tipoTrabajo', label: 'Tipo Trabajo', options: ['Empleado', 'Independiente']}"></ng-container>
-                      <ng-container
-                        *ngTemplateOutlet="selectField; context: {control: 'tipoContrato', label: 'Tipo Contrato', options: tiposContrato}"></ng-container>
-                    </ng-container>
-
-                    <ng-container
-                      *ngTemplateOutlet="selectField; context: {control: 'trabajoAntes', label: '¿Trabajó antes aquí?', options: [{v:'SI', l:'Sí'}, {v:'NO', l:'No'}], optionsKey: 'l', valueKey: 'v'}"></ng-container>
-                    <ng-container
-                      *ngTemplateOutlet="selectField; context: {control: 'solicitoAntes', label: '¿Solicitó antes?', options: [{v:'SI', l:'Sí'}, {v:'NO', l:'No'}], optionsKey: 'l', valueKey: 'v'}"></ng-container>
-
-                    <ng-container
-                      *ngTemplateOutlet="selectField; context: {control: 'tieneHermanos', label: '¿Tiene Hermanos?', options: [{v:'SI', l:'Sí'}, {v:'NO', l:'No'}], optionsKey: 'l', valueKey: 'v'}"></ng-container>
-                    <ng-container *ngIf="formHojaDeVida2.get('tieneHermanos')?.value === 'SI'">
-                      <ng-container
-                        *ngTemplateOutlet="selectField; context: {control: 'numeroHermanos', label: 'No. Hermanos', options: [1,2,3,4,5]}"></ng-container>
-                    </ng-container>
-                  </ng-container>
-
-                  <!-- Hermanos List -->
-                  <div class="full-width" formArrayName="hermanos" *ngIf="hermanosArray.length">
-                    <div *ngFor="let h of hermanosArray.controls; let i=index" [formGroup]="asFormGroup(h)"
-                      class="child-card">
-                      <h5>Hermano {{i+1}}</h5>
-                      <div class="grid-layout compact">
-                        <mat-form-field appearance="outline"><mat-label>Nombre</mat-label><input matInput
-                            formControlName="nombre"></mat-form-field>
-                        <mat-form-field appearance="outline"><mat-label>Profesión</mat-label><input matInput
-                            formControlName="profesion"></mat-form-field>
-                        <mat-form-field appearance="outline"><mat-label>Teléfono</mat-label><input matInput
-                            formControlName="telefono"></mat-form-field>
-                      </div>
-                    </div>
-                  </div>
-
                 </div>
 
                 <div class="actions">
