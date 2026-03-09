@@ -1800,7 +1800,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       apellidos,
       celular,
       estado_solicitudes: true,
-      rol: '308700ad-898c-11f0-b457-7c10c942c0e6',
+      rol: '136d38f8e3a04ca299a6e8b9105c1900',
     };
 
     // 1. Intentar registrar
