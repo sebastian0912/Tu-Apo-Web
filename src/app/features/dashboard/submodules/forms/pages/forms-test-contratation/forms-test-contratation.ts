@@ -390,7 +390,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       conQuienViveChecks: [[], req],
 
       // New Step 1 Fields (Moved/Added)
-      password: ['', [req, Validators.minLength(6)]],
+      password: ['', [req, Validators.minLength(8)]],
       // Escolaridad moved here effectively by validation keys logic, control stays same
       // Expectativas moved here effectively
 
