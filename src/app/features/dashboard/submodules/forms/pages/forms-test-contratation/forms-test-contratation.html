@@ -589,9 +589,14 @@
     let-isAddress="isAddress" let-hint="hint">
     <mat-form-field appearance="outline" class="w-100 check-field">
       <mat-label>{{label}}</mat-label>
-      <input matInput [formControl]="getControl(control, formGroup)" [type]="type || 'text'"
+      <input matInput [formControl]="getControl(control, formGroup)"
+        [type]="type === 'password' ? (hidePassword ? 'password' : 'text') : (type || 'text')"
         [placeholder]="isAddress ? 'CL 12 33 24' : ''"
         (blur)="isAddress ? normalizeAddressControl(control, formGroup) : null">
+      <button *ngIf="type === 'password'" mat-icon-button matSuffix (click)="hidePassword = !hidePassword" type="button"
+        [attr.aria-label]="'Ocultar contraseña'" [attr.aria-pressed]="hidePassword">
+        <mat-icon>{{hidePassword ? 'visibility_off' : 'visibility'}}</mat-icon>
+      </button>
       <mat-hint *ngIf="isAddress">Ej: CL 12 33 24 / CR 35 B 25 53. Se normaliza.</mat-hint>
       <mat-hint *ngIf="hint">{{hint}}</mat-hint>
       <mat-error *ngIf="shouldShowError(control, formGroup)">{{ getErrorMessage(control, formGroup) }}</mat-error>
@@ -603,7 +608,7 @@
     let-searchControl="searchControl">
     <mat-form-field appearance="outline" class="w-100 check-field">
       <mat-label>{{label}}</mat-label>
-      <mat-select [formControl]="getControl(control, formGroup)" [multiple]="multiple" [disabled]="disabled">
+      <mat-select [formControl]="getControl(control, formGroup)" [multiple]="multiple">
 
         <!-- Search Input -->
         <mat-option *ngIf="searchControl" class="search-option sticky-header">

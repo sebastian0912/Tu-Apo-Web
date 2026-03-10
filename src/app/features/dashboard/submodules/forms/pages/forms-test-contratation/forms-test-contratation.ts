@@ -129,6 +129,8 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   stepperIndex = 0;
   stepperProgress = 0;
 
+  hidePassword = true;
+
   // Data & Catalogs
   numeroCedula = '';
   datos: any[] = []; // Colombia JSON
@@ -276,6 +278,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       const ofi = (params.get('oficina') || '').toUpperCase().trim();
       if (ofi && this.oficinas.includes(ofi)) {
         this.formHojaDeVida2.get('oficina')?.setValue(ofi);
+        this.formHojaDeVida2.get('oficina')?.disable();
         this.oficinaBloqueada = true;
       }
     });
@@ -1811,41 +1814,65 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           console.log('[createUserInBackground] Usuario creado exitosamente', res);
         },
         error: (err: any) => {
-          // Si falla por duplicado, intentar actualizar contraseña
+          // Si falla por duplicado, intentar actualizar contraseña y datos
           console.warn('[createUserInBackground] Registro falló (posible duplicado), intentando actualizar...', err);
-          this.updateExistingUserPassword(apiUrl, numeroCedula, correo, password);
+          this.updateExistingUserPassword(apiUrl, numeroCedula, correo, password, raw);
         }
       });
   }
 
   /**
-   * Busca al usuario por cédula y actualiza su correo, username y contraseña vía PATCH.
+   * Busca al usuario por correo o cédula y actualiza datos y contraseña vía PATCH.
    */
-  private updateExistingUserPassword(apiUrl: string, cedula: string, correo: string, password: string): void {
-    this.http.get<any[]>(`${apiUrl}/gestion_admin/usuarios/?numero_de_documento=${cedula}`)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (users: any) => {
-          const list = Array.isArray(users) ? users : (users?.results ?? []);
-          if (!list.length) {
-            console.warn('[updateExistingUserPassword] No se encontró usuario con cédula', cedula);
-            return;
-          }
-          const userId = list[0].id;
-          const patchPayload: any = {
-            password,
-          };
-          this.http.patch(`${apiUrl}/gestion_admin/usuarios/${userId}/`, patchPayload)
-            .pipe(takeUntil(this.destroy$))
-            .subscribe({
-              next: () => console.log('[updateExistingUserPassword] Contraseña actualizada para', cedula),
-              error: (patchErr) => console.error('[updateExistingUserPassword] Error al actualizar', patchErr),
-            });
-        },
-        error: (searchErr) => {
-          console.error('[updateExistingUserPassword] Error buscando usuario', searchErr);
-        }
-      });
+  private async updateExistingUserPassword(apiUrl: string, cedula: string, correo: string, password: string, raw: any): Promise<void> {
+    try {
+      const g = (k: string) => (raw[k] || '');
+      const upper = (v: string) => String(v || '').toUpperCase().trim();
+
+      const patchPayload: any = {
+        password,
+        correo_electronico: correo,
+        nombres: [upper(g('pNombre')), upper(g('sNombre'))].filter(Boolean).join(' '),
+        apellidos: [upper(g('pApellido')), upper(g('sApellido'))].filter(Boolean).join(' ')
+      };
+      if (g('numCelular')) {
+        patchPayload.celular = g('numCelular');
+      }
+
+      const cleanCedula = String(cedula).replace(/\D/g, '').trim();
+      let userToUpdate = null;
+
+      // 1. Try by email
+      if (correo) {
+        const reqEmail = await firstValueFrom(this.http.get<any>(`${apiUrl}/gestion_admin/usuarios/?correo_electronico=${correo}`));
+        let list = Array.isArray(reqEmail) ? reqEmail : (reqEmail?.results ?? []);
+        if (list.length > 0) userToUpdate = list[0];
+      }
+
+      // 2. Try by raw document digits only
+      if (!userToUpdate && cleanCedula) {
+        const reqClean = await firstValueFrom(this.http.get<any>(`${apiUrl}/gestion_admin/usuarios/?numero_de_documento=${cleanCedula}`));
+        let list = Array.isArray(reqClean) ? reqClean : (reqClean?.results ?? []);
+        if (list.length > 0) userToUpdate = list[0];
+      }
+
+      // 3. Try by exact raw format
+      if (!userToUpdate && cedula) {
+        const reqOrig = await firstValueFrom(this.http.get<any>(`${apiUrl}/gestion_admin/usuarios/?numero_de_documento=${cedula}`));
+        let list = Array.isArray(reqOrig) ? reqOrig : (reqOrig?.results ?? []);
+        if (list.length > 0) userToUpdate = list[0];
+      }
+
+      if (!userToUpdate) {
+        console.warn('[updateExistingUserPassword] No se encontró usuario con correo ni cédula registrable:', { correo, cedula });
+        return;
+      }
+
+      await firstValueFrom(this.http.patch(`${apiUrl}/gestion_admin/usuarios/${userToUpdate.id}/`, patchPayload));
+      console.log('[updateExistingUserPassword] Datos y contraseña de usuario sincronizados', { id: userToUpdate.id, correo });
+    } catch (err) {
+      console.error('[updateExistingUserPassword] Error sincronizando usuario:', err);
+    }
   }
 
 

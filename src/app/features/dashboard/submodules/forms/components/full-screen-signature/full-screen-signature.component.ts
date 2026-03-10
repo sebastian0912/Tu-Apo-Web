@@ -126,10 +126,70 @@ export class FullScreenSignatureComponent implements OnInit, AfterViewInit, OnDe
 
     onSave(): void {
         if (this.pad.isEmpty()) return;
-        // Guardar como PNG
-        const dataUrl = this.pad.toDataURL('image/png');
-        this.save.emit(dataUrl);
-        this.pad.clear(); // Limpiar después de guardar por seguridad
+
+        const canvas = this.sigCanvas.nativeElement;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            this.save.emit(this.pad.toDataURL('image/png'));
+            this.pad.clear();
+            return;
+        }
+
+        const width = canvas.width;
+        const height = canvas.height;
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const data = imageData.data;
+
+        let minX = width, minY = height, maxX = 0, maxY = 0;
+        let isBlank = true;
+
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const index = (y * width + x) * 4;
+                const r = data[index];
+                const g = data[index + 1];
+                const b = data[index + 2];
+                const a = data[index + 3];
+
+                // Buscar pixeles no blancos (fondo de signature_pad es blanco)
+                if (a > 0 && (r + g + b < 750)) {
+                    isBlank = false;
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+            }
+        }
+
+        if (isBlank) {
+            this.save.emit(this.pad.toDataURL('image/png'));
+            this.pad.clear();
+            return;
+        }
+
+        const padding = 10;
+        minX = Math.max(0, minX - padding);
+        minY = Math.max(0, minY - padding);
+        maxX = Math.min(width, maxX + padding);
+        maxY = Math.min(height, maxY + padding);
+
+        const cropWidth = maxX - minX;
+        const cropHeight = maxY - minY;
+
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = cropWidth;
+        tempCanvas.height = cropHeight;
+        const tempCtx = tempCanvas.getContext('2d');
+
+        if (tempCtx) {
+            tempCtx.putImageData(ctx.getImageData(minX, minY, cropWidth, cropHeight), 0, 0);
+            this.save.emit(tempCanvas.toDataURL('image/png'));
+        } else {
+            this.save.emit(this.pad.toDataURL('image/png'));
+        }
+
+        this.pad.clear();
     }
 
     onCancel(): void {
