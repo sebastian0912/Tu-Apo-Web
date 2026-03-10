@@ -259,7 +259,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     // 1. Init Search Form (Pre-check)
     this.searchForm = this.fb.group({
       tipo_doc: ['CC', Validators.required],
-      numero_documento: ['', [Validators.required, Validators.pattern(REGEX_NUMERIC), Validators.minLength(6), Validators.maxLength(15)]]
+      numero_documento: ['', [Validators.required, Validators.pattern(REGEX_NUMERIC), Validators.minLength(6), Validators.maxLength(15), this.notPhoneNumberValidator()]]
     });
 
     // 2. Init Main Form
@@ -370,7 +370,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       pApellido: ['', name],
       sApellido: ['', this.nameValidator(false)], // Optional
       genero: ['', req],
-      fechaNacimiento: ['', [req, this.dateReasonableValidator(1900)]],
+      fechaNacimiento: ['', [req]],
       departamentoNacimiento: ['', req],
       municipioNacimiento: [{ value: '', disabled: true }, req],
       estadoCivil: ['', req],
@@ -833,7 +833,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       const g = this.fb.group({
         nombreHijo: ['', [Validators.required]],
         sexoHijo: ['', Validators.required],
-        fechaNacimientoHijo: ['', [Validators.required, this.dateReasonableValidator(2000)]],
+        fechaNacimientoHijo: ['', [Validators.required]],
         // Doc ID Required
         docIdentidadHijo: ['', Validators.required],
         ocupacionHijo: ['', [Validators.required]],
@@ -1242,6 +1242,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     if (errors['invalidName']) return 'Solo letras y espacios'; // Custom
     if (errors['invalidPhone']) return 'Formato 3xxxxxxxxx'; // Custom
     if (errors['invalidDoc']) return 'Solo números'; // Custom
+    if (errors['looksLikePhone']) return 'Parece un número de celular, ingrese un documento válido.';
     if (errors['specialChars']) return 'Sin caracteres especiales';
     if (errors['invalidDate']) return 'Fecha no válida';
 
@@ -1468,7 +1469,19 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       const val = control.value;
       if (!val) return null;
       const valid = REGEX_NUMERIC.test(val);
-      return valid ? null : { invalidDoc: true };
+      if (!valid) return { invalidDoc: true };
+      // Reject Colombian cellphone numbers (10 digits starting with 3)
+      if (/^3\d{9}$/.test(val)) return { looksLikePhone: true };
+      return null;
+    };
+  }
+
+  private notPhoneNumberValidator(): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      const val = control.value;
+      if (!val) return null;
+      if (/^3\d{9}$/.test(val)) return { looksLikePhone: true };
+      return null;
     };
   }
 

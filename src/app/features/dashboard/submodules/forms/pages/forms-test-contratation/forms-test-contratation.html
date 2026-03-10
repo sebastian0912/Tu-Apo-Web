@@ -485,8 +485,6 @@
                           <mat-datepicker-toggle matSuffix [for]="pd"></mat-datepicker-toggle><mat-datepicker
                             #pd></mat-datepicker>
                           <mat-error *ngIf="h.get('fechaNacimientoHijo')?.hasError('required')">Requerido</mat-error>
-                          <mat-error *ngIf="h.get('fechaNacimientoHijo')?.hasError('dateReasonable')">Fecha
-                            inválida</mat-error>
                         </mat-form-field>
                         <mat-form-field appearance="outline"><mat-label>Doc ID</mat-label><input matInput
                             formControlName="docIdentidadHijo">
