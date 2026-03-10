@@ -108,8 +108,8 @@ export class CustomDateAdapter extends NativeDateAdapter {
     },
     { provide: MAT_DATE_LOCALE, useValue: 'es-CO' }
   ],
-
 })
+
 export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('stepper') stepper!: MatStepper;
   private readonly destroy$ = new Subject<void>();
@@ -1501,45 +1501,14 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   // ----------------------------------------------------
   // 4. Pre-check Search Logic
   // ----------------------------------------------------
-  async onSearch() {
+  onSearch() {
     if (this.searchForm.invalid) {
       this.searchForm.markAllAsTouched();
       return;
     }
 
-    this.isSearching = true;
-    this.showForm = false;
-    this.foundCandidate = null;
-
     const { tipo_doc, numero_documento } = this.searchForm.value;
-
-    try {
-      // 1. Check existence
-      const res = await firstValueFrom(this.registroProcesoContratacion.existsCandidato(tipo_doc, numero_documento));
-
-      // Use explicit type casting if needed or 'any' if the service returns any
-      const exists = (res as any)?.exists;
-
-      if (exists) {
-        // 2. Setup Candidate context (Upsert mode)
-        this.foundCandidate = res; // Can be used to show "Welcome back" or turn info
-        Swal.fire({
-          icon: 'info',
-          title: 'Candidato Encontrado',
-          text: 'Hemos encontrado tus datos. Puedes actualizar tu información.',
-          confirmButtonText: 'Continuar'
-        });
-      }
-
-      // 3. Whether new or exists, we unlock the form and prefill ID
-      this.startForm(tipo_doc, numero_documento);
-
-    } catch (err) {
-      console.error(err);
-      Swal.fire('Error', 'No se pudo verificar el candidato. Intenta nuevamente.', 'error');
-    } finally {
-      this.isSearching = false;
-    }
+    this.startForm(tipo_doc, numero_documento);
   }
 
   // ----------------------------------------------------
