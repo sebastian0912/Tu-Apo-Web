@@ -38,7 +38,7 @@ export class Login implements OnInit {
     private fb: FormBuilder,
     private loginS: LoginS,
     private router: Router,
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.loginForm = this.fb.group({
@@ -102,7 +102,7 @@ export class Login implements OnInit {
 
       // 3) Obtener datos extendidos del usuario (si falla, uso el del login)
       let user = resp?.user ?? null;
-    
+
 
       if (!user) {
         throw { message: 'No se pudo obtener el usuario', code: 'NO_USER' };
@@ -125,7 +125,9 @@ export class Login implements OnInit {
       let text = 'Ocurrió un error inesperado. Inténtalo de nuevo.';
       if (err?.status === 0) {
         text = 'No hay conexión con el servidor. Verifica tu internet o VPN.';
-      } else if (err?.status === 401) {
+      } else if (err?.status === 404) {
+        text = 'El usuario no existe. Verifica el correo o documento ingresado.';
+      } else if (err?.status === 401 || err?.status === 403) {
         text = 'Usuario o contraseña incorrectos.';
       } else if (err?.message) {
         text = err.message;
