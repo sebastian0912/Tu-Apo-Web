@@ -1,34 +1,22 @@
 import { Routes } from '@angular/router';
+import { FormOccupationalHealthAndSafetyTest } from './pages/form-occupational-health-and-safety-test/form-occupational-health-and-safety-test';
+import { FormPreRegistrationVacancies } from './pages/form-pre-registration-vacancies/form-pre-registration-vacancies';
+import { FormReadingAndWritingTest } from './pages/form-reading-and-writing-test/form-reading-and-writing-test';
+import { FormTransferRequest } from './pages/form-transfer-request/form-transfer-request';
+import { FormVacancies } from './pages/form-vacancies/form-vacancies';
+import { FormsTestContratation } from './pages/forms-test-contratation/forms-test-contratation';
+import { Firma } from './pages/firma/firma';
+import { Foto } from './pages/foto/foto';
 
 export const routes: Routes = [
-  {
-    path: '', // Base
-    children: [
-      {
-        path: 'firma',
-        loadComponent: () => import('./pages/firma/firma').then(m => m.Firma)
-      },
-      {
-        path: 'firma/:empresa',
-        loadComponent: () => import('./pages/firma/firma').then(m => m.Firma)
-      },
-      {
-        path: 'foto',
-        loadComponent: () => import('./pages/foto/foto').then(m => m.Foto)
-      },
-      {
-        path: 'foto/:empresa',
-        loadComponent: () => import('./pages/foto/foto').then(m => m.Foto)
-      },
-      // Otros componentes de form...
-      {
-         path: 'form-vacancies',
-         loadComponent: () => import('./pages/form-vacancies/form-vacancies').then(m => m.FormVacancies)
-      },
-      {
-         path: 'form-pre-registration-vacancies',
-         loadComponent: () => import('./pages/form-pre-registration-vacancies/form-pre-registration-vacancies').then(m => m.FormPreRegistrationVacancies)
-      }
-    ]
-  }
+  { path: 'formulario-seguridad-salud-trabajo', component: FormOccupationalHealthAndSafetyTest },
+  { path: 'formulario-pre-registro-vacantes', component: FormPreRegistrationVacancies },
+  { path: 'formulario-lectura-escritura', component: FormReadingAndWritingTest },
+  { path: 'formulario-solicitud-traslado', component: FormTransferRequest },
+  { path: 'formulario-vacantes', component: FormVacancies },
+  { path: 'formulario-contratation', component: FormsTestContratation },
+  { path: 'firma', component: Firma },
+  { path: 'firma/:empresa', component: Firma },
+  { path: 'foto', component: Foto },
+  { path: 'foto/:empresa', component: Foto }
 ];
