@@ -1,7 +1,7 @@
 import {
   ApplicationConfig,
   provideBrowserGlobalErrorListeners,
-  provideZoneChangeDetection
+  provideZoneChangeDetection, isDevMode, APP_INITIALIZER
 } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
@@ -9,6 +9,9 @@ import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/
 
 import { routes } from './app.routes';
 import { authInterceptor } from './core/interceptors/auth-interceptor';
+import { offlineInterceptor } from './core/interceptors/offline.interceptor';
+import { provideServiceWorker } from '@angular/service-worker';
+import { SyncService } from './core/services/sync.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -17,8 +20,18 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideClientHydration(withEventReplay()),
     provideHttpClient(
-      withFetch(),                // 👈 agrega esta línea
-      withInterceptors([authInterceptor])
-    )
+      withFetch(),
+      withInterceptors([authInterceptor, offlineInterceptor])
+    ),
+    provideServiceWorker('ngsw-worker.js', {
+      enabled: !isDevMode(),
+      registrationStrategy: 'registerWhenStable:30000'
+    }),
+    {
+      provide: APP_INITIALIZER,
+      useFactory: () => () => {}, // SyncService instance is created and its constructor runs
+      deps: [SyncService],
+      multi: true
+    }
   ]
 };

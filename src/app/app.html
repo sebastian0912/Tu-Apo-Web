@@ -1,1 +1,6 @@
+@if ((isOnline$ | async) === false) {
+  <div class="offline-banner">
+    ⚠️ <b>Estás trabajando sin conexión.</b> Los cambios que hagas se guardarán localmente y se enviarán al volver la red.
+  </div>
+}
 <router-outlet></router-outlet>
