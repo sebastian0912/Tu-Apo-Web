@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import {  Component , ChangeDetectionStrategy } from '@angular/core';
 import { LoginS } from '../../../../../auth/service/login-s';
 import Swal from 'sweetalert2';
 import { FormBuilder, FormGroup, FormsModule, Validators } from '@angular/forms';
@@ -9,6 +9,7 @@ import { SharedModule } from '../../../../../../shared/shared-module';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-payments-payment-slips',
   imports: [
     FormsModule,
@@ -19,7 +20,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
   ],
   templateUrl: './payments-payment-slips.html',
   styleUrl: './payments-payment-slips.css'
-})
+} )
 export class PaymentsPaymentSlips {
   searchForm: FormGroup;
   dataSource = new MatTableDataSource<any>([]);

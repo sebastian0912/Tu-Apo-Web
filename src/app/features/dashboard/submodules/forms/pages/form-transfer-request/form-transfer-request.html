@@ -1,63 +1,71 @@
 <div class="contenedor">
-    <section class="request-card" aria-labelledby="page-title">
+  <section class="request-card" aria-labelledby="page-title">
 
-        <header class="page-header">
-            <h1 id="page-title" class="page-title">Solicitud de Traslado</h1>
-            <p class="page-subtitle">Complete el formulario para iniciar su proceso de traslado de EPS.</p>
-        </header>
+    <header class="page-header">
+      <h1 id="page-title" class="page-title">Solicitud de Traslado</h1>
+      <p class="page-subtitle">Complete el formulario para iniciar su proceso de traslado de EPS.</p>
+    </header>
 
-        <form class="formulario" [formGroup]="formtraslados" (ngSubmit)="enviarSolicitudTraslado()">
+    <form class="formulario" [formGroup]="formtraslados" (ngSubmit)="enviarSolicitudTraslado()">
 
-            <div class="datos">
+      <div class="datos">
 
-                <!-- Documento -->
-                <mat-form-field appearance="outline">
-                    <mat-label>Número de documento de identidad</mat-label>
-                    <input matInput placeholder="Ej: 10058547896" formControlName="numero_cedula" type="number">
-                    <mat-error *ngIf="formtraslados.get('numero_cedula')?.hasError('required')">
-                        El documento es obligatorio
-                    </mat-error>
-                </mat-form-field>
+        <!-- Documento -->
+        <mat-form-field appearance="outline">
+          <mat-label>Número de documento de identidad</mat-label>
+          <input matInput placeholder="Ej: 10058547896" formControlName="numero_cedula" type="number">
+          @if (formtraslados.get('numero_cedula')?.hasError('required')) {
+            <mat-error>
+              El documento es obligatorio
+            </mat-error>
+          }
+        </mat-form-field>
 
-                <!-- EPS -->
-                <mat-form-field appearance="outline">
-                    <mat-label>EPS a trasladar</mat-label>
-                    <mat-select formControlName="eps_a_trasladar">
-                        <mat-option value="Nueva_Eps">Nueva EPS</mat-option>
-                        <mat-option value="Salud_Total">Salud Total</mat-option>
-                        <mat-option value="Famisanar">Famisanar</mat-option>
-                    </mat-select>
-                    <mat-error *ngIf="formtraslados.get('eps_a_trasladar')?.hasError('required')">
-                        Seleccione una EPS
-                    </mat-error>
-                </mat-form-field>
+        <!-- EPS -->
+        <mat-form-field appearance="outline">
+          <mat-label>EPS a trasladar</mat-label>
+          <mat-select formControlName="eps_a_trasladar">
+            <mat-option value="Nueva_Eps">Nueva EPS</mat-option>
+            <mat-option value="Salud_Total">Salud Total</mat-option>
+            <mat-option value="Famisanar">Famisanar</mat-option>
+          </mat-select>
+          @if (formtraslados.get('eps_a_trasladar')?.hasError('required')) {
+            <mat-error>
+              Seleccione una EPS
+            </mat-error>
+          }
+        </mat-form-field>
 
-                <!-- File Upload Personalizado -->
-                <div class="file-upload-wrapper">
-                    <input type="file" #fileInput (change)="uploadFile($event)" [hidden]="true"
-                        accept=".pdf,.jpg,.jpeg,.png">
+        <!-- File Upload Personalizado -->
+        <div class="file-upload-wrapper">
+          <input type="file" #fileInput (change)="uploadFile($event)" [hidden]="true"
+            accept=".pdf,.jpg,.jpeg,.png">
 
-                    <div class="file-drop-zone" [class.has-file]="!!fileName" (click)="fileInput.click()" role="button"
-                        tabindex="0" (keydown.enter)="fileInput.click()">
-                        <mat-icon class="upload-icon">{{ fileName ? 'check_circle' : 'cloud_upload' }}</mat-icon>
-                        <span class="file-label">
-                            {{ fileName ? 'Archivo seleccionado' : 'Adjuntar solicitud de traslado' }}
-                        </span>
-                        <span class="file-name" *ngIf="fileName">{{ fileName }}</span>
-                        <span class="file-name" *ngIf="!fileName" style="font-size: 0.75rem;">Clic para subir
-                            archivo</span>
-                    </div>
-                    <!-- Campo oculto para validador si se requiere, pero ya lo manejamos con lógica visual -->
-                </div>
-
+            <div class="file-drop-zone" [class.has-file]="!!fileName" (click)="fileInput.click()" role="button"
+              tabindex="0" (keydown.enter)="fileInput.click()">
+              <mat-icon class="upload-icon">{{ fileName ? 'check_circle' : 'cloud_upload' }}</mat-icon>
+              <span class="file-label">
+                {{ fileName ? 'Archivo seleccionado' : 'Adjuntar solicitud de traslado' }}
+              </span>
+              @if (fileName) {
+                <span class="file-name">{{ fileName }}</span>
+              }
+              @if (!fileName) {
+                <span class="file-name" style="font-size: 0.75rem;">Clic para subir
+                archivo</span>
+              }
             </div>
+            <!-- Campo oculto para validador si se requiere, pero ya lo manejamos con lógica visual -->
+          </div>
 
-            <div class="actions">
-                <button mat-flat-button class="submit-btn" type="submit" [disabled]="formtraslados.invalid">
-                    Enviar Solicitud
-                </button>
-            </div>
+        </div>
 
-        </form>
+        <div class="actions">
+          <button mat-flat-button class="submit-btn" type="submit" [disabled]="formtraslados.invalid">
+            Enviar Solicitud
+          </button>
+        </div>
+
+      </form>
     </section>
-</div>
+  </div>

@@ -1,18 +1,19 @@
-import {
+import { 
     Component, ViewChild, ElementRef, AfterViewInit, OnDestroy, Output, EventEmitter, HostListener, OnInit
-} from '@angular/core';
-import { CommonModule } from '@angular/common';
+, ChangeDetectionStrategy } from '@angular/core';
+
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import SignaturePad from 'signature_pad';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-full-screen-signature',
     standalone: true,
-    imports: [CommonModule, MatButtonModule, MatIconModule],
+    imports: [MatButtonModule, MatIconModule],
     templateUrl: './full-screen-signature.component.html',
     styleUrls: ['./full-screen-signature.component.css']
-})
+} )
 export class FullScreenSignatureComponent implements OnInit, AfterViewInit, OnDestroy {
     @Output() save = new EventEmitter<string>(); // Emits base64 string
     @Output() cancel = new EventEmitter<void>();

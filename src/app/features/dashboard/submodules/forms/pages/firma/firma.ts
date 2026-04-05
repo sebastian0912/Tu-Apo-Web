@@ -1,6 +1,6 @@
-import {
+import { 
   Component, OnInit
-} from '@angular/core';
+, ChangeDetectionStrategy } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators, FormGroup } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Title, Meta, DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -57,12 +57,13 @@ interface CandidateData {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-firma',
   standalone: true,
   imports: [SharedModule, ReactiveFormsModule, CommonModule, FullScreenSignatureComponent],
   templateUrl: './firma.html',
   styleUrls: ['./firma.css'],
-})
+} )
 export class Firma implements OnInit {
   form: FormGroup;
   searching = false;

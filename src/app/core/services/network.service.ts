@@ -1,6 +1,6 @@
-import { Injectable, Inject, PLATFORM_ID } from '@angular/core';
+import {  Injectable, Inject, PLATFORM_ID , signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { BehaviorSubject, Observable, fromEvent } from 'rxjs';
+import {  Observable, fromEvent } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -23,17 +23,17 @@ export class NetworkService {
 
   private initListeners() {
     fromEvent(window, 'online').subscribe(() => {
-      this.onlineStatus$.next(true);
+      this.onlineStatus$.set(true);
       // We will later trigger synchronization here or in a separate SyncService
     });
 
     fromEvent(window, 'offline').subscribe(() => {
-      this.onlineStatus$.next(false);
+      this.onlineStatus$.set(false);
     });
   }
 
   public get isOnline(): boolean {
-    return this.onlineStatus$.value;
+    return this.onlineStatus$();
   }
 
   public getOnlineStatus(): Observable<boolean> {

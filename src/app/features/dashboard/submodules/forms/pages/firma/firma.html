@@ -34,227 +34,257 @@
           <mat-label>Número de documento</mat-label>
           <input matInput type="text" formControlName="numeroCedula" placeholder="Ej: 10058478963" inputmode="numeric"
             (keyup.enter)="buscarCedula()" />
-          <mat-hint>Entre 5 y 15 dígitos</mat-hint>
-          <mat-error *ngIf="f.numeroCedula.hasError('pattern')">Solo números</mat-error>
-          <mat-error *ngIf="f.numeroCedula.hasError('required')">Obligatorio</mat-error>
-        </mat-form-field>
+            <mat-hint>Entre 5 y 15 dígitos</mat-hint>
+            @if (f.numeroCedula.hasError('pattern')) {
+              <mat-error>Solo números</mat-error>
+            }
+            @if (f.numeroCedula.hasError('required')) {
+              <mat-error>Obligatorio</mat-error>
+            }
+          </mat-form-field>
 
-        <button mat-flat-button class="v-btn-primary full-width" (click)="buscarCedula()"
-          [disabled]="f.numeroCedula.invalid || searching">
-          <ng-container *ngIf="!searching">
-            <mat-icon>search</mat-icon> Consultar
-          </ng-container>
-          <ng-container *ngIf="searching">
-            <div class="v-spinner"></div> Buscando...
-          </ng-container>
-        </button>
-      </div>
-    </section>
-
-    <!-- Card: Resultado Candidato -->
-    <section class="v-card result-card" *ngIf="nombreCompleto || searching">
-
-      <div class="result-state loading-state" *ngIf="searching">
-        <div class="skeleton-avatar"></div>
-        <div class="skeleton-text"></div>
-        <div class="skeleton-text short"></div>
-      </div>
-
-      <div class="result-state found-state" *ngIf="nombreCompleto && !searching">
-        <div class="candidate-avatar">
-          <span>{{ nombreCompleto.charAt(0) }}</span>
+          <button mat-flat-button class="v-btn-primary full-width" (click)="buscarCedula()"
+            [disabled]="f.numeroCedula.invalid || searching">
+            @if (!searching) {
+              <mat-icon>search</mat-icon> Consultar
+            }
+            @if (searching) {
+              <div class="v-spinner"></div> Buscando...
+            }
+          </button>
         </div>
-        <div class="candidate-details">
-          <h3 class="candidate-name">{{ nombreCompleto }}</h3>
-          <div class="candidate-meta">
-            <span class="meta-label">ID:</span>
-            <span class="meta-value">{{ form.value.numeroCedula }}</span>
-          </div>
-          <div class="candidate-badges">
-            <span class="v-badge success">
-              <mat-icon>check_circle</mat-icon> Validado
-            </span>
-          </div>
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Card: Pasos del Proceso -->
-    <section class="v-card steps-card" *ngIf="nombreCompleto && !searching">
-      <header class="card-header">
-        <h2 class="section-title">Proceso</h2>
-      </header>
-      <div class="steps-body">
-        <div class="step-item" [class.done]="!!nombreCompleto">
-          <div class="step-number">1</div>
-          <div class="step-info">
-            <span class="step-label">Buscar candidato</span>
-            <span class="step-status">Completado</span>
-          </div>
-          <mat-icon class="step-check">check_circle</mat-icon>
-        </div>
-        <div class="step-item" [class.done]="!!signaturePreview" [class.active]="!signaturePreview">
-          <div class="step-number">2</div>
-          <div class="step-info">
-            <span class="step-label">Capturar firma</span>
-            <span class="step-status">{{ signaturePreview ? 'Completado' : 'Pendiente' }}</span>
-          </div>
-          <mat-icon class="step-check" *ngIf="signaturePreview">check_circle</mat-icon>
-        </div>
-        <div class="step-item" [class.active]="!!signaturePreview && !firmaSaved">
-          <div class="step-number">3</div>
-          <div class="step-info">
-            <span class="step-label">Guardar y ver documentos</span>
-            <span class="step-status">{{ firmaSaved ? 'Completado' : 'Pendiente' }}</span>
-          </div>
-          <mat-icon class="step-check" *ngIf="firmaSaved">check_circle</mat-icon>
-        </div>
-      </div>
-    </section>
-
-  </aside>
-
-  <!-- ═══ COLUMNA DERECHA: FIRMA ═══ -->
-  <main class="col-right">
-
-    <section class="v-card signature-card">
-      <header class="card-header flex-header">
-        <div>
-          <h2 class="section-title">Firma Digital</h2>
-          <p class="section-subtitle">Formalización del proceso</p>
-        </div>
-        <div class="status-chip" [class.ready]="!!signaturePreview">
-          <span *ngIf="!signaturePreview">Pendiente</span>
-          <span *ngIf="signaturePreview">✓ Firmado</span>
-        </div>
-      </header>
-
-      <div class="signature-body">
-
-        <!-- Área de Firma -->
-        <div class="signature-preview-container" [class.has-signature]="!!signaturePreview">
-
-          <!-- Empty State -->
-          <div *ngIf="!signaturePreview" class="empty-placeholder" (click)="openSignatureModal()">
-            <div class="icon-box">
-              <mat-icon>draw</mat-icon>
+      <!-- Card: Resultado Candidato -->
+      @if (nombreCompleto || searching) {
+        <section class="v-card result-card">
+          @if (searching) {
+            <div class="result-state loading-state">
+              <div class="skeleton-avatar"></div>
+              <div class="skeleton-text"></div>
+              <div class="skeleton-text short"></div>
             </div>
-            <p class="placeholder-text">Toque aquí para firmar</p>
-            <span class="placeholder-hint">Se abrirá el panel de firma a pantalla completa</span>
-          </div>
-
-          <!-- Con Firma -->
-          <ng-container *ngIf="signaturePreview">
-            <img [src]="signaturePreview" alt="Firma del solicitante" class="preview-image">
-            <div class="digital-stamp">
-              <mat-icon>verified</mat-icon>
-              <div class="stamp-info">
-                <strong>FIRMADO DIGITALMENTE</strong>
-                <small>{{ empresaNombre }}</small>
+          }
+          @if (nombreCompleto && !searching) {
+            <div class="result-state found-state">
+              <div class="candidate-avatar">
+                <span>{{ nombreCompleto.charAt(0) }}</span>
+              </div>
+              <div class="candidate-details">
+                <h3 class="candidate-name">{{ nombreCompleto }}</h3>
+                <div class="candidate-meta">
+                  <span class="meta-label">ID:</span>
+                  <span class="meta-value">{{ form.value.numeroCedula }}</span>
+                </div>
+                <div class="candidate-badges">
+                  <span class="v-badge success">
+                    <mat-icon>check_circle</mat-icon> Validado
+                  </span>
+                </div>
               </div>
             </div>
-          </ng-container>
-        </div>
+          }
+        </section>
+      }
 
-        <!-- Aviso -->
-        <p class="ux-hint" *ngIf="!signaturePreview">
-          <mat-icon>info</mat-icon> Asegúrese de firmar dentro del recuadro sin salirse de los bordes.
-        </p>
-
-        <!-- Acciones -->
-        <div class="actions-panel">
-          <button type="button" mat-stroked-button class="v-btn-secondary" (click)="openSignatureModal()"
-            [disabled]="saving">
-            <mat-icon>edit</mat-icon>
-            {{ signaturePreview ? 'Cambiar firma' : 'Firmar' }}
-          </button>
-
-          <button type="button" mat-flat-button class="v-btn-accent" (click)="guardarFirma()"
-            [disabled]="!signaturePreview || saving">
-            <ng-container *ngIf="!saving">
-              <mat-icon>save_alt</mat-icon> Guardar y Ver Documentos
-            </ng-container>
-            <ng-container *ngIf="saving">
-              <div class="v-spinner inverted"></div> Procesando...
-            </ng-container>
-          </button>
-        </div>
-
-        <!-- Botón para ver documentos si ya firmó -->
-        <div class="view-docs-link" *ngIf="firmaSaved && documentosList.length > 0">
-          <button mat-stroked-button class="v-btn-docs" (click)="openDocumentsDialog()">
-            <mat-icon>description</mat-icon> Ver Documentos Generados ({{ documentosList.length }})
-          </button>
-        </div>
-
-      </div>
-    </section>
-
-  </main>
-
-  <!-- ═══ FULL SCREEN SIGNATURE MODAL ═══ -->
-  <app-full-screen-signature *ngIf="showSignatureModal" (save)="onSignatureSaved($event)"
-    (cancel)="onSignatureCancelled()">
-  </app-full-screen-signature>
-
-  <!-- ═══ DOCUMENTS DIALOG / OVERLAY ═══ -->
-  <div class="docs-dialog-overlay" *ngIf="showDocumentsDialog" (click)="closeDocumentsDialog()">
-    <div class="docs-dialog" (click)="$event.stopPropagation()">
-
-      <!-- Dialog Header -->
-      <header class="docs-dialog-header">
-        <div class="docs-dialog-title-area">
-          <mat-icon class="docs-dialog-icon">folder_open</mat-icon>
-          <div>
-            <h2 class="docs-dialog-title">Documentos Generados</h2>
-            <p class="docs-dialog-subtitle">{{ documentosList.length }} documentos disponibles para revisión</p>
-          </div>
-        </div>
-        <button mat-icon-button class="docs-dialog-close" (click)="closeDocumentsDialog()">
-          <mat-icon>close</mat-icon>
-        </button>
-      </header>
-
-      <!-- Dialog Body -->
-      <div class="docs-dialog-body">
-
-        <!-- Sidebar: Lista documentos -->
-        <nav class="docs-sidebar">
-          <div class="docs-sidebar-item" *ngFor="let doc of documentosList; let i = index"
-            [class.active]="i === currentDocIndex" (click)="currentDocIndex = i">
-            <mat-icon class="doc-item-icon">description</mat-icon>
-            <span class="doc-item-label">{{ doc.title }}</span>
-            <mat-icon class="doc-item-check" *ngIf="i === currentDocIndex">chevron_right</mat-icon>
-          </div>
-        </nav>
-
-        <!-- Viewer: Preview -->
-        <div class="docs-viewer" *ngIf="documentosList.length > 0">
-          <div class="docs-viewer-header">
-            <h3 class="docs-viewer-title">{{ documentosList[currentDocIndex].title | uppercase }}</h3>
-            <span class="docs-viewer-counter">{{ currentDocIndex + 1 }} / {{ documentosList.length }}</span>
-          </div>
-          <div class="docs-viewer-frame">
-            <iframe [src]="documentosList[currentDocIndex].safeUrl" class="doc-iframe" frameborder="0"></iframe>
-          </div>
-          <div class="docs-viewer-nav">
-            <button mat-stroked-button class="carousel-btn" (click)="prevDocument()" [disabled]="currentDocIndex === 0">
-              <mat-icon>chevron_left</mat-icon> Anterior
-            </button>
-            <div class="carousel-dots">
-              <span class="carousel-dot" *ngFor="let doc of documentosList; let i = index"
-                [class.active]="i === currentDocIndex" (click)="currentDocIndex = i"></span>
+      <!-- Card: Pasos del Proceso -->
+      @if (nombreCompleto && !searching) {
+        <section class="v-card steps-card">
+          <header class="card-header">
+            <h2 class="section-title">Proceso</h2>
+          </header>
+          <div class="steps-body">
+            <div class="step-item" [class.done]="!!nombreCompleto">
+              <div class="step-number">1</div>
+              <div class="step-info">
+                <span class="step-label">Buscar candidato</span>
+                <span class="step-status">Completado</span>
+              </div>
+              <mat-icon class="step-check">check_circle</mat-icon>
             </div>
-            <button mat-stroked-button class="carousel-btn right-btn" (click)="nextDocument()"
-              [disabled]="currentDocIndex === documentosList.length - 1">
-              Siguiente <mat-icon>chevron_right</mat-icon>
+            <div class="step-item" [class.done]="!!signaturePreview" [class.active]="!signaturePreview">
+              <div class="step-number">2</div>
+              <div class="step-info">
+                <span class="step-label">Capturar firma</span>
+                <span class="step-status">{{ signaturePreview ? 'Completado' : 'Pendiente' }}</span>
+              </div>
+              @if (signaturePreview) {
+                <mat-icon class="step-check">check_circle</mat-icon>
+              }
+            </div>
+            <div class="step-item" [class.active]="!!signaturePreview && !firmaSaved">
+              <div class="step-number">3</div>
+              <div class="step-info">
+                <span class="step-label">Guardar y ver documentos</span>
+                <span class="step-status">{{ firmaSaved ? 'Completado' : 'Pendiente' }}</span>
+              </div>
+              @if (firmaSaved) {
+                <mat-icon class="step-check">check_circle</mat-icon>
+              }
+            </div>
+          </div>
+        </section>
+      }
+
+    </aside>
+
+    <!-- ═══ COLUMNA DERECHA: FIRMA ═══ -->
+    <main class="col-right">
+
+      <section class="v-card signature-card">
+        <header class="card-header flex-header">
+          <div>
+            <h2 class="section-title">Firma Digital</h2>
+            <p class="section-subtitle">Formalización del proceso</p>
+          </div>
+          <div class="status-chip" [class.ready]="!!signaturePreview">
+            @if (!signaturePreview) {
+              <span>Pendiente</span>
+            }
+            @if (signaturePreview) {
+              <span>✓ Firmado</span>
+            }
+          </div>
+        </header>
+
+        <div class="signature-body">
+
+          <!-- Área de Firma -->
+          <div class="signature-preview-container" [class.has-signature]="!!signaturePreview">
+
+            <!-- Empty State -->
+            @if (!signaturePreview) {
+              <div class="empty-placeholder" (click)="openSignatureModal()">
+                <div class="icon-box">
+                  <mat-icon>draw</mat-icon>
+                </div>
+                <p class="placeholder-text">Toque aquí para firmar</p>
+                <span class="placeholder-hint">Se abrirá el panel de firma a pantalla completa</span>
+              </div>
+            }
+
+            <!-- Con Firma -->
+            @if (signaturePreview) {
+              <img [src]="signaturePreview" alt="Firma del solicitante" class="preview-image">
+              <div class="digital-stamp">
+                <mat-icon>verified</mat-icon>
+                <div class="stamp-info">
+                  <strong>FIRMADO DIGITALMENTE</strong>
+                  <small>{{ empresaNombre }}</small>
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- Aviso -->
+          @if (!signaturePreview) {
+            <p class="ux-hint">
+              <mat-icon>info</mat-icon> Asegúrese de firmar dentro del recuadro sin salirse de los bordes.
+            </p>
+          }
+
+          <!-- Acciones -->
+          <div class="actions-panel">
+            <button type="button" mat-stroked-button class="v-btn-secondary" (click)="openSignatureModal()"
+              [disabled]="saving">
+              <mat-icon>edit</mat-icon>
+              {{ signaturePreview ? 'Cambiar firma' : 'Firmar' }}
+            </button>
+
+            <button type="button" mat-flat-button class="v-btn-accent" (click)="guardarFirma()"
+              [disabled]="!signaturePreview || saving">
+              @if (!saving) {
+                <mat-icon>save_alt</mat-icon> Guardar y Ver Documentos
+              }
+              @if (saving) {
+                <div class="v-spinner inverted"></div> Procesando...
+              }
             </button>
           </div>
+
+          <!-- Botón para ver documentos si ya firmó -->
+          @if (firmaSaved && documentosList.length > 0) {
+            <div class="view-docs-link">
+              <button mat-stroked-button class="v-btn-docs" (click)="openDocumentsDialog()">
+                <mat-icon>description</mat-icon> Ver Documentos Generados ({{ documentosList.length }})
+              </button>
+            </div>
+          }
+
         </div>
+      </section>
 
+    </main>
+
+    <!-- ═══ FULL SCREEN SIGNATURE MODAL ═══ -->
+    @if (showSignatureModal) {
+      <app-full-screen-signature (save)="onSignatureSaved($event)"
+        (cancel)="onSignatureCancelled()">
+      </app-full-screen-signature>
+    }
+
+    <!-- ═══ DOCUMENTS DIALOG / OVERLAY ═══ -->
+    @if (showDocumentsDialog) {
+      <div class="docs-dialog-overlay" (click)="closeDocumentsDialog()">
+        <div class="docs-dialog" (click)="$event.stopPropagation()">
+          <!-- Dialog Header -->
+          <header class="docs-dialog-header">
+            <div class="docs-dialog-title-area">
+              <mat-icon class="docs-dialog-icon">folder_open</mat-icon>
+              <div>
+                <h2 class="docs-dialog-title">Documentos Generados</h2>
+                <p class="docs-dialog-subtitle">{{ documentosList.length }} documentos disponibles para revisión</p>
+              </div>
+            </div>
+            <button mat-icon-button class="docs-dialog-close" (click)="closeDocumentsDialog()">
+              <mat-icon>close</mat-icon>
+            </button>
+          </header>
+          <!-- Dialog Body -->
+          <div class="docs-dialog-body">
+            <!-- Sidebar: Lista documentos -->
+            <nav class="docs-sidebar">
+              @for (doc of documentosList; track doc; let i = $index) {
+                <div class="docs-sidebar-item"
+                  [class.active]="i === currentDocIndex" (click)="currentDocIndex = i">
+                  <mat-icon class="doc-item-icon">description</mat-icon>
+                  <span class="doc-item-label">{{ doc.title }}</span>
+                  @if (i === currentDocIndex) {
+                    <mat-icon class="doc-item-check">chevron_right</mat-icon>
+                  }
+                </div>
+              }
+            </nav>
+            <!-- Viewer: Preview -->
+            @if (documentosList.length > 0) {
+              <div class="docs-viewer">
+                <div class="docs-viewer-header">
+                  <h3 class="docs-viewer-title">{{ documentosList[currentDocIndex].title | uppercase }}</h3>
+                  <span class="docs-viewer-counter">{{ currentDocIndex + 1 }} / {{ documentosList.length }}</span>
+                </div>
+                <div class="docs-viewer-frame">
+                  <iframe [src]="documentosList[currentDocIndex].safeUrl" class="doc-iframe" frameborder="0"></iframe>
+                </div>
+                <div class="docs-viewer-nav">
+                  <button mat-stroked-button class="carousel-btn" (click)="prevDocument()" [disabled]="currentDocIndex === 0">
+                    <mat-icon>chevron_left</mat-icon> Anterior
+                  </button>
+                  <div class="carousel-dots">
+                    @for (doc of documentosList; track doc; let i = $index) {
+                      <span class="carousel-dot"
+                      [class.active]="i === currentDocIndex" (click)="currentDocIndex = i"></span>
+                    }
+                  </div>
+                  <button mat-stroked-button class="carousel-btn right-btn" (click)="nextDocument()"
+                    [disabled]="currentDocIndex === documentosList.length - 1">
+                    Siguiente <mat-icon>chevron_right</mat-icon>
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
       </div>
+    }
 
-    </div>
   </div>
-
-</div>

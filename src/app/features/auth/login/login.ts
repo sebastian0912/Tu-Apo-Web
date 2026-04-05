@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import {  Component, OnInit , ChangeDetectionStrategy } from '@angular/core';
 import { SharedModule } from '../../../shared/shared-module';
 import {
   FormGroup,
@@ -21,6 +21,7 @@ function emailOrDocValidator(control: AbstractControl): ValidationErrors | null 
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-login',
   // Si tu SharedModule ya exporta ReactiveFormsModule, no necesitas importarlo aquí.
   // Lo incluyo por claridad.
@@ -28,7 +29,7 @@ function emailOrDocValidator(control: AbstractControl): ValidationErrors | null 
   templateUrl: './login.html',
   styleUrl: './login.css',
   standalone: true
-})
+} )
 export class Login implements OnInit {
   loginForm!: FormGroup;
   hide = true;

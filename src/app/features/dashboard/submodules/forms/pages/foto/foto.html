@@ -35,68 +35,78 @@
           <input matInput type="text" formControlName="numeroCedula" placeholder="Ej: 10058478963" inputmode="numeric"
             (keyup.enter)="buscarCedula()" />
           <mat-hint>Entre 5 y 15 dígitos</mat-hint>
-          <mat-error *ngIf="f.numeroCedula.hasError('pattern')">Solo números</mat-error>
-          <mat-error *ngIf="f.numeroCedula.hasError('required')">Obligatorio</mat-error>
+          @if (f.numeroCedula.hasError('pattern')) {
+            <mat-error>Solo números</mat-error>
+          }
+          @if (f.numeroCedula.hasError('required')) {
+            <mat-error>Obligatorio</mat-error>
+          }
         </mat-form-field>
 
         <button mat-flat-button class="v-btn-primary full-width" (click)="buscarCedula()"
           [disabled]="f.numeroCedula.invalid || searching">
-          <ng-container *ngIf="!searching">
+          @if (!searching) {
             <mat-icon>search</mat-icon> Consultar
-          </ng-container>
-          <ng-container *ngIf="searching">
+          }
+          @if (searching) {
             <div class="v-spinner"></div> Buscando...
-          </ng-container>
+          }
         </button>
       </div>
     </section>
 
     <!-- Card: Resultado Candidato -->
-    <section class="v-card result-card" *ngIf="nombreCompleto || searching">
-
-      <div class="result-state loading-state" *ngIf="searching">
-        <div class="skeleton-avatar"></div>
-        <div class="skeleton-text"></div>
-        <div class="skeleton-text short"></div>
-      </div>
-
-      <div class="result-state found-state" *ngIf="nombreCompleto && !searching">
-        <div class="candidate-avatar">
-          <span>{{ nombreCompleto.charAt(0) }}</span>
-        </div>
-        <div class="candidate-details">
-          <h3 class="candidate-name">{{ nombreCompleto }}</h3>
-          <div class="candidate-meta">
-            <span class="meta-label">ID:</span>
-            <span class="meta-value">{{ form.value.numeroCedula }}</span>
+    @if (nombreCompleto || searching) {
+      <section class="v-card result-card">
+        @if (searching) {
+          <div class="result-state loading-state">
+            <div class="skeleton-avatar"></div>
+            <div class="skeleton-text"></div>
+            <div class="skeleton-text short"></div>
           </div>
-          <div class="candidate-badges">
-            <span class="v-badge success">
-              <mat-icon>check_circle</mat-icon> Validado
-            </span>
+        }
+        @if (nombreCompleto && !searching) {
+          <div class="result-state found-state">
+            <div class="candidate-avatar">
+              <span>{{ nombreCompleto.charAt(0) }}</span>
+            </div>
+            <div class="candidate-details">
+              <h3 class="candidate-name">{{ nombreCompleto }}</h3>
+              <div class="candidate-meta">
+                <span class="meta-label">ID:</span>
+                <span class="meta-value">{{ form.value.numeroCedula }}</span>
+              </div>
+              <div class="candidate-badges">
+                <span class="v-badge success">
+                  <mat-icon>check_circle</mat-icon> Validado
+                </span>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-    </section>
+        }
+      </section>
+    }
 
     <!-- Card: Instrucciones para la foto -->
-    <section class="v-card instructions-card" *ngIf="nombreCompleto && !searching">
-      <header class="card-header">
-        <mat-icon color="primary">lightbulb</mat-icon>
-        <h2 class="section-title" style="margin: 0; padding-left: 8px;">Recomendaciones para la foto</h2>
-      </header>
-      <div class="instructions-body">
-        <ul class="instruction-list">
-          <li><mat-icon class="icon-success">check</mat-icon> Ubícate frente a la cámara</li>
-          <li><mat-icon class="icon-success">check</mat-icon> Mantén el rostro centrado en el marco</li>
-          <li><mat-icon class="icon-success">check</mat-icon> Mira directamente al frente con expresión neutra</li>
-          <li><mat-icon class="icon-success">check</mat-icon> Usa buena iluminación de frente</li>
-          <li><mat-icon class="icon-success">check</mat-icon> Mantén un fondo limpio o neutro</li>
-          <li><mat-icon class="icon-error">close</mat-icon> No uses gafas oscuras ni gorras</li>
-          <li><mat-icon class="icon-error">close</mat-icon> No uses filtros fotográficos</li>
-        </ul>
-      </div>
-    </section>
+    @if (nombreCompleto && !searching) {
+      <section class="v-card instructions-card">
+        <header class="card-header">
+          <mat-icon color="primary">lightbulb</mat-icon>
+          <h2 class="section-title" style="margin: 0; padding-left: 8px;">Recomendaciones para la foto</h2>
+        </header>
+        <div class="instructions-body">
+          <ul class="instruction-list">
+            <li><mat-icon class="icon-success">check</mat-icon> Ubícate frente a la cámara</li>
+            <li><mat-icon class="icon-success">check</mat-icon> Mantén el rostro centrado en el marco</li>
+            <li><mat-icon class="icon-success">check</mat-icon> Mira directamente al frente con expresión neutra</li>
+            <li><mat-icon class="icon-success">check</mat-icon> Usa buena iluminación de frente</li>
+            <li><mat-icon class="icon-success">check</mat-icon> Mantén un fondo limpio o neutro</li>
+            <li><mat-icon class="icon-error">close</mat-icon> No uses gafas oscuras ni gorras</li>
+            <li><mat-icon class="icon-error">close</mat-icon> No uses filtros fotográficos</li>
+          </ul>
+        </div>
+      </section>
+    }
 
   </aside>
 
@@ -110,54 +120,59 @@
           <p class="section-subtitle">Toma fotográfica para documento</p>
         </div>
         <div class="status-chip" [class.ready]="!!capturedPhotoBase64">
-          <span *ngIf="!capturedPhotoBase64">Pendiente</span>
-          <span *ngIf="capturedPhotoBase64">✓ Capturada</span>
+          @if (!capturedPhotoBase64) {
+            <span>Pendiente</span>
+          }
+          @if (capturedPhotoBase64) {
+            <span>✓ Capturada</span>
+          }
         </div>
       </header>
 
       <div class="camera-body">
 
         <!-- Error Camera -->
-        <div class="camera-error-state" *ngIf="cameraError">
-          <mat-icon color="warn">videocam_off</mat-icon>
-          <p>{{ cameraError }}</p>
-          <button mat-stroked-button color="primary" (click)="startCamera()">Reintentar Conexión</button>
-        </div>
+        @if (cameraError) {
+          <div class="camera-error-state">
+            <mat-icon color="warn">videocam_off</mat-icon>
+            <p>{{ cameraError }}</p>
+            <button mat-stroked-button color="primary" (click)="startCamera()">Reintentar Conexión</button>
+          </div>
+        }
 
         <!-- Área de Cámara -->
-        <div class="camera-container" *ngIf="!cameraError && nombreCompleto">
-
-          <!-- Empty State (No camera active, no photo) -->
-          <div *ngIf="!isCameraActive && !capturedPhotoBase64" class="empty-placeholder" (click)="startCamera()">
-            <div class="icon-box">
-              <mat-icon>photo_camera</mat-icon>
-            </div>
-            <p class="placeholder-text">Activar Cámara</p>
-            <span class="placeholder-hint">Se solicitarán permisos de video</span>
-          </div>
-
-          <!-- Video Stream Live -->
-          <div class="video-wrapper" [hidden]="!isCameraActive || !!capturedPhotoBase64">
-            <video #videoElement autoplay playsinline class="video-preview"></video>
-            
-            <!-- Overlay Guide -->
-            <div class="camera-overlay">
-              <div class="overlay-mask"></div>
-              <div class="overlay-frame">
-                <div class="frame-corners top-left"></div>
-                <div class="frame-corners top-right"></div>
-                <div class="frame-corners bottom-left"></div>
-                <div class="frame-corners bottom-right"></div>
+        @if (!cameraError && nombreCompleto) {
+          <div class="camera-container">
+            <!-- Empty State (No camera active, no photo) -->
+            @if (!isCameraActive && !capturedPhotoBase64) {
+              <div class="empty-placeholder" (click)="startCamera()">
+                <div class="icon-box">
+                  <mat-icon>photo_camera</mat-icon>
+                </div>
+                <p class="placeholder-text">Activar Cámara</p>
+                <span class="placeholder-hint">Se solicitarán permisos de video</span>
               </div>
-              <div class="overlay-hint">
-                <p>Centra el rostro dentro del marco</p>
+            }
+            <!-- Video Stream Live -->
+            <div class="video-wrapper" [hidden]="!isCameraActive || !!capturedPhotoBase64">
+              <video #videoElement autoplay playsinline class="video-preview"></video>
+              <!-- Overlay Guide -->
+              <div class="camera-overlay">
+                <div class="overlay-mask"></div>
+                <div class="overlay-frame">
+                  <div class="frame-corners top-left"></div>
+                  <div class="frame-corners top-right"></div>
+                  <div class="frame-corners bottom-left"></div>
+                  <div class="frame-corners bottom-right"></div>
+                </div>
+                <div class="overlay-hint">
+                  <p>Centra el rostro dentro del marco</p>
+                </div>
               </div>
             </div>
-          </div>
-
-          <!-- Captured Image Preview -->
-          <ng-container *ngIf="capturedPhotoBase64">
-             <div class="photo-preview-wrapper">
+            <!-- Captured Image Preview -->
+            @if (capturedPhotoBase64) {
+              <div class="photo-preview-wrapper">
                 <img [src]="capturedPhotoBase64" alt="Foto capturada" class="preview-image">
                 <div class="digital-stamp">
                   <mat-icon>verified</mat-icon>
@@ -165,38 +180,44 @@
                     <strong>TIPO DOC: 89 - FOTO</strong>
                   </div>
                 </div>
-             </div>
-          </ng-container>
+              </div>
+            }
+            <!-- Hidden Canvas for capture -->
+            <canvas #canvasElement style="display: none;"></canvas>
+          </div>
+        }
 
-          <!-- Hidden Canvas for capture -->
-          <canvas #canvasElement style="display: none;"></canvas>
-
-        </div>
-        
-        <p class="ux-hint" *ngIf="!nombreCompleto && !cameraError">
-          <mat-icon>info</mat-icon> Busca al candidato primero para activar la cámara.
-        </p>
+        @if (!nombreCompleto && !cameraError) {
+          <p class="ux-hint">
+            <mat-icon>info</mat-icon> Busca al candidato primero para activar la cámara.
+          </p>
+        }
 
         <!-- Acciones -->
-        <div class="actions-panel" *ngIf="nombreCompleto && !cameraError">
-          
-          <button type="button" mat-flat-button class="v-btn-primary" (click)="capturePhoto()" *ngIf="isCameraActive && !capturedPhotoBase64">
-            <mat-icon>camera</mat-icon> Tomar Foto
-          </button>
-
-          <button type="button" mat-stroked-button class="v-btn-secondary" (click)="retakePhoto()" *ngIf="capturedPhotoBase64 && !saving">
-            <mat-icon>replay</mat-icon> Repetir
-          </button>
-
-          <button type="button" mat-flat-button class="v-btn-accent" (click)="guardarFoto()" *ngIf="capturedPhotoBase64" [disabled]="saving">
-            <ng-container *ngIf="!saving">
-              <mat-icon>save_alt</mat-icon> Guardar Foto
-            </ng-container>
-            <ng-container *ngIf="saving">
-              <div class="v-spinner inverted"></div> Guardando...
-            </ng-container>
-          </button>
-        </div>
+        @if (nombreCompleto && !cameraError) {
+          <div class="actions-panel">
+            @if (isCameraActive && !capturedPhotoBase64) {
+              <button type="button" mat-flat-button class="v-btn-primary" (click)="capturePhoto()">
+                <mat-icon>camera</mat-icon> Tomar Foto
+              </button>
+            }
+            @if (capturedPhotoBase64 && !saving) {
+              <button type="button" mat-stroked-button class="v-btn-secondary" (click)="retakePhoto()">
+                <mat-icon>replay</mat-icon> Repetir
+              </button>
+            }
+            @if (capturedPhotoBase64) {
+              <button type="button" mat-flat-button class="v-btn-accent" (click)="guardarFoto()" [disabled]="saving">
+                @if (!saving) {
+                  <mat-icon>save_alt</mat-icon> Guardar Foto
+                }
+                @if (saving) {
+                  <div class="v-spinner inverted"></div> Guardando...
+                }
+              </button>
+            }
+          </div>
+        }
 
       </div>
     </section>

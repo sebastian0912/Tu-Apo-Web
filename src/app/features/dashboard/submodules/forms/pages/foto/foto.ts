@@ -1,10 +1,10 @@
-import {
+import { 
   Component,
   OnInit,
   OnDestroy,
   ViewChild,
   ElementRef,
-} from '@angular/core';
+, ChangeDetectionStrategy } from '@angular/core';
 import {
   ReactiveFormsModule,
   FormBuilder,
@@ -14,7 +14,7 @@ import {
 import { ActivatedRoute } from '@angular/router';
 import { Title, Meta } from '@angular/platform-browser';
 import Swal from 'sweetalert2';
-import { CommonModule } from '@angular/common';
+
 import { SharedModule } from '../../../../../../shared/shared-module';
 
 // Use same services as firma
@@ -33,12 +33,13 @@ interface CandidateData {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-foto',
   standalone: true,
-  imports: [SharedModule, ReactiveFormsModule, CommonModule],
+  imports: [SharedModule, ReactiveFormsModule],
   templateUrl: './foto.html',
   styleUrls: ['./foto.css'],
-})
+} )
 export class Foto implements OnInit, OnDestroy {
   @ViewChild('videoElement') videoElement!: ElementRef<HTMLVideoElement>;
   @ViewChild('canvasElement') canvasElement!: ElementRef<HTMLCanvasElement>;

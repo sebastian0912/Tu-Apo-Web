@@ -1,15 +1,16 @@
-import { Component, inject, PLATFORM_ID, OnInit } from '@angular/core';
+import {  Component, inject, PLATFORM_ID, OnInit , ChangeDetectionStrategy } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { NetworkService } from './core/services/network.service';
 import { SwUpdate } from '@angular/service-worker';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-root',
   imports: [RouterOutlet, CommonModule],
   templateUrl: './app.html',
   styleUrl: './app.css'
-})
+} )
 export class App implements OnInit {
   protected title = 'TuApoWeb';
   networkService = inject(NetworkService);

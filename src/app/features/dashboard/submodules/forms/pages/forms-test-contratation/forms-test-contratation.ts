@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit, Optional, PLATFORM_ID, ViewChild, ChangeDetectorRef, AfterViewInit, OnDestroy, Injectable } from '@angular/core';
+import {  Component, Inject, OnInit, Optional, PLATFORM_ID, ViewChild, ChangeDetectorRef, AfterViewInit, OnDestroy, Injectable , ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, FormControl, FormArray, ReactiveFormsModule, AbstractControl, ValidatorFn, ValidationErrors } from '@angular/forms';
 import { MatStepper, MatStepperModule } from '@angular/material/stepper';
@@ -1641,22 +1641,95 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
 
     this.registroProcesoContratacion.crearActualizarCandidato2(payload).subscribe({
       next: async (upsertResp: any) => {
-        if (!upsertResp?.ok) throw new Error('Falló upsert');
-        this.numeroCedula = upsertResp.numero_documento ?? this.numeroCedula;
+        try {
+          if (!upsertResp?.ok && !upsertResp?.numero_documento) {
+            return this.handleBackendError(upsertResp, 'No se pudo guardar la información personal.');
+          }
+          this.numeroCedula = upsertResp.numero_documento ?? this.numeroCedula;
 
-        // Formulario Vacantes Part 2
-        const part2: any = await firstValueFrom(this.registroProcesoContratacion.formulario_vacantes(payload)).catch(() => null);
-        if (!part2 || (!part2.ok && !part2.success && !part2.message)) throw new Error('Falló parte 2');
+          // Formulario Vacantes Part 2
+          const part2: any = await firstValueFrom(this.registroProcesoContratacion.formulario_vacantes(payload));
+          if (!part2 || (!part2.ok && !part2.success && !part2.message)) {
+            return this.handleBackendError(part2, 'Ocurrió un error guardando tu experiencia/vacante.');
+          }
 
-        // Upload Files
-        const filesOk = await this.subirTodosLosArchivos().catch(() => false);
-        Swal.fire(filesOk ? '¡Éxito!' : 'Advertencia', filesOk ? 'Guardado exitoso.' : 'Guardado, pero fallaron archivos.', filesOk ? 'success' : 'warning');
+          // Upload Files
+          let filesOk = true;
+          try {
+            filesOk = await this.subirTodosLosArchivos();
+          } catch(e) {
+            filesOk = false;
+          }
+          
+          Swal.fire(filesOk ? '¡Éxito!' : 'Proceso Incompleto', filesOk ? 'Tu información general ha sido guardada exitosamente.' : 'La información guardó, pero hubo un problema subiendo tu Hoja de Vida. Intenta enviarla más tarde.', filesOk ? 'success' : 'warning');
+        } catch (error) {
+           this.handleBackendError(error, 'Fallo procesando la carga (Parte 2)');
+        }
       },
       error: (err: any) => {
-        // Prioritize backend message
-        const msg = err.error?.message || err.error?.detail || err.message || 'Error al guardar.';
-        Swal.fire('Error', msg, 'error');
+        this.handleBackendError(err);
       }
+    });
+  }
+
+  // Traductor Maestro de Errores Django -> Humano
+  private handleBackendError(err: any, fallbackMessage: string = 'Verifica los campos en rojo o intenta de nuevo.') {
+    Swal.close(); // Cerramos el "Guardando..."
+    console.error('Error de Backend Interceptado:', err);
+
+    let htmlMensaje = `<p style="text-align: left; font-size: 14px;">Hemos detectado un problema con tus datos:</p><ul style="text-align: left; font-size: 13px; color: #d32f2f;">`;
+    let foundSpecifics = false;
+
+    // Diccionario para traducir nombres técnicos de la BD a Español de usuario
+    const dictionary: any = {
+      'numero_documento': 'Número de Cédula',
+      'tipo_documento': 'Tipo de Documento',
+      'correo_electronico': 'Correo Electrónico',
+      'password': 'Contraseña',
+      'fecha_nacimiento': 'Fecha de Nacimiento',
+      'non_field_errors': 'Error General',
+      'detail': 'Detalle'
+    };
+
+    const dictionaryErrors: any = {
+      'This field must be unique.': 'Este dato ya se encuentra registrado en nuestro sistema.',
+      'user with this correo electronico already exists.': 'Ya existe una persona con este correo.',
+      'This field may not be blank.': 'Este campo no puede enviarse vacío.',
+      'This field is required.': 'Faltó llenar este campo obligatorio.',
+      'Ensure this field has at least 8 characters.': 'Debe tener al menos 8 caracteres.'
+    };
+
+    const errorObj = err?.error || err;
+
+    if (errorObj && typeof errorObj === 'object' && !errorObj.message) {
+      for (const [key, value] of Object.entries(errorObj)) {
+        if (Array.isArray(value)) {
+          const humanKey = dictionary[key] || key;
+          const translatedErrs = value.map((v: any) => dictionaryErrors[v] || v).join(', ');
+          htmlMensaje += `<li><b>${humanKey}:</b> ${translatedErrs}</li>`;
+          foundSpecifics = true;
+        } else if (typeof value === 'string') {
+          const humanKey = dictionary[key] || key;
+          htmlMensaje += `<li><b>${humanKey}:</b> ${dictionaryErrors[value] || value}</li>`;
+          foundSpecifics = true;
+        }
+      }
+    }
+
+    htmlMensaje += `</ul>`;
+
+    // Si el error era un mensaje de texto simple (excepción limpia)
+    if (!foundSpecifics) {
+      const simpleMsg = err.error?.message || err.error?.detail || err.message || fallbackMessage;
+      htmlMensaje = `<p>${simpleMsg}</p>`;
+    }
+
+    Swal.fire({
+      icon: 'error',
+      title: 'No se pudo guardar',
+      html: htmlMensaje,
+      confirmButtonText: 'Entendido',
+      confirmButtonColor: '#111827'
     });
   }
 
@@ -1788,16 +1861,16 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       rol: '136d38f8e3a04ca299a6e8b9105c1900',
     };
 
-    // 1. Intentar registrar
+    // 1. Intentar registrar (Completamente Silencioso)
     this.http.post(`${apiUrl}/gestion_admin/auth/register/`, registerPayload)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (res: any) => {
-          console.log('[createUserInBackground] Usuario creado exitosamente', res);
+          console.log('[createUserInBackground] Usuario admin/contratacion creado exitosamente');
         },
         error: (err: any) => {
-          // Si falla por duplicado, intentar actualizar contraseña y datos
-          console.warn('[createUserInBackground] Registro falló (posible duplicado), intentando actualizar...', err);
+          // Si falla, es vital interceptarlo en consola sin arrojar error global (El usuario no fue afectado)
+          console.warn('[createUserInBackground] Registro falló, saltando a actualización de parche...', err?.error || err);
           this.updateExistingUserPassword(apiUrl, numeroCedula, correo, password, raw);
         }
       });

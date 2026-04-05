@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild, OnInit } from '@angular/core';
+import {  Component, ElementRef, ViewChild, OnInit , ChangeDetectionStrategy } from '@angular/core';
 import { Title, Meta } from '@angular/platform-browser';
 import { SharedModule } from '../../../../../../shared/shared-module';
 import Swal from 'sweetalert2';
@@ -8,13 +8,14 @@ import { CandidateS } from '../../../../../../shared/services/candidate-s/candid
 import { TransferEpsS } from '../../services/transfer-eps-s/transfer-eps-s';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-form-transfer-request',
   imports: [
     SharedModule
   ],
   templateUrl: './form-transfer-request.html',
   styleUrl: './form-transfer-request.css'
-})
+} )
 export class FormTransferRequest implements OnInit {
   formtraslados!: FormGroup;
   fileName: string = '';
