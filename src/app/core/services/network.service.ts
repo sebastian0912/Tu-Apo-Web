@@ -1,12 +1,13 @@
 import {  Injectable, Inject, PLATFORM_ID , signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import {  Observable, fromEvent } from 'rxjs';
+import { toObservable } from '@angular/core/rxjs-interop';
 
 @Injectable({
   providedIn: 'root'
 })
 export class NetworkService {
-  private onlineStatus$: BehaviorSubject<boolean>;
+  private onlineStatus = signal<boolean>(true);
   public isBrowser: boolean;
 
   constructor(@Inject(PLATFORM_ID) private platformId: Object) {
@@ -14,7 +15,7 @@ export class NetworkService {
     
     // Initialize with true for SSR, or actual navigator status for browser
     const isOnline = this.isBrowser ? navigator.onLine : true;
-    this.onlineStatus$ = new BehaviorSubject<boolean>(isOnline);
+    this.onlineStatus.set(isOnline);
 
     if (this.isBrowser) {
       this.initListeners();
@@ -23,20 +24,20 @@ export class NetworkService {
 
   private initListeners() {
     fromEvent(window, 'online').subscribe(() => {
-      this.onlineStatus$.set(true);
+      this.onlineStatus.set(true);
       // We will later trigger synchronization here or in a separate SyncService
     });
 
     fromEvent(window, 'offline').subscribe(() => {
-      this.onlineStatus$.set(false);
+      this.onlineStatus.set(false);
     });
   }
 
   public get isOnline(): boolean {
-    return this.onlineStatus$();
+    return this.onlineStatus();
   }
 
   public getOnlineStatus(): Observable<boolean> {
-    return this.onlineStatus$.asObservable();
+    return toObservable(this.onlineStatus);
   }
 }

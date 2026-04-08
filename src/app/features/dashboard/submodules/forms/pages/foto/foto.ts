@@ -4,7 +4,8 @@ import {
   OnDestroy,
   ViewChild,
   ElementRef,
-, ChangeDetectionStrategy } from '@angular/core';
+  ChangeDetectionStrategy
+} from '@angular/core';
 import {
   ReactiveFormsModule,
   FormBuilder,

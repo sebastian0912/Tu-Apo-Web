@@ -46,11 +46,12 @@
         <button mat-flat-button class="v-btn-primary full-width" (click)="buscarCedula()"
           [disabled]="f.numeroCedula.invalid || searching">
           @if (!searching) {
-            <mat-icon>search</mat-icon> Consultar
+            <mat-icon>search</mat-icon>
           }
           @if (searching) {
-            <div class="v-spinner"></div> Buscando...
+            <div class="v-spinner"></div>
           }
+          <span>{{ searching ? 'Buscando...' : 'Consultar' }}</span>
         </button>
       </div>
     </section>
@@ -209,11 +210,12 @@
             @if (capturedPhotoBase64) {
               <button type="button" mat-flat-button class="v-btn-accent" (click)="guardarFoto()" [disabled]="saving">
                 @if (!saving) {
-                  <mat-icon>save_alt</mat-icon> Guardar Foto
+                  <mat-icon>save_alt</mat-icon>
                 }
                 @if (saving) {
-                  <div class="v-spinner inverted"></div> Guardando...
+                  <div class="v-spinner inverted"></div>
                 }
+                <span>{{ saving ? 'Guardando...' : 'Guardar Foto' }}</span>
               </button>
             }
           </div>
