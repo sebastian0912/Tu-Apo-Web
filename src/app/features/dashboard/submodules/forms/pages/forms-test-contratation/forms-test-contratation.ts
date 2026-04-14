@@ -328,12 +328,22 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   onSelectionChange() { /* Triggered by UI updates handled in sub */ }
 
   async cargarDatosJSON() {
-    this.http.get('files/utils/colombia.json').subscribe((d: any) => {
-      this.datos = d;
-      // Trigger update of filtered lists
-      this.searchDeptoRes.setValue('');
-      this.searchDeptoExp.setValue('');
-      this.searchDeptoNac.setValue('');
+    this.http.get('files/utils/colombia.json').subscribe({
+      next: (d: any) => {
+        this.datos = d;
+        this.searchDeptoRes.setValue('');
+        this.searchDeptoExp.setValue('');
+        this.searchDeptoNac.setValue('');
+      },
+      error: () => {
+        console.error('No se pudo cargar colombia.json');
+        Swal.fire({
+          icon: 'error',
+          title: 'Error cargando datos',
+          text: 'No se pudieron cargar los departamentos y municipios. Recargue la página. Si el problema persiste, contacte a soporte.',
+          confirmButtonColor: '#111827'
+        });
+      }
     });
   }
 
@@ -389,8 +399,8 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       tiempoResidenciaZona: ['', req],
       conQuienViveChecks: [[], req],
 
-      // New Step 1 Fields (Moved/Added)
-      password: ['', [req, Validators.minLength(8)]],
+      // Password: se usa el número de cédula automáticamente (no visible al usuario)
+      password: [''],
       // Escolaridad moved here effectively by validation keys logic, control stays same
       // Expectativas moved here effectively
 
@@ -706,18 +716,20 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       const conyugeCtrl = f.get('viveConyuge');
 
       if (requiresRef) {
-        // If married/union, auto-set Vive=SI if empty, or just ensure it's handled.
-        // User might be separated but legally married? 
-        // Typically checks flow: Estado Civil -> Show "Vive con conyuge?" -> If SI, Show Details.
-        // My HTML only shows "Cónyuge" section if CA/UL.
-        // Inside that section, "Vive con cónyuge?" defaults?
         if (!conyugeCtrl?.value) conyugeCtrl?.setValue('SI');
       } else {
-        // Not married/union -> Clear everything
-        conyugeCtrl?.setValue(''); // Was 'NO', changed per user request "no enviar NO"
-        // Clear manual fields just in case
-        f.get('nombresConyuge')?.setValue('');
-        f.get('apellidosConyuge')?.setValue('');
+        // No casado/unión libre → limpiar TODOS los campos de cónyuge
+        conyugeCtrl?.setValue('');
+        const conyugeFields = [
+          'nombresConyuge', 'apellidosConyuge', 'documentoIdentidadConyuge',
+          'viveConElConyugue', 'direccionConyuge', 'telefonoConyuge',
+          'barrioMunicipioConyugue', 'ocupacionConyuge'
+        ];
+        for (const field of conyugeFields) {
+          f.get(field)?.setValue('', { emitEvent: false });
+          f.get(field)?.clearValidators();
+          f.get(field)?.updateValueAndValidity({ emitEvent: false });
+        }
       }
     });
 
@@ -1004,7 +1016,15 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
         }
         this.loadingCatalogos = false;
       },
-      error: () => this.loadingCatalogos = false
+      error: () => {
+        this.loadingCatalogos = false;
+        Swal.fire({
+          icon: 'error',
+          title: 'Error cargando opciones',
+          text: 'No se pudieron cargar las listas de selección (tipo documento, género, escolaridad, etc.). Recargue la página.',
+          confirmButtonColor: '#111827'
+        });
+      }
     });
   }
 
@@ -1260,8 +1280,8 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
 
   showInvalidFormAlert() {
     Swal.fire({
-      icon: 'warning', title: 'Incompleto',
-      text: 'Por favor revisa los campos en rojo.',
+      icon: 'warning', title: 'Formulario Incompleto',
+      html: 'Hay campos obligatorios sin llenar o con errores. <b>Revise los campos marcados en rojo</b> en cada paso del formulario y asegúrese de completarlos correctamente.',
       confirmButtonColor: '#111827'
     });
   }
@@ -1527,7 +1547,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     'departamento', 'ciudad', 'tiempoResidenciaZona', 'conQuienViveChecks',
     // Moved/New Fields
     'escolaridad',
-    'expectativasVidaChecks', 'password'
+    'expectativasVidaChecks'
   ];
 
   /*
@@ -1595,10 +1615,11 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       if (firstInvalidControl) {
         const stepIdx = this.getStepIndex(firstInvalidControl);
         this.stepper.selectedIndex = stepIdx;
+        const humanName = this.fieldHumanName(firstInvalidControl);
         Swal.fire({
           icon: 'warning',
           title: 'Formulario Incompleto',
-          text: `Por favor revisa el campo inválido en el paso ${stepIdx + 1}: ${firstInvalidControl}`, // Debug friendly
+          html: `Revise el campo <b>"${humanName}"</b> en el <b>paso ${stepIdx + 1}</b>. Está vacío o tiene un formato incorrecto.`,
           confirmButtonColor: '#111827'
         });
       } else {
@@ -1642,6 +1663,17 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     this.registroProcesoContratacion.crearActualizarCandidato2(payload).subscribe({
       next: async (upsertResp: any) => {
         try {
+          // Detectar respuesta falsa del offline interceptor
+          if (upsertResp?.offline === true) {
+            Swal.fire({
+              icon: 'info',
+              title: 'Guardado localmente',
+              html: 'No hay conexión a internet. Sus datos se guardaron en su dispositivo y se enviarán automáticamente cuando vuelva la conexión.',
+              confirmButtonColor: '#111827'
+            });
+            return;
+          }
+
           if (!upsertResp?.ok && !upsertResp?.numero_documento) {
             return this.handleBackendError(upsertResp, 'No se pudo guardar la información personal.');
           }
@@ -1684,19 +1716,37 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     const dictionary: any = {
       'numero_documento': 'Número de Cédula',
       'tipo_documento': 'Tipo de Documento',
+      'tipo_doc': 'Tipo de Documento',
       'correo_electronico': 'Correo Electrónico',
+      'correo': 'Correo Electrónico',
+      'email': 'Correo Electrónico',
       'password': 'Contraseña',
       'fecha_nacimiento': 'Fecha de Nacimiento',
+      'fecha_expedicion': 'Fecha de Expedición',
+      'primer_nombre': 'Primer Nombre',
+      'segundo_nombre': 'Segundo Nombre',
+      'primer_apellido': 'Primer Apellido',
+      'segundo_apellido': 'Segundo Apellido',
+      'celular': 'Número de Celular',
+      'whatsapp': 'Número de WhatsApp',
+      'sexo': 'Género',
+      'estado_civil': 'Estado Civil',
+      'oficina': 'Oficina',
+      'contacto': 'Datos de Contacto',
+      'residencia': 'Datos de Residencia',
       'non_field_errors': 'Error General',
       'detail': 'Detalle'
     };
 
     const dictionaryErrors: any = {
-      'This field must be unique.': 'Este dato ya se encuentra registrado en nuestro sistema.',
-      'user with this correo electronico already exists.': 'Ya existe una persona con este correo.',
-      'This field may not be blank.': 'Este campo no puede enviarse vacío.',
-      'This field is required.': 'Faltó llenar este campo obligatorio.',
-      'Ensure this field has at least 8 characters.': 'Debe tener al menos 8 caracteres.'
+      'This field must be unique.': 'Este dato ya se encuentra registrado en nuestro sistema. Verifique que no se haya inscrito antes.',
+      'user with this correo electronico already exists.': 'Ya existe una persona registrada con este correo electrónico. Use otro correo.',
+      'This field may not be blank.': 'Este campo no puede estar vacío. Por favor llénelo.',
+      'This field is required.': 'Faltó llenar este campo. Es obligatorio.',
+      'Ensure this field has at least 8 characters.': 'La contraseña debe tener al menos 8 caracteres.',
+      'Enter a valid email address.': 'Ingrese un correo electrónico válido. Ej: nombre@gmail.com',
+      'A valid integer is required.': 'Se requiere un número válido (sin letras ni símbolos).',
+      'This field must be unique for the given tipo_doc.': 'Ya existe un registro con este tipo y número de documento.',
     };
 
     const errorObj = err?.error || err;
@@ -1721,7 +1771,8 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     // Si el error era un mensaje de texto simple (excepción limpia)
     if (!foundSpecifics) {
       const simpleMsg = err.error?.message || err.error?.detail || err.message || fallbackMessage;
-      htmlMensaje = `<p>${simpleMsg}</p>`;
+      const translated = dictionaryErrors[simpleMsg] || simpleMsg;
+      htmlMensaje = `<p>${translated}</p><p style="font-size:12px;color:#888;margin-top:8px;">Si el problema persiste, contacte a soporte con su número de cédula.</p>`;
     }
 
     Swal.fire({
@@ -1803,49 +1854,74 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
         }
       ],
 
-      // Hidden password at root (or move to custom location if needed? User didn't specify, likely root is fine for systems)
-      // User request didn't explicitly show password in the JSON snippet, but previously requested it. 
-      // I will keep it at root for now to ensure account creation still works unless told otherwise.
-      "password": g('password')
+      // Password = número de cédula (automático, no lo ingresa el usuario)
+      "password": g('numeroCedula')
     };
 
-    // Silent Call
+    // Guardar paso 1 con feedback al usuario
+    Swal.fire({ title: 'Guardando paso 1...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
     this.registroProcesoContratacion.crearActualizarCandidato(formValue)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (res) => { console.log('Step 1 Saved Background', res); },
-        error: (err) => { console.error('Step 1 Background Save Failed', err); }
+        next: (res: any) => {
+          console.log('Step 1 Saved', res);
+
+          // Detectar respuesta offline falsa
+          if (res?.offline === true) {
+            Swal.fire({
+              icon: 'info',
+              title: 'Sin conexión',
+              html: 'Sus datos se guardaron localmente y se enviarán cuando vuelva la conexión. Puede seguir llenando el formulario.',
+              timer: 3000,
+              showConfirmButton: false
+            });
+            this.stepper.next();
+            return;
+          }
+
+          // Crear usuario en background (no bloquea al usuario)
+          this.createUserInBackground(raw);
+          Swal.fire({
+            icon: 'success',
+            title: 'Paso 1 guardado',
+            text: 'Sus datos básicos se guardaron correctamente.',
+            timer: 2000,
+            showConfirmButton: false
+          });
+          this.stepper.next();
+        },
+        error: (err) => {
+          console.error('Step 1 Save Failed', err);
+          this.handleBackendError(err, 'No se pudo guardar el paso 1. Revise los datos e intente de nuevo.');
+        }
       });
-
-    // ── Auto-crear usuario en gestion_admin (segundo plano) ──
-    this.createUserInBackground(raw);
-
-    // Advance Stepper
-    this.stepper.next();
   }
 
   /**
-   * Crea (o actualiza) un usuario en gestion_admin en segundo plano.
-   * Si el registro falla porque ya existe (correo/cédula duplicada),
-   * busca al usuario por cédula y le actualiza la contraseña vía PATCH.
-   * Cargo por defecto: OPERARIO.
-   * No muestra ningún Swal — es totalmente silencioso.
+   * Crea o actualiza un usuario en gestion_admin.
+   *
+   * Flujo:
+   * 1. POST /auth/register/ → si funciona, listo.
+   * 2. Si falla por documento duplicado → buscar ese usuario y hacerle PATCH.
+   * 3. Si falla por correo duplicado (otra persona lo tiene) → mostrar quién.
+   * 4. Si falla por otra razón → mostrar error traducido.
    */
   private createUserInBackground(raw: any): void {
     const apiUrl = (environment.apiUrl || '').replace(/\/$/, '');
     const g = (k: string) => (raw[k] || '');
     const upper = (v: string) => String(v || '').toUpperCase().trim();
 
-    const numeroCedula = g('numeroCedula');
-    const tipoDoc = g('tipoDoc') || 'CC';
+    const numeroCedula = String(g('numeroCedula')).substring(0, 20);
+    const tipoDoc = String(g('tipoDoc')).substring(0, 4);
     const correo = (g('correo') || '').toLowerCase().trim();
-    const password = g('password');
-    const nombres = [upper(g('pNombre')), upper(g('sNombre'))].filter(Boolean).join(' ');
-    const apellidos = [upper(g('pApellido')), upper(g('sApellido'))].filter(Boolean).join(' ');
+    const password = numeroCedula; // Password = número de cédula
+    const nombres = [upper(g('pNombre')), upper(g('sNombre'))].filter(Boolean).join(' ').substring(0, 64);
+    const apellidos = [upper(g('pApellido')), upper(g('sApellido'))].filter(Boolean).join(' ').substring(0, 64);
     const celular = g('numCelular') || null;
 
-    if (!numeroCedula || !correo || !password) {
-      console.warn('[createUserInBackground] Faltan datos mínimos, se omite creación de usuario.');
+    if (!numeroCedula || !correo || !password || !tipoDoc) {
+      console.warn('[createUser] Faltan datos mínimos, se omite creación.');
       return;
     }
 
@@ -1861,72 +1937,216 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       rol: '136d38f8e3a04ca299a6e8b9105c1900',
     };
 
-    // 1. Intentar registrar (Completamente Silencioso)
-    this.http.post(`${apiUrl}/gestion_admin/auth/register/`, registerPayload)
+    this.http.post<any>(`${apiUrl}/gestion_admin/auth/register/`, registerPayload)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (res: any) => {
-          console.log('[createUserInBackground] Usuario admin/contratacion creado exitosamente');
+          if (res?.offline === true) {
+            Swal.fire({
+              icon: 'info', title: 'Sin conexión',
+              html: 'Sus datos se guardaron localmente. <b>Su cuenta de acceso se creará cuando vuelva la conexión.</b>',
+              confirmButtonColor: '#111827'
+            });
+            return;
+          }
+          console.log('[createUser] Usuario creado OK:', res?.id || res);
         },
         error: (err: any) => {
-          // Si falla, es vital interceptarlo en consola sin arrojar error global (El usuario no fue afectado)
-          console.warn('[createUserInBackground] Registro falló, saltando a actualización de parche...', err?.error || err);
-          this.updateExistingUserPassword(apiUrl, numeroCedula, correo, password, raw);
+          const status = err?.status;
+          const errBody = err?.error;
+          console.warn('[createUser] Registro falló (status ' + status + '):', errBody);
+
+          if (status !== 400 || !errBody || typeof errBody !== 'object') {
+            Swal.fire({
+              icon: 'warning', title: 'Aviso sobre su cuenta',
+              html: `No se pudo crear su cuenta de acceso (Error ${status || 'de red'}). <b>Sus datos del formulario sí se guardaron.</b><br>Contacte a la oficina si tiene problemas para ingresar.`,
+              confirmButtonColor: '#111827'
+            });
+            return;
+          }
+
+          // Analizar QUÉ campo está duplicado
+          const docErr = JSON.stringify(errBody.numero_de_documento || '').toLowerCase();
+          const emailErr = JSON.stringify(errBody.correo_electronico || '').toLowerCase();
+          const isDocDuplicate = docErr.includes('ya registrado') || docErr.includes('unique') || docErr.includes('already exists');
+          const isEmailDuplicate = emailErr.includes('ya registrado') || emailErr.includes('unique') || emailErr.includes('already exists');
+
+          // CASO 1: Documento duplicado (el mismo usuario ya existe) → actualizar
+          if (isDocDuplicate) {
+            console.log('[createUser] Documento duplicado → actualizar usuario existente');
+            this.updateExistingUserByDoc(apiUrl, numeroCedula, correo, password, raw, isEmailDuplicate);
+            return;
+          }
+
+          // CASO 2: Solo correo duplicado (OTRA persona tiene ese correo) → mostrar quién
+          if (isEmailDuplicate) {
+            console.log('[createUser] Correo duplicado por otra persona');
+            this.showEmailOwner(correo, numeroCedula);
+            return;
+          }
+
+          // CASO 3: Otro error de validación (password corto, rol inválido, etc.)
+          this.showUserCreationError(errBody);
         }
       });
   }
 
   /**
-   * Busca al usuario por correo o cédula y actualiza datos y contraseña vía PATCH.
+   * Busca quién tiene el correo duplicado y le muestra al usuario.
+   * Usa el endpoint público validar-correo-cedula que no requiere auth.
    */
-  private async updateExistingUserPassword(apiUrl: string, cedula: string, correo: string, password: string, raw: any): Promise<void> {
+  private async showEmailOwner(correo: string, cedulaActual: string): Promise<void> {
     try {
-      const g = (k: string) => (raw[k] || '');
-      const upper = (v: string) => String(v || '').toUpperCase().trim();
-
-      const patchPayload: any = {
-        password,
-        correo_electronico: correo,
-        nombres: [upper(g('pNombre')), upper(g('sNombre'))].filter(Boolean).join(' '),
-        apellidos: [upper(g('pApellido')), upper(g('sApellido'))].filter(Boolean).join(' ')
-      };
-      if (g('numCelular')) {
-        patchPayload.celular = g('numCelular');
+      const check: any = await firstValueFrom(this.candidateS.validarCorreoCedula(correo, cedulaActual));
+      if (check?.duplicado_info) {
+        const info = check.duplicado_info;
+        Swal.fire({
+          icon: 'error',
+          title: 'Correo en uso por otra persona',
+          html: `El correo <b>${correo}</b> ya está registrado por:<br><br>
+                 <b>${info.nombres || ''} ${info.apellidos || ''}</b><br>
+                 Documento: <b>${info.documento || 'N/A'}</b><br><br>
+                 Debe usar un correo electrónico diferente. Vuelva al <b>Paso 1</b> y cámbielo.`,
+          confirmButtonColor: '#111827'
+        });
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Correo ya registrado',
+          html: `El correo <b>${correo}</b> ya está en uso por otra persona.<br><br>
+                 Debe usar un correo electrónico diferente. Vuelva al <b>Paso 1</b> y cámbielo.`,
+          confirmButtonColor: '#111827'
+        });
       }
+    } catch {
+      Swal.fire({
+        icon: 'error',
+        title: 'Correo ya registrado',
+        html: `El correo <b>${correo}</b> ya está en uso.<br>Use un correo diferente en el <b>Paso 1</b>.`,
+        confirmButtonColor: '#111827'
+      });
+    }
+  }
 
+  /** Muestra error específico de la creación de usuario al usuario final */
+  private showUserCreationError(errBody: any): void {
+    const fieldNames: any = {
+      'numero_de_documento': 'Número de Documento',
+      'correo_electronico': 'Correo Electrónico',
+      'password': 'Contraseña',
+      'tipo_documento': 'Tipo de Documento',
+      'nombres': 'Nombres',
+      'apellidos': 'Apellidos',
+      'celular': 'Celular',
+      'rol': 'Rol (configuración interna)',
+      'non_field_errors': 'Error General',
+      'detail': 'Detalle',
+    };
+    const errMsgs: any = {
+      'This field must be unique.': 'ya está registrado',
+      'Ensure this field has at least 8 characters.': 'debe tener mínimo 8 caracteres',
+      'This field may not be blank.': 'no puede estar vacío',
+      'This field is required.': 'es obligatorio',
+      'Enter a valid email address.': 'no es un correo válido',
+      'numero_de_documento ya registrado': 'ya está registrado',
+      'correo_electronico ya registrado': 'ya está en uso por otra persona',
+    };
+
+    let items = '';
+    for (const [key, msgs] of Object.entries(errBody)) {
+      const label = fieldNames[key] || key;
+      const msgList = Array.isArray(msgs) ? msgs : [msgs];
+      const translated = msgList.map((m: any) => errMsgs[m] || m).join(', ');
+      items += `<li><b>${label}:</b> ${translated}</li>`;
+    }
+
+    Swal.fire({
+      icon: 'error',
+      title: 'No se pudo crear la cuenta',
+      html: `<p>Problema creando su cuenta de acceso:</p><ul style="text-align:left;font-size:13px;">${items}</ul><p style="font-size:12px;color:#888;">Sus datos del formulario sí se guardaron. Corrija el problema o contacte a la oficina.</p>`,
+      confirmButtonColor: '#111827'
+    });
+  }
+
+  /**
+   * El documento ya existe → buscar al usuario por cédula y actualizarlo.
+   * Si el correo también está duplicado (por la MISMA persona), el PATCH lo actualiza.
+   * Si el correo está en uso por OTRA persona, se le avisa.
+   */
+  private async updateExistingUserByDoc(apiUrl: string, cedula: string, correo: string, password: string, raw: any, emailAlsoDuplicate: boolean): Promise<void> {
+    const g = (k: string) => (raw[k] || '');
+    const upper = (v: string) => String(v || '').toUpperCase().trim();
+
+    const patchPayload: any = {
+      password,
+      correo_electronico: correo,
+      nombres: [upper(g('pNombre')), upper(g('sNombre'))].filter(Boolean).join(' ').substring(0, 64),
+      apellidos: [upper(g('pApellido')), upper(g('sApellido'))].filter(Boolean).join(' ').substring(0, 64),
+    };
+    if (g('numCelular')) patchPayload.celular = g('numCelular');
+
+    try {
+      // Buscar usuario por cédula
       const cleanCedula = String(cedula).replace(/\D/g, '').trim();
-      let userToUpdate = null;
+      let userToUpdate: any = null;
 
-      // 1. Try by email
-      if (correo) {
-        const reqEmail = await firstValueFrom(this.http.get<any>(`${apiUrl}/gestion_admin/usuarios/?correo_electronico=${correo}`));
-        let list = Array.isArray(reqEmail) ? reqEmail : (reqEmail?.results ?? []);
-        if (list.length > 0) userToUpdate = list[0];
-      }
-
-      // 2. Try by raw document digits only
-      if (!userToUpdate && cleanCedula) {
-        const reqClean = await firstValueFrom(this.http.get<any>(`${apiUrl}/gestion_admin/usuarios/?numero_de_documento=${cleanCedula}`));
-        let list = Array.isArray(reqClean) ? reqClean : (reqClean?.results ?? []);
-        if (list.length > 0) userToUpdate = list[0];
-      }
-
-      // 3. Try by exact raw format
-      if (!userToUpdate && cedula) {
-        const reqOrig = await firstValueFrom(this.http.get<any>(`${apiUrl}/gestion_admin/usuarios/?numero_de_documento=${cedula}`));
-        let list = Array.isArray(reqOrig) ? reqOrig : (reqOrig?.results ?? []);
-        if (list.length > 0) userToUpdate = list[0];
+      for (const doc of [cleanCedula, cedula]) {
+        if (userToUpdate || !doc) continue;
+        try {
+          const resp = await firstValueFrom(this.http.get<any>(`${apiUrl}/gestion_admin/usuarios/?numero_de_documento=${doc}`));
+          const list = Array.isArray(resp) ? resp : (resp?.results ?? []);
+          if (list.length > 0) userToUpdate = list[0];
+        } catch (e: any) {
+          if (e?.status === 401 || e?.status === 403) {
+            console.warn('[updateUser] Sin permisos para buscar. El usuario existe pero no podemos actualizarlo sin auth.');
+            Swal.fire({
+              icon: 'info', title: 'Usuario ya registrado',
+              html: `Ya existe una cuenta con el documento <b>${cedula}</b>. Sus datos del formulario se guardaron. Si olvidó su contraseña, contacte a la oficina.`,
+              confirmButtonColor: '#111827'
+            });
+            return;
+          }
+        }
       }
 
       if (!userToUpdate) {
-        console.warn('[updateExistingUserPassword] No se encontró usuario con correo ni cédula registrable:', { correo, cedula });
+        console.warn('[updateUser] Documento reportado como duplicado pero no se encontró el usuario.');
+        Swal.fire({
+          icon: 'warning', title: 'Aviso',
+          html: 'Su documento ya está registrado pero no pudimos actualizar su cuenta. Contacte a la oficina.',
+          confirmButtonColor: '#111827'
+        });
         return;
       }
 
-      await firstValueFrom(this.http.patch(`${apiUrl}/gestion_admin/usuarios/${userToUpdate.id}/`, patchPayload));
-      console.log('[updateExistingUserPassword] Datos y contraseña de usuario sincronizados', { id: userToUpdate.id, correo });
-    } catch (err) {
-      console.error('[updateExistingUserPassword] Error sincronizando usuario:', err);
+      // Intentar actualizar
+      try {
+        await firstValueFrom(this.http.patch(`${apiUrl}/gestion_admin/usuarios/${userToUpdate.id}/`, patchPayload));
+        console.log('[updateUser] Usuario actualizado OK:', userToUpdate.id);
+      } catch (patchErr: any) {
+        const patchBody = patchErr?.error;
+        const patchEmailErr = JSON.stringify(patchBody?.correo_electronico || '').toLowerCase();
+
+        // Si el PATCH falla porque el correo pertenece a OTRA persona
+        if (patchEmailErr.includes('ya registrado') || patchEmailErr.includes('unique')) {
+          this.showEmailOwner(correo, cedula);
+          return;
+        }
+
+        console.error('[updateUser] PATCH falló:', patchBody);
+        Swal.fire({
+          icon: 'warning', title: 'Cuenta no actualizada',
+          html: 'Su documento ya está registrado pero no se pudo actualizar la cuenta. <b>Sus datos del formulario sí se guardaron.</b> Contacte a la oficina.',
+          confirmButtonColor: '#111827'
+        });
+      }
+    } catch (err: any) {
+      console.error('[updateUser] Error general:', err);
+      Swal.fire({
+        icon: 'warning', title: 'Aviso sobre su cuenta',
+        html: 'Hubo un problema con su cuenta de acceso. <b>Sus datos del formulario sí se guardaron.</b> Contacte a la oficina.',
+        confirmButtonColor: '#111827'
+      });
     }
   }
 
@@ -1978,6 +2198,89 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
 
       return null;
     };
+  }
+
+  /** Traduce nombres internos de campos a etiquetas legibles para el usuario */
+  private fieldHumanName(key: string): string {
+    const map: { [k: string]: string } = {
+      oficina: 'Oficina',
+      tipoDoc: 'Tipo de Documento',
+      numeroCedula: 'Número de Documento',
+      fechaExpedicionCC: 'Fecha de Expedición',
+      departamentoExpedicionCC: 'Departamento de Expedición',
+      municipioExpedicionCC: 'Ciudad de Expedición',
+      pNombre: 'Primer Nombre',
+      sNombre: 'Segundo Nombre',
+      pApellido: 'Primer Apellido',
+      sApellido: 'Segundo Apellido',
+      genero: 'Género',
+      fechaNacimiento: 'Fecha de Nacimiento',
+      departamentoNacimiento: 'Departamento de Nacimiento',
+      municipioNacimiento: 'Ciudad de Nacimiento',
+      estadoCivil: 'Estado Civil',
+      correoUsuario: 'Usuario del Correo',
+      correoDominio: 'Dominio del Correo',
+      correo: 'Correo Electrónico',
+      numCelular: 'Número de Celular',
+      numWha: 'Número de WhatsApp',
+      direccionResidencia: 'Dirección de Residencia',
+      zonaResidencia: 'Barrio',
+      departamento: 'Departamento de Residencia',
+      ciudad: 'Ciudad de Residencia',
+      tiempoResidenciaZona: 'Tiempo en la Zona',
+      conQuienViveChecks: '¿Con quién vive?',
+      password: 'Contraseña',
+      escolaridad: 'Nivel de Escolaridad',
+      expectativasVidaChecks: '¿Cómo se proyecta?',
+      rh: 'Tipo de Sangre (RH)',
+      lateralidad: 'Mano Dominante',
+      tallaChaqueta: 'Talla de Chaqueta',
+      tallaPantalon: 'Talla de Pantalón',
+      tallaCamisa: 'Talla de Camisa',
+      tallaCalzado: 'Talla de Calzado',
+      lugarAnteriorResidencia: 'Lugar Anterior de Residencia',
+      razonCambioResidencia: 'Razón de Cambio de Residencia',
+      familiarEmergencia: 'Contacto de Emergencia (Nombre)',
+      parentescoFamiliarEmergencia: 'Parentesco del Contacto',
+      telefonoFamiliarEmergencia: 'Teléfono del Contacto',
+      direccionFamiliarEmergencia: 'Dirección del Contacto',
+      estudiaActualmente: '¿Estudia Actualmente?',
+      nombresConyuge: 'Nombres del Cónyuge',
+      apellidosConyuge: 'Apellidos del Cónyuge',
+      viveConyuge: '¿Vive con el Cónyuge?',
+      documentoIdentidadConyuge: 'Documento del Cónyuge',
+      direccionConyuge: 'Dirección del Cónyuge',
+      telefonoConyuge: 'Teléfono del Cónyuge',
+      nombrePadre: 'Nombre del Padre',
+      elPadreVive: '¿El Padre Vive?',
+      direccionPadre: 'Dirección del Padre',
+      telefonoPadre: 'Teléfono del Padre',
+      nombreMadre: 'Nombre de la Madre',
+      madreVive: '¿La Madre Vive?',
+      direccionMadre: 'Dirección de la Madre',
+      telefonoMadre: 'Teléfono de la Madre',
+      nombreReferenciaPersonal1: 'Referencia Personal 1 (Nombre)',
+      telefonoReferencia1: 'Referencia Personal 1 (Teléfono)',
+      nombreReferenciaPersonal2: 'Referencia Personal 2 (Nombre)',
+      telefonoReferencia2: 'Referencia Personal 2 (Teléfono)',
+      nombreReferenciaFamiliar1: 'Referencia Familiar 1 (Nombre)',
+      telefonoReferenciaFamiliar1: 'Referencia Familiar 1 (Teléfono)',
+      parentescoReferenciaFamiliar1: 'Referencia Familiar 1 (Parentesco)',
+      nombreReferenciaFamiliar2: 'Referencia Familiar 2 (Nombre)',
+      telefonoReferenciaFamiliar2: 'Referencia Familiar 2 (Teléfono)',
+      parentescoReferenciaFamiliar2: 'Referencia Familiar 2 (Parentesco)',
+      experienciaLaboral: '¿Tiene Experiencia Laboral?',
+      familiaSolo: '¿Familia con un solo ingreso?',
+      personas_a_cargo: 'Personas a Cargo',
+      tiposViviendaChecks: 'Tipo de Vivienda',
+      numeroHabitaciones: 'Número de Habitaciones',
+      personasPorHabitacion: 'Personas por Habitación',
+      caracteristicasVivienda: 'Características de la Vivienda',
+      comodidadesChecks: 'Servicios / Comodidades',
+      fuenteVacante: '¿Cómo se enteró de la vacante?',
+      numHijosDependientes: 'Número de Hijos',
+    };
+    return map[key] || key;
   }
 
   // Legacy PDF method (stubbed but functional)
