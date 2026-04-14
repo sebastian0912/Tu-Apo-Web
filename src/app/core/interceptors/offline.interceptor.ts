@@ -1,4 +1,4 @@
-import { HttpEvent, HttpHandlerFn, HttpInterceptorFn, HttpRequest, HttpResponse, HttpErrorResponse } from '@angular/common/http';
+import { HttpEvent, HttpHandlerFn, HttpHeaders, HttpInterceptorFn, HttpRequest, HttpResponse, HttpErrorResponse } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Observable, from, of, throwError } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
@@ -10,30 +10,27 @@ export const offlineInterceptor: HttpInterceptorFn = (req: HttpRequest<any>, nex
   const networkService = inject(NetworkService);
   const dbService = inject(DbService);
 
-  // Exclude auth endpoints or very specific ones you don't want to cache/mock
   const isExcluded = req.url.includes('/login') || req.url.includes('/token');
 
   if (networkService.isOnline || isExcluded) {
     return next(req).pipe(
       map((event: HttpEvent<any>) => {
         if (event instanceof HttpResponse && req.method === 'GET') {
-          // Cache GET requests for offline usage
-          dbService.cacheData(req.urlWithParams, event.body).catch(err => console.error('Cache DB error', err));
+          dbService.cacheData(req.urlWithParams, event.body)
+            .catch(err => console.error('Cache DB error', err));
         }
         return event;
       }),
       catchError((error: HttpErrorResponse) => {
-        // Sometimes navigator.onLine is true, but server is unreachable (down).
-        // Fallback to offline logic if it's a 0 status code
         if (error.status === 0 || error.status === 504) {
-             return handleOfflineRequest(req, dbService);
+          return handleOfflineRequest(req, dbService);
         }
         return throwError(() => error);
       })
     );
-  } else {
-    return handleOfflineRequest(req, dbService);
   }
+
+  return handleOfflineRequest(req, dbService);
 };
 
 function handleOfflineRequest(req: HttpRequest<any>, dbService: DbService): Observable<HttpEvent<any>> {
@@ -45,74 +42,104 @@ function handleOfflineRequest(req: HttpRequest<any>, dbService: DbService): Obse
         }
         Swal.fire('Sin conexión', 'No hay conexión a internet y no hay datos guardados previamente para esta pantalla.', 'warning');
         return throwError(() => new Error('Offline and no cache available'));
-      })
-    );
-  } else {
-    // Para POST/PUT/PATCH/DELETE
-    // Almacenar en IndexedDB para luego
-    return from(serializeBody(req.body)).pipe(
-      switchMap(serializedBody => {
-        return dbService.addToSyncQueue({
-          url: req.url,
-          method: req.method,
-          body: serializedBody,
-          headers: serializeHeaders(req.headers)
-        });
       }),
-      map(() => {
-        Swal.fire({
-          icon: 'info',
-          title: 'Guardado localmente',
-          text: 'Estás sin conexión. La información ha sido guardada y se enviará automáticamente cuando recuperes el internet.',
-          toast: true,
-          position: 'bottom-end',
-          showConfirmButton: false,
-          timer: 4000
-        });
-        // Retornamos un 200 OK falso para no romper el flujo de UI
-        return new HttpResponse({ status: 200, body: { success: true, offline: true } });
+      catchError(err => {
+        if (err instanceof Error && err.message === 'Offline and no cache available') {
+          return throwError(() => err);
+        }
+        console.error('Error leyendo caché offline', err);
+        return throwError(() => new Error('Error leyendo caché offline'));
       })
     );
   }
+
+  return from(serializeBody(req.body)).pipe(
+    switchMap(serializedBody =>
+      from(dbService.addToSyncQueue({
+        url: req.urlWithParams,
+        method: req.method,
+        body: serializedBody,
+        headers: serializeHeaders(req.headers)
+      }))
+    ),
+    map(() => {
+      Swal.fire({
+        icon: 'info',
+        title: 'Guardado localmente',
+        text: 'Estás sin conexión. La información ha sido guardada y se enviará automáticamente cuando recuperes el internet.',
+        toast: true,
+        position: 'bottom-end',
+        showConfirmButton: false,
+        timer: 4000
+      });
+      return new HttpResponse({ status: 200, body: { success: true, offline: true } });
+    }),
+    catchError(err => {
+      console.error('Error guardando request offline', err);
+      const message = err instanceof Error
+        ? err.message
+        : 'No se pudo guardar la información offline.';
+      Swal.fire({
+        icon: 'error',
+        title: 'No se pudo guardar offline',
+        text: message,
+      });
+      return throwError(() => new HttpErrorResponse({
+        status: 0,
+        statusText: 'Offline save failed',
+        error: err
+      }));
+    })
+  );
 }
 
-function serializeHeaders(headers: any): any {
-  const serialized: any = {};
-  if (headers && headers.keys) {
-    headers.keys().forEach((key: string) => {
-      serialized[key] = headers.get(key);
-    });
+function serializeHeaders(headers: HttpHeaders | null | undefined): Record<string, string> {
+  const serialized: Record<string, string> = {};
+  if (!headers) return serialized;
+  for (const key of headers.keys()) {
+    if (key.toLowerCase() === 'authorization') continue;
+    const value = headers.get(key);
+    if (value !== null) serialized[key] = value;
   }
   return serialized;
 }
 
 async function serializeBody(body: any): Promise<any> {
-  if (body instanceof FormData) {
-    const object: any = { isFormData: true, fields: {} };
-    // @ts-ignore
-    for (const [key, value] of body.entries()) {
-      const valAny = value as any;
-      if (valAny instanceof Blob || valAny instanceof File) {
-        object.fields[key] = {
-          type: 'file',
-          name: valAny instanceof File ? valAny.name : 'blob',
-          mimeType: (valAny as Blob).type,
-          data: await blobToBase64(valAny as Blob)
-        };
-      } else {
-        object.fields[key] = { type: 'text', value };
-      }
+  if (!(body instanceof FormData)) return body;
+
+  const object: { isFormData: true; fields: Record<string, any> } = {
+    isFormData: true,
+    fields: {}
+  };
+  for (const [key, value] of (body as any).entries()) {
+    if (value instanceof Blob || value instanceof File) {
+      object.fields[key] = {
+        type: 'file',
+        name: value instanceof File ? value.name : 'blob',
+        mimeType: value.type,
+        data: await blobToBase64(value)
+      };
+    } else {
+      object.fields[key] = { type: 'text', value: String(value) };
     }
-    return object;
   }
-  return body;
+  return object;
 }
 
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
+    if (typeof FileReader === 'undefined') {
+      reject(new Error('FileReader no disponible en este entorno'));
+      return;
+    }
     const reader = new FileReader();
-    reader.readAsDataURL(blob);
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
+    reader.onerror = () => reject(reader.error ?? new Error('FileReader error'));
+    reader.onabort = () => reject(new Error('FileReader abortado'));
+    try {
+      reader.readAsDataURL(blob);
+    } catch (e) {
+      reject(e);
+    }
   });
 }

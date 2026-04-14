@@ -34,7 +34,7 @@
         "/**/api/**"
       ],
       "cacheConfig": {
-        "strategy": "freshness",
+        "strategy": "performance",
         "maxSize": 100,
         "maxAge": "2d",
         "timeout": "5s"

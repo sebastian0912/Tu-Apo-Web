@@ -1,7 +1,10 @@
 import {
   ApplicationConfig,
   provideBrowserGlobalErrorListeners,
-  provideZonelessChangeDetection, isDevMode, APP_INITIALIZER
+  provideZonelessChangeDetection,
+  provideAppInitializer,
+  inject,
+  isDevMode
 } from '@angular/core';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
@@ -27,11 +30,8 @@ export const appConfig: ApplicationConfig = {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000'
     }),
-    {
-      provide: APP_INITIALIZER,
-      useFactory: () => () => {}, // SyncService instance is created and its constructor runs
-      deps: [SyncService],
-      multi: true
-    }
+    provideAppInitializer(() => {
+      inject(SyncService);
+    })
   ]
 };

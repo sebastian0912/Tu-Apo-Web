@@ -9,6 +9,7 @@ export interface SyncQueueItem {
   body: any;
   headers: any;
   timestamp: number;
+  retries?: number;
 }
 
 export interface CachedData {
@@ -16,6 +17,9 @@ export interface CachedData {
   data: any;
   timestamp: number;
 }
+
+export const SYNC_QUEUE_MAX_SIZE = 500;
+export const SYNC_QUEUE_MAX_RETRIES = 5;
 
 @Injectable({
   providedIn: 'root'
@@ -28,22 +32,36 @@ export class DbService extends Dexie {
   constructor(@Inject(PLATFORM_ID) private platformId: Object) {
     super('TuApoWebOfflineDB');
     this.isBrowser = isPlatformBrowser(this.platformId);
-    
+
     if (this.isBrowser) {
       this.version(1).stores({
         syncQueue: '++id, url, method, timestamp',
         dataCache: 'url, timestamp'
       });
-      // Important: Dexie bindings
+      this.version(2).stores({
+        syncQueue: '++id, url, method, timestamp, [url+method]',
+        dataCache: 'url, timestamp'
+      }).upgrade(tx => {
+        return tx.table('syncQueue').toCollection().modify(item => {
+          if (item.retries === undefined) item.retries = 0;
+        });
+      });
       this.syncQueue = this.table('syncQueue');
       this.dataCache = this.table('dataCache');
     }
   }
 
-  async addToSyncQueue(item: Omit<SyncQueueItem, 'id' | 'timestamp'>): Promise<void> {
-    if (!this.isBrowser) return;
-    await this.syncQueue.add({
+  async addToSyncQueue(item: Omit<SyncQueueItem, 'id' | 'timestamp' | 'retries'>): Promise<number> {
+    if (!this.isBrowser) {
+      throw new Error('IndexedDB no disponible fuera del navegador');
+    }
+    const count = await this.syncQueue.count();
+    if (count >= SYNC_QUEUE_MAX_SIZE) {
+      throw new Error(`Cola de sincronización llena (${SYNC_QUEUE_MAX_SIZE} items). No se puede guardar más hasta que haya conexión.`);
+    }
+    return await this.syncQueue.add({
       ...item,
+      retries: 0,
       timestamp: Date.now()
     });
   }
@@ -53,9 +71,23 @@ export class DbService extends Dexie {
     return await this.syncQueue.orderBy('timestamp').toArray();
   }
 
+  async getSyncQueueCount(): Promise<number> {
+    if (!this.isBrowser) return 0;
+    return await this.syncQueue.count();
+  }
+
   async removeFromSyncQueue(id: number): Promise<void> {
     if (!this.isBrowser) return;
     await this.syncQueue.delete(id);
+  }
+
+  async incrementSyncQueueRetries(id: number): Promise<number> {
+    if (!this.isBrowser) return 0;
+    const item = await this.syncQueue.get(id);
+    if (!item) return 0;
+    const retries = (item.retries ?? 0) + 1;
+    await this.syncQueue.update(id, { retries });
+    return retries;
   }
 
   async cacheData(url: string, data: any): Promise<void> {

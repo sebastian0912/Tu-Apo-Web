@@ -1,19 +1,19 @@
-import {  Injectable, Inject, PLATFORM_ID , signal } from '@angular/core';
+import { Injectable, Inject, PLATFORM_ID, signal, DestroyRef, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import {  Observable, fromEvent } from 'rxjs';
-import { toObservable } from '@angular/core/rxjs-interop';
+import { Observable, fromEvent } from 'rxjs';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 
 @Injectable({
   providedIn: 'root'
 })
 export class NetworkService {
   private onlineStatus = signal<boolean>(true);
+  private destroyRef = inject(DestroyRef);
   public isBrowser: boolean;
 
   constructor(@Inject(PLATFORM_ID) private platformId: Object) {
     this.isBrowser = isPlatformBrowser(this.platformId);
-    
-    // Initialize with true for SSR, or actual navigator status for browser
+
     const isOnline = this.isBrowser ? navigator.onLine : true;
     this.onlineStatus.set(isOnline);
 
@@ -23,14 +23,13 @@ export class NetworkService {
   }
 
   private initListeners() {
-    fromEvent(window, 'online').subscribe(() => {
-      this.onlineStatus.set(true);
-      // We will later trigger synchronization here or in a separate SyncService
-    });
+    fromEvent(window, 'online')
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.onlineStatus.set(true));
 
-    fromEvent(window, 'offline').subscribe(() => {
-      this.onlineStatus.set(false);
-    });
+    fromEvent(window, 'offline')
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.onlineStatus.set(false));
   }
 
   public get isOnline(): boolean {

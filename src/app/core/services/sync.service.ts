@@ -1,8 +1,9 @@
-import { Injectable, Inject, PLATFORM_ID } from '@angular/core';
+import { Injectable, Inject, PLATFORM_ID, DestroyRef, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NetworkService } from './network.service';
-import { DbService, SyncQueueItem } from '../../shared/services/db.service';
+import { DbService, SyncQueueItem, SYNC_QUEUE_MAX_RETRIES } from '../../shared/services/db.service';
 import Swal from 'sweetalert2';
 
 @Injectable({
@@ -10,7 +11,8 @@ import Swal from 'sweetalert2';
 })
 export class SyncService {
   private isBrowser: boolean;
-  private isSyncing = false;
+  private syncPromise: Promise<void> | null = null;
+  private destroyRef = inject(DestroyRef);
 
   constructor(
     @Inject(PLATFORM_ID) private platformId: Object,
@@ -25,30 +27,38 @@ export class SyncService {
   }
 
   private initSyncListener() {
-    this.networkService.getOnlineStatus().subscribe(isOnline => {
-      if (isOnline) {
-        this.syncOfflineData();
-      }
-    });
+    this.networkService.getOnlineStatus()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(isOnline => {
+        if (isOnline) {
+          this.syncOfflineData().catch(err => console.error('Sync failed', err));
+        }
+      });
   }
 
-  public async syncOfflineData() {
-    if (!this.isBrowser || this.isSyncing) return;
-    
+  public syncOfflineData(): Promise<void> {
+    if (!this.isBrowser) return Promise.resolve();
+    if (this.syncPromise) return this.syncPromise;
+
+    this.syncPromise = this.runSync().finally(() => {
+      this.syncPromise = null;
+    });
+    return this.syncPromise;
+  }
+
+  private async runSync(): Promise<void> {
     const items: SyncQueueItem[] = await this.dbService.getSyncQueue();
     if (items.length === 0) return;
 
-    this.isSyncing = true;
     let syncCount = 0;
-    
-    // Toast setup
+
     const Toast = Swal.mixin({
       toast: true,
       position: 'bottom-end',
       showConfirmButton: false,
       timerProgressBar: true,
     });
-    
+
     Toast.fire({
       icon: 'info',
       title: `Internet detectado. Sincronizando ${items.length} tarea(s) pendientes...`,
@@ -60,34 +70,52 @@ export class SyncService {
         await this.sendRequest(item);
         await this.dbService.removeFromSyncQueue(item.id!);
         syncCount++;
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error synchronizing item', item, error);
-        // Si el backend responde con error 400 (ej. validación), debemos alertar y borrarlo para no atorar la cola
-        if (error.status >= 400 && error.status < 500 && error.status !== 401) {
-            Swal.fire('Error de sincronización', `Una de las operaciones guardadas offline fue rechazada por el servidor: ${item.url}. Revisa tus datos e intenta nuevamente más tarde.`, 'error');
-            await this.dbService.removeFromSyncQueue(item.id!);
-        }
-        
-        // Si el token expiró (401), pausamos y pedimos reingreso para no perder información
-        if (error.status === 401) {
-            Swal.fire({
-              icon: 'warning',
-              title: 'Sesión Expirada',
-              text: 'Tu sesión expiró mientras estabas sin conexión. Inicia sesión nuevamente para guardar tus cambios pendientes.',
-              confirmButtonText: 'Entendido'
-            });
-            break; // Detenemos sincronización hasta nuevo aviso
+        const status = this.extractStatus(error);
+
+        if (status === 401) {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Sesión Expirada',
+            text: 'Tu sesión expiró mientras estabas sin conexión. Inicia sesión nuevamente para guardar tus cambios pendientes.',
+            confirmButtonText: 'Entendido'
+          });
+          break;
         }
 
-        // Si es 500 o 0 (se cayo la red de nuevo a medio camino), detenemos el sync.
-        if (error.status >= 500 || error.status === 0) {
-            break;
+        if (status >= 400 && status < 500) {
+          Swal.fire(
+            'Error de sincronización',
+            `Una operación guardada offline fue rechazada por el servidor (${status}): ${item.url}. Se descartó para no bloquear la cola.`,
+            'error'
+          );
+          await this.dbService.removeFromSyncQueue(item.id!);
+          continue;
         }
+
+        if (status >= 500 || status === 0) {
+          const retries = await this.dbService.incrementSyncQueueRetries(item.id!);
+          if (retries >= SYNC_QUEUE_MAX_RETRIES) {
+            Swal.fire(
+              'Sincronización fallida',
+              `Una operación falló ${retries} veces consecutivas y fue descartada: ${item.url}.`,
+              'error'
+            );
+            await this.dbService.removeFromSyncQueue(item.id!);
+            continue;
+          }
+          break;
+        }
+
+        const retries = await this.dbService.incrementSyncQueueRetries(item.id!);
+        if (retries >= SYNC_QUEUE_MAX_RETRIES) {
+          await this.dbService.removeFromSyncQueue(item.id!);
+        }
+        break;
       }
     }
 
-    this.isSyncing = false;
-    
     if (syncCount > 0) {
       Toast.fire({
         icon: 'success',
@@ -97,16 +125,25 @@ export class SyncService {
     }
   }
 
+  private extractStatus(error: unknown): number {
+    if (error instanceof HttpErrorResponse) return error.status;
+    if (error && typeof error === 'object' && 'status' in error) {
+      const s = (error as { status: unknown }).status;
+      return typeof s === 'number' ? s : 0;
+    }
+    return 0;
+  }
+
   private sendRequest(item: SyncQueueItem): Promise<any> {
-    const headers = new HttpHeaders(item.headers || {});
-    let bodyToSend;
+    const headers = new HttpHeaders(this.stripStaleHeaders(item.headers));
+    let bodyToSend: any;
     try {
       bodyToSend = this.deserializeBody(item.body);
     } catch (e) {
       console.error('Error deserializing body', e);
-      bodyToSend = item.body; // fallback
+      bodyToSend = item.body;
     }
-    
+
     switch (item.method) {
       case 'POST':
         return this.http.post(item.url, bodyToSend, { headers }).toPromise();
@@ -121,33 +158,48 @@ export class SyncService {
     }
   }
 
-  private deserializeBody(object: any): any {
-    if (object && object.isFormData) {
-      const formData = new FormData();
-      for (const key in object.fields) {
-        const field = object.fields[key];
-        if (field.type === 'file') {
-          const blob = this.base64ToBlob(field.data, field.mimeType);
-          // if it was a File originally, we can just append it as a Blob with filename
-          formData.append(key, blob, field.name);
-        } else {
-          formData.append(key, field.value);
-        }
-      }
-      return formData;
+  private stripStaleHeaders(headers: Record<string, string> | null | undefined): Record<string, string> {
+    if (!headers) return {};
+    const clean: Record<string, string> = {};
+    for (const key of Object.keys(headers)) {
+      if (key.toLowerCase() === 'authorization') continue;
+      clean[key] = headers[key];
     }
-    return object;
+    return clean;
+  }
+
+  private deserializeBody(object: any): any {
+    if (!object || typeof object !== 'object') return object;
+    if (!object.isFormData) return object;
+
+    const formData = new FormData();
+    for (const key in object.fields) {
+      const field = object.fields[key];
+      if (field?.type === 'file' && typeof field.data === 'string') {
+        const blob = this.base64ToBlob(field.data, field.mimeType ?? 'application/octet-stream');
+        formData.append(key, blob, field.name ?? 'blob');
+      } else {
+        formData.append(key, field?.value ?? '');
+      }
+    }
+    return formData;
   }
 
   private base64ToBlob(base64: string, mimeType: string): Blob {
+    if (!base64) return new Blob([], { type: mimeType });
     const splitIndex = base64.indexOf(',');
     const b64Data = splitIndex !== -1 ? base64.slice(splitIndex + 1) : base64;
-    const byteString = atob(b64Data);
-    const ab = new ArrayBuffer(byteString.length);
-    const ia = new Uint8Array(ab);
-    for (let i = 0; i < byteString.length; i++) {
+    try {
+      const byteString = atob(b64Data);
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) {
         ia[i] = byteString.charCodeAt(i);
+      }
+      return new Blob([ab], { type: mimeType });
+    } catch (e) {
+      console.error('base64ToBlob: invalid base64 data', e);
+      return new Blob([], { type: mimeType });
     }
-    return new Blob([ab], { type: mimeType });
   }
 }
