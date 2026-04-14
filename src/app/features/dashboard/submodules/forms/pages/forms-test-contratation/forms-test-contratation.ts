@@ -1705,82 +1705,184 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // Traductor Maestro de Errores Django -> Humano
-  private handleBackendError(err: any, fallbackMessage: string = 'Verifica los campos en rojo o intenta de nuevo.') {
+  private handleBackendError(err: any, fallbackMessage: string = 'Revisa los datos del formulario e intenta de nuevo.') {
     Swal.close(); // Cerramos el "Guardando..."
     console.error('Error de Backend Interceptado:', err);
 
-    let htmlMensaje = `<p style="text-align: left; font-size: 14px;">Hemos detectado un problema con tus datos:</p><ul style="text-align: left; font-size: 13px; color: #d32f2f;">`;
-    let foundSpecifics = false;
-
-    // Diccionario para traducir nombres técnicos de la BD a Español de usuario
-    const dictionary: any = {
-      'numero_documento': 'Número de Cédula',
-      'tipo_documento': 'Tipo de Documento',
-      'tipo_doc': 'Tipo de Documento',
-      'correo_electronico': 'Correo Electrónico',
-      'correo': 'Correo Electrónico',
-      'email': 'Correo Electrónico',
-      'password': 'Contraseña',
-      'fecha_nacimiento': 'Fecha de Nacimiento',
-      'fecha_expedicion': 'Fecha de Expedición',
-      'primer_nombre': 'Primer Nombre',
-      'segundo_nombre': 'Segundo Nombre',
-      'primer_apellido': 'Primer Apellido',
-      'segundo_apellido': 'Segundo Apellido',
-      'celular': 'Número de Celular',
-      'whatsapp': 'Número de WhatsApp',
-      'sexo': 'Género',
-      'estado_civil': 'Estado Civil',
-      'oficina': 'Oficina',
-      'contacto': 'Datos de Contacto',
-      'residencia': 'Datos de Residencia',
-      'non_field_errors': 'Error General',
-      'detail': 'Detalle'
+    // Nombres humanos de los campos (de técnico a lo que ve el usuario)
+    const campos: Record<string, string> = {
+      'numero_documento': 'el número de cédula',
+      'tipo_documento': 'el tipo de documento',
+      'tipo_doc': 'el tipo de documento',
+      'correo_electronico': 'el correo electrónico',
+      'correo': 'el correo electrónico',
+      'email': 'el correo electrónico',
+      'password': 'la contraseña',
+      'fecha_nacimiento': 'la fecha de nacimiento',
+      'fecha_expedicion': 'la fecha de expedición del documento',
+      'primer_nombre': 'el primer nombre',
+      'segundo_nombre': 'el segundo nombre',
+      'primer_apellido': 'el primer apellido',
+      'segundo_apellido': 'el segundo apellido',
+      'celular': 'el número de celular',
+      'whatsapp': 'el número de WhatsApp',
+      'telefono': 'el número de teléfono',
+      'sexo': 'el género',
+      'estado_civil': 'el estado civil',
+      'oficina': 'la oficina',
+      'contacto': 'los datos de contacto',
+      'residencia': 'los datos de residencia',
+      'experiencia': 'la experiencia laboral',
+      'hermanos': 'los hermanos',
+      'hijos': 'los hijos',
+      'familiares': 'los familiares',
+      'referencias': 'las referencias',
+      'estudios': 'los estudios',
+      'nombre': 'el nombre',
+      'apellido': 'el apellido',
+      'edad': 'la edad',
+      'direccion': 'la dirección',
+      'ciudad': 'la ciudad',
+      'departamento': 'el departamento',
+      'pais': 'el país',
+      'barrio': 'el barrio',
+      'parentesco': 'el parentesco',
+      'empresa': 'la empresa',
+      'cargo': 'el cargo',
+      'non_field_errors': 'los datos del formulario'
     };
 
-    const dictionaryErrors: any = {
-      'This field must be unique.': 'Este dato ya se encuentra registrado en nuestro sistema. Verifique que no se haya inscrito antes.',
-      'user with this correo electronico already exists.': 'Ya existe una persona registrada con este correo electrónico. Use otro correo.',
-      'This field may not be blank.': 'Este campo no puede estar vacío. Por favor llénelo.',
-      'This field is required.': 'Faltó llenar este campo. Es obligatorio.',
-      'Ensure this field has at least 8 characters.': 'La contraseña debe tener al menos 8 caracteres.',
-      'Enter a valid email address.': 'Ingrese un correo electrónico válido. Ej: nombre@gmail.com',
-      'A valid integer is required.': 'Se requiere un número válido (sin letras ni símbolos).',
-      'This field must be unique for the given tipo_doc.': 'Ya existe un registro con este tipo y número de documento.',
+    // Mensajes del backend traducidos a frases humanas
+    const traducciones: Array<{ re: RegExp; msg: string }> = [
+      { re: /this field must be unique/i, msg: 'ya está registrado en el sistema. Revise si usted (o alguien) ya se inscribió antes.' },
+      { re: /user with this .* already exists/i, msg: 'ya existe una persona registrada con este dato. Use otro.' },
+      { re: /this field must be unique for the given/i, msg: 'ya existe un registro con este tipo y número de documento.' },
+      { re: /this field may not be blank/i, msg: 'no puede quedar vacío. Por favor llénelo.' },
+      { re: /this field may not be null/i, msg: 'es obligatorio. Por favor llénelo.' },
+      { re: /this field is required/i, msg: 'es obligatorio. Falta llenarlo.' },
+      { re: /ensure this field has at least (\d+) characters/i, msg: 'es demasiado corto.' },
+      { re: /ensure this field has no more than (\d+) characters/i, msg: 'es demasiado largo.' },
+      { re: /enter a valid email/i, msg: 'no tiene el formato correcto. Ejemplo: nombre@gmail.com' },
+      { re: /a valid integer is required/i, msg: 'debe ser un número (sin letras ni símbolos).' },
+      { re: /a valid number is required/i, msg: 'debe ser un número válido.' },
+      { re: /date has wrong format/i, msg: 'tiene un formato de fecha incorrecto. Use año-mes-día, ejemplo: 2025-01-15.' },
+      { re: /is not a valid choice/i, msg: 'tiene un valor no permitido. Seleccione una opción de la lista.' },
+      { re: /invalid password/i, msg: 'no es válida.' },
+    ];
+
+    const traducirMensaje = (msg: any): string => {
+      const t = typeof msg === 'string' ? msg.trim() : String(msg ?? '').trim();
+      if (!t) return 'tiene un error.';
+      for (const { re, msg: human } of traducciones) {
+        if (re.test(t)) return human;
+      }
+      return t;
     };
 
-    const errorObj = err?.error || err;
-
-    if (errorObj && typeof errorObj === 'object' && !errorObj.message) {
-      for (const [key, value] of Object.entries(errorObj)) {
-        if (Array.isArray(value)) {
-          const humanKey = dictionary[key] || key;
-          const translatedErrs = value.map((v: any) => dictionaryErrors[v] || v).join(', ');
-          htmlMensaje += `<li><b>${humanKey}:</b> ${translatedErrs}</li>`;
-          foundSpecifics = true;
-        } else if (typeof value === 'string') {
-          const humanKey = dictionary[key] || key;
-          htmlMensaje += `<li><b>${humanKey}:</b> ${dictionaryErrors[value] || value}</li>`;
-          foundSpecifics = true;
+    // Convierte una "ruta" de campo en frase: ['hermanos','1','nombre'] -> 'en el hermano 2, el nombre'
+    const rutaAFrase = (path: string[]): string => {
+      if (path.length === 0) return '';
+      const partes: string[] = [];
+      for (let i = 0; i < path.length; i++) {
+        const seg = path[i];
+        if (/^\d+$/.test(seg)) {
+          const anterior = path[i - 1];
+          const nombreItem = anterior && campos[anterior]
+            ? campos[anterior].replace(/^(los |las |el |la )/, '').replace(/s$/, '')
+            : 'elemento';
+          partes.push(`en el ${nombreItem} ${Number(seg) + 1}`);
+        } else {
+          partes.push(campos[seg] || seg.replace(/_/g, ' '));
         }
       }
+      return partes.join(', ');
+    };
+
+    // Aplana recursivamente la estructura de errores DRF
+    const aplanar = (node: any, path: string[] = [], acc: Array<{ campo: string; mensaje: string }> = []) => {
+      if (node == null) return acc;
+
+      if (Array.isArray(node)) {
+        node.forEach((child, idx) => {
+          if (typeof child === 'string') {
+            acc.push({ campo: rutaAFrase(path), mensaje: traducirMensaje(child) });
+          } else {
+            aplanar(child, [...path, String(idx)], acc);
+          }
+        });
+        return acc;
+      }
+
+      if (typeof node === 'object') {
+        for (const [key, value] of Object.entries(node)) {
+          // Ignorar metadatos al nivel raíz
+          if (path.length === 0 && (key === 'detail' || key === 'ok' || key === 'success' || key === 'status_code' || key === 'message')) {
+            continue;
+          }
+          aplanar(value, [...path, key], acc);
+        }
+        return acc;
+      }
+
+      if (typeof node === 'string') {
+        acc.push({ campo: rutaAFrase(path), mensaje: traducirMensaje(node) });
+      }
+      return acc;
+    };
+
+    const rawBody = err?.error ?? err;
+    const errorsNode = (rawBody && typeof rawBody === 'object' && rawBody.errors !== undefined)
+      ? rawBody.errors
+      : rawBody;
+
+    const problemas = aplanar(errorsNode);
+
+    // Capitaliza la primera letra de una frase
+    const cap = (s: string) => s.length ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+
+    let htmlMensaje = '';
+
+    if (problemas.length > 0) {
+      htmlMensaje += `<p style="text-align:left;font-size:15px;margin:0 0 10px 0;">Por favor revisa lo siguiente y vuelve a intentar:</p>`;
+      htmlMensaje += `<ul style="text-align:left;font-size:14px;color:#b71c1c;padding-left:22px;margin:0;line-height:1.5;">`;
+      for (const { campo, mensaje } of problemas) {
+        const frase = campo
+          ? `${cap(campo)} ${mensaje}`
+          : cap(mensaje);
+        htmlMensaje += `<li style="margin-bottom:6px;">${frase}</li>`;
+      }
+      htmlMensaje += `</ul>`;
+    } else {
+      // Sin detalles por campo → mensaje simple
+      let simpleMsg: string;
+      if (err?.status === 0) {
+        simpleMsg = 'No se pudo conectar con el servidor. Revisa tu conexión a internet y vuelve a intentar.';
+      } else if (err?.status === 401) {
+        simpleMsg = 'Tu sesión expiró. Cierra y vuelve a iniciar sesión.';
+      } else if (err?.status === 403) {
+        simpleMsg = 'No tienes permisos para realizar esta acción.';
+      } else if (err?.status === 404) {
+        simpleMsg = 'No se encontró la información solicitada.';
+      } else if (err?.status >= 500) {
+        simpleMsg = 'El servidor está teniendo problemas. Espera un momento y vuelve a intentar.';
+      } else {
+        const msgCrudo = (rawBody && typeof rawBody === 'object' ? (rawBody.detail || rawBody.message) : null)
+          || err?.message
+          || fallbackMessage;
+        simpleMsg = traducirMensaje(msgCrudo);
+      }
+      htmlMensaje = `<p style="text-align:left;font-size:15px;margin:0;">${simpleMsg}</p>`;
     }
 
-    htmlMensaje += `</ul>`;
-
-    // Si el error era un mensaje de texto simple (excepción limpia)
-    if (!foundSpecifics) {
-      const simpleMsg = err.error?.message || err.error?.detail || err.message || fallbackMessage;
-      const translated = dictionaryErrors[simpleMsg] || simpleMsg;
-      htmlMensaje = `<p>${translated}</p><p style="font-size:12px;color:#888;margin-top:8px;">Si el problema persiste, contacte a soporte con su número de cédula.</p>`;
-    }
+    htmlMensaje += `<p style="font-size:12px;color:#888;margin-top:14px;text-align:left;">Si el problema continúa, comuníquese con soporte${this.numeroCedula ? ` con su cédula: <b>${this.numeroCedula}</b>` : ''}.</p>`;
 
     Swal.fire({
       icon: 'error',
       title: 'No se pudo guardar',
       html: htmlMensaje,
       confirmButtonText: 'Entendido',
-      confirmButtonColor: '#111827'
+      confirmButtonColor: '#111827',
+      width: 520
     });
   }
 
@@ -1943,8 +2045,11 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
         next: (res: any) => {
           if (res?.offline === true) {
             Swal.fire({
-              icon: 'info', title: 'Sin conexión',
-              html: 'Sus datos se guardaron localmente. <b>Su cuenta de acceso se creará cuando vuelva la conexión.</b>',
+              icon: 'info',
+              title: 'Sin conexión a internet',
+              html: `Sus datos del formulario quedaron guardados en este dispositivo.<br><br>
+                     <b>Su cuenta de acceso se creará automáticamente</b> cuando vuelva la conexión a internet.<br><br>
+                     Puede seguir llenando el resto del formulario con tranquilidad.`,
               confirmButtonColor: '#111827'
             });
             return;
@@ -1956,37 +2061,87 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           const errBody = err?.error;
           console.warn('[createUser] Registro falló (status ' + status + '):', errBody);
 
-          if (status !== 400 || !errBody || typeof errBody !== 'object') {
+          // Sin conexión con el servidor
+          if (status === 0) {
             Swal.fire({
-              icon: 'warning', title: 'Aviso sobre su cuenta',
-              html: `No se pudo crear su cuenta de acceso (Error ${status || 'de red'}). <b>Sus datos del formulario sí se guardaron.</b><br>Contacte a la oficina si tiene problemas para ingresar.`,
-              confirmButtonColor: '#111827'
+              icon: 'warning',
+              title: 'No hay conexión con el servidor',
+              html: `<p style="text-align:left;">Sus datos del formulario <b>sí se guardaron correctamente</b>.</p>
+                     <p style="text-align:left;">Pero no pudimos crear su cuenta de acceso porque no hay conexión a internet en este momento.</p>
+                     <p style="text-align:left;">Continúe llenando el formulario. Si al terminar todavía tiene problemas para ingresar, comuníquese con la oficina con su cédula: <b>${numeroCedula}</b>.</p>`,
+              confirmButtonText: 'Entendido',
+              confirmButtonColor: '#111827',
+              width: 520
             });
             return;
           }
 
-          // Analizar QUÉ campo está duplicado
+          // El servidor respondió pero tiene problemas
+          if (status >= 500) {
+            Swal.fire({
+              icon: 'warning',
+              title: 'El servidor tiene un problema',
+              html: `<p style="text-align:left;">Sus datos del formulario <b>sí se guardaron correctamente</b>.</p>
+                     <p style="text-align:left;">No pudimos crear su cuenta de acceso porque el servidor no está respondiendo bien en este momento.</p>
+                     <p style="text-align:left;">Espere unos minutos y, si todavía tiene problemas para ingresar, comuníquese con la oficina con su cédula: <b>${numeroCedula}</b>.</p>`,
+              confirmButtonText: 'Entendido',
+              confirmButtonColor: '#111827',
+              width: 520
+            });
+            return;
+          }
+
+          // 401/403: problemas de permisos (no debería pasar con /auth/register pero por si acaso)
+          if (status === 401 || status === 403) {
+            Swal.fire({
+              icon: 'warning',
+              title: 'No tenemos permisos para crear la cuenta',
+              html: `<p style="text-align:left;">Sus datos del formulario <b>sí se guardaron correctamente</b>.</p>
+                     <p style="text-align:left;">Pero no pudimos crear su cuenta de acceso. Comuníquese con la oficina con su cédula: <b>${numeroCedula}</b> para que lo ayuden.</p>`,
+              confirmButtonText: 'Entendido',
+              confirmButtonColor: '#111827',
+              width: 520
+            });
+            return;
+          }
+
+          // Error inesperado sin cuerpo JSON
+          if (status !== 400 || !errBody || typeof errBody !== 'object') {
+            Swal.fire({
+              icon: 'warning',
+              title: 'No se pudo crear su cuenta',
+              html: `<p style="text-align:left;">Sus datos del formulario <b>sí se guardaron correctamente</b>.</p>
+                     <p style="text-align:left;">Ocurrió un problema inesperado al crear su cuenta de acceso.</p>
+                     <p style="text-align:left;">Comuníquese con la oficina con su cédula: <b>${numeroCedula}</b>.</p>`,
+              confirmButtonText: 'Entendido',
+              confirmButtonColor: '#111827',
+              width: 520
+            });
+            return;
+          }
+
+          // Error 400: analizar QUÉ campo falló
           const docErr = JSON.stringify(errBody.numero_de_documento || '').toLowerCase();
           const emailErr = JSON.stringify(errBody.correo_electronico || '').toLowerCase();
           const isDocDuplicate = docErr.includes('ya registrado') || docErr.includes('unique') || docErr.includes('already exists');
           const isEmailDuplicate = emailErr.includes('ya registrado') || emailErr.includes('unique') || emailErr.includes('already exists');
 
-          // CASO 1: Documento duplicado (el mismo usuario ya existe) → actualizar
+          // CASO 1: El documento ya existe → significa que es la MISMA persona intentando volver a registrarse. Actualizamos sus datos.
           if (isDocDuplicate) {
             console.log('[createUser] Documento duplicado → actualizar usuario existente');
             this.updateExistingUserByDoc(apiUrl, numeroCedula, correo, password, raw, isEmailDuplicate);
             return;
           }
 
-          // CASO 2: Solo correo duplicado (OTRA persona tiene ese correo) → mostrar quién
+          // CASO 2: Solo el correo está duplicado (OTRA persona distinta lo tiene) → mostrar quién
           if (isEmailDuplicate) {
             console.log('[createUser] Correo duplicado por otra persona');
             this.showEmailOwner(correo, numeroCedula);
             return;
           }
 
-          // CASO 3: Otro error de validación (password corto, rol inválido, etc.)
-          this.showUserCreationError(errBody);
+          // CASO 3: Otro error de validación (password corto, formato inválido, etc.)
+          this.showUserCreationError(errBody, numeroCedula);
         }
       });
   }
@@ -1995,76 +2150,150 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
    * Busca quién tiene el correo duplicado y le muestra al usuario.
    * Usa el endpoint público validar-correo-cedula que no requiere auth.
    */
-  private async showEmailOwner(correo: string, cedulaActual: string): Promise<void> {
+  /**
+   * Consulta al backend si el correo pertenece a otra cédula distinta a `cedulaActual`.
+   * Retorna { ownedByOther: true, info } si pertenece a otra persona, o null si no.
+   */
+  private async comprobarDuenoCorreo(correo: string, cedulaActual: string): Promise<{ ownedByOther: boolean; info: any } | null> {
     try {
       const check: any = await firstValueFrom(this.candidateS.validarCorreoCedula(correo, cedulaActual));
       if (check?.duplicado_info) {
         const info = check.duplicado_info;
-        Swal.fire({
-          icon: 'error',
-          title: 'Correo en uso por otra persona',
-          html: `El correo <b>${correo}</b> ya está registrado por:<br><br>
-                 <b>${info.nombres || ''} ${info.apellidos || ''}</b><br>
-                 Documento: <b>${info.documento || 'N/A'}</b><br><br>
-                 Debe usar un correo electrónico diferente. Vuelva al <b>Paso 1</b> y cámbielo.`,
-          confirmButtonColor: '#111827'
-        });
-      } else {
-        Swal.fire({
-          icon: 'error',
-          title: 'Correo ya registrado',
-          html: `El correo <b>${correo}</b> ya está en uso por otra persona.<br><br>
-                 Debe usar un correo electrónico diferente. Vuelva al <b>Paso 1</b> y cámbielo.`,
-          confirmButtonColor: '#111827'
-        });
+        const docOtro = String(info.documento || '').replace(/\D/g, '').trim();
+        const docActual = String(cedulaActual || '').replace(/\D/g, '').trim();
+        // Solo marcar como "de otra persona" si las cédulas son distintas
+        if (docOtro && docActual && docOtro !== docActual) {
+          return { ownedByOther: true, info };
+        }
       }
-    } catch {
+      // Fallback: si el backend solo dice 'correo_repetido' sin info, asumimos que es de otro
+      if (check?.correo_repetido && !check?.duplicado_info) {
+        return { ownedByOther: true, info: null };
+      }
+      return null;
+    } catch (e) {
+      console.warn('[comprobarDuenoCorreo] No se pudo validar:', e);
+      return null;
+    }
+  }
+
+  /** Muestra el modal del dueño del correo cuando YA tenemos la info del backend */
+  private showEmailOwnerWithInfo(correo: string, cedulaActual: string, info: any): void {
+    if (info) {
+      const nombreCompleto = `${info.nombres || ''} ${info.apellidos || ''}`.trim() || 'otra persona';
       Swal.fire({
         icon: 'error',
-        title: 'Correo ya registrado',
-        html: `El correo <b>${correo}</b> ya está en uso.<br>Use un correo diferente en el <b>Paso 1</b>.`,
-        confirmButtonColor: '#111827'
+        title: 'Ese correo pertenece a otra cédula',
+        html: `<p style="text-align:left;">El correo <b>${correo}</b> ya está registrado, pero <b>bajo otra cédula distinta a la suya</b>.</p>
+               <p style="text-align:left;">Está registrado a nombre de:</p>
+               <p style="text-align:left;background:#f5f5f5;padding:12px;border-radius:6px;margin:10px 0;">
+                 <b>${nombreCompleto}</b><br>
+                 Cédula: <b>${info.documento || 'no disponible'}</b>
+               </p>
+               <p style="text-align:left;"><b>No podemos continuar</b> con su registro usando ese correo.</p>
+               <p style="text-align:left;">Por favor, <b>vuelva al Paso 1 y escriba un correo electrónico diferente</b> (por ejemplo, el suyo personal que nadie más use).</p>
+               <p style="font-size:12px;color:#888;margin-top:12px;text-align:left;">Si esa persona es usted y ya tiene cuenta, comuníquese con la oficina para recuperar su contraseña en vez de crear una nueva.</p>`,
+        confirmButtonText: 'Entendido, voy a cambiarlo',
+        confirmButtonColor: '#111827',
+        width: 540
+      });
+    } else {
+      // El backend dice que está duplicado pero no nos da los datos del dueño
+      Swal.fire({
+        icon: 'error',
+        title: 'Ese correo pertenece a otra cédula',
+        html: `<p style="text-align:left;">El correo <b>${correo}</b> ya está registrado <b>bajo otra cédula distinta a la suya</b>.</p>
+               <p style="text-align:left;"><b>No podemos continuar</b> con su registro usando ese correo.</p>
+               <p style="text-align:left;"><b>Vuelva al Paso 1 y use un correo electrónico diferente</b> (por ejemplo, el suyo personal que nadie más use).</p>
+               <p style="font-size:12px;color:#888;margin-top:12px;text-align:left;">Si usted ya tiene cuenta con ese correo, comuníquese con la oficina para recuperar su contraseña${cedulaActual ? ` (su cédula: <b>${cedulaActual}</b>)` : ''}.</p>`,
+        confirmButtonText: 'Entendido, voy a cambiarlo',
+        confirmButtonColor: '#111827',
+        width: 540
       });
     }
   }
 
-  /** Muestra error específico de la creación de usuario al usuario final */
-  private showUserCreationError(errBody: any): void {
-    const fieldNames: any = {
-      'numero_de_documento': 'Número de Documento',
-      'correo_electronico': 'Correo Electrónico',
-      'password': 'Contraseña',
-      'tipo_documento': 'Tipo de Documento',
-      'nombres': 'Nombres',
-      'apellidos': 'Apellidos',
-      'celular': 'Celular',
-      'rol': 'Rol (configuración interna)',
-      'non_field_errors': 'Error General',
-      'detail': 'Detalle',
+  /** Consulta al backend y muestra al dueño del correo. NO actualiza nada. */
+  private async showEmailOwner(correo: string, cedulaActual: string): Promise<void> {
+    const ownerInfo = await this.comprobarDuenoCorreo(correo, cedulaActual);
+    this.showEmailOwnerWithInfo(correo, cedulaActual, ownerInfo?.info ?? null);
+  }
+
+  /** Muestra al usuario final los errores específicos al crear su cuenta de acceso */
+  private showUserCreationError(errBody: any, cedula: string): void {
+    const campos: Record<string, string> = {
+      'numero_de_documento': 'el número de documento',
+      'correo_electronico': 'el correo electrónico',
+      'password': 'la contraseña',
+      'tipo_documento': 'el tipo de documento',
+      'nombres': 'los nombres',
+      'apellidos': 'los apellidos',
+      'celular': 'el número de celular',
+      'rol': 'el rol de usuario',
+      'non_field_errors': 'los datos de la cuenta',
+      'detail': 'los datos'
     };
-    const errMsgs: any = {
-      'This field must be unique.': 'ya está registrado',
-      'Ensure this field has at least 8 characters.': 'debe tener mínimo 8 caracteres',
-      'This field may not be blank.': 'no puede estar vacío',
-      'This field is required.': 'es obligatorio',
-      'Enter a valid email address.': 'no es un correo válido',
-      'numero_de_documento ya registrado': 'ya está registrado',
-      'correo_electronico ya registrado': 'ya está en uso por otra persona',
+
+    const traducciones: Array<{ re: RegExp; msg: string }> = [
+      { re: /ya registrado/i, msg: 'ya está registrado en el sistema.' },
+      { re: /this field must be unique/i, msg: 'ya está registrado en el sistema.' },
+      { re: /already exists/i, msg: 'ya está registrado en el sistema.' },
+      { re: /ensure this field has at least (\d+) characters/i, msg: 'es demasiado corto. Debe tener al menos $1 caracteres.' },
+      { re: /ensure this field has no more than (\d+) characters/i, msg: 'es demasiado largo.' },
+      { re: /this field may not be blank/i, msg: 'no puede estar vacío. Por favor llénelo.' },
+      { re: /this field may not be null/i, msg: 'es obligatorio. Por favor llénelo.' },
+      { re: /this field is required/i, msg: 'es obligatorio. Falta llenarlo.' },
+      { re: /enter a valid email/i, msg: 'no tiene el formato correcto. Debe ser algo como nombre@gmail.com' },
+      { re: /is not a valid choice/i, msg: 'tiene un valor no permitido.' },
+      { re: /a valid integer is required/i, msg: 'debe ser solo números.' },
+    ];
+
+    const traducir = (msg: any, cedulaContext: string): string => {
+      const t = String(msg ?? '').trim();
+      if (!t) return 'tiene un error.';
+      for (const { re, msg: human } of traducciones) {
+        if (re.test(t)) return t.replace(re, human);
+      }
+      return t;
     };
+
+    const cap = (s: string) => s.length ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 
     let items = '';
     for (const [key, msgs] of Object.entries(errBody)) {
-      const label = fieldNames[key] || key;
-      const msgList = Array.isArray(msgs) ? msgs : [msgs];
-      const translated = msgList.map((m: any) => errMsgs[m] || m).join(', ');
-      items += `<li><b>${label}:</b> ${translated}</li>`;
+      if (key === 'detail' && typeof msgs === 'string' && !Object.keys(errBody).some(k => k !== 'detail')) {
+        // si el único campo es 'detail', lo tratamos como mensaje simple
+        items += `<li style="margin-bottom:6px;">${cap(traducir(msgs, cedula))}</li>`;
+        continue;
+      }
+      if (key === 'detail') continue;
+
+      const label = campos[key] || key.replace(/_/g, ' ');
+      const arr = Array.isArray(msgs) ? msgs : [msgs];
+      const traducciones_campo = arr.map(m => traducir(m, cedula)).join(' ');
+      items += `<li style="margin-bottom:6px;">${cap(label)} ${traducciones_campo}</li>`;
+    }
+
+    if (!items) {
+      items = `<li>No pudimos identificar exactamente qué falló. Comuníquese con la oficina para ayuda.</li>`;
     }
 
     Swal.fire({
-      icon: 'error',
-      title: 'No se pudo crear la cuenta',
-      html: `<p>Problema creando su cuenta de acceso:</p><ul style="text-align:left;font-size:13px;">${items}</ul><p style="font-size:12px;color:#888;">Sus datos del formulario sí se guardaron. Corrija el problema o contacte a la oficina.</p>`,
-      confirmButtonColor: '#111827'
+      icon: 'warning',
+      title: 'No se pudo crear su cuenta de acceso',
+      html: `<p style="text-align:left;font-size:14px;margin:0 0 6px 0;">
+               Sus datos del formulario <b>sí se guardaron correctamente</b>.
+             </p>
+             <p style="text-align:left;font-size:14px;margin:0 0 10px 0;">
+               Pero al crear su cuenta de acceso encontramos estos problemas:
+             </p>
+             <ul style="text-align:left;font-size:14px;color:#b71c1c;padding-left:22px;margin:0;line-height:1.5;">${items}</ul>
+             <p style="font-size:12px;color:#888;margin-top:14px;text-align:left;">
+               Si el problema continúa, comuníquese con la oficina con su cédula: <b>${cedula}</b>.
+             </p>`,
+      confirmButtonText: 'Entendido',
+      confirmButtonColor: '#111827',
+      width: 520
     });
   }
 
@@ -2085,10 +2314,20 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     };
     if (g('numCelular')) patchPayload.celular = g('numCelular');
 
+    // Verificar SIEMPRE si el correo pertenece a otra cédula antes de tocar nada.
+    // Si es de otra persona -> mostrar dueño y NO actualizar.
+    const ownerInfo = await this.comprobarDuenoCorreo(correo, cedula);
+    if (ownerInfo?.ownedByOther) {
+      this.showEmailOwnerWithInfo(correo, cedula, ownerInfo.info);
+      return;
+    }
+
     try {
-      // Buscar usuario por cédula
+      // Buscar el usuario existente por cédula
       const cleanCedula = String(cedula).replace(/\D/g, '').trim();
       let userToUpdate: any = null;
+      let authBlocked = false;
+      let networkProblem = false;
 
       for (const doc of [cleanCedula, cedula]) {
         if (userToUpdate || !doc) continue;
@@ -2098,54 +2337,131 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           if (list.length > 0) userToUpdate = list[0];
         } catch (e: any) {
           if (e?.status === 401 || e?.status === 403) {
-            console.warn('[updateUser] Sin permisos para buscar. El usuario existe pero no podemos actualizarlo sin auth.');
-            Swal.fire({
-              icon: 'info', title: 'Usuario ya registrado',
-              html: `Ya existe una cuenta con el documento <b>${cedula}</b>. Sus datos del formulario se guardaron. Si olvidó su contraseña, contacte a la oficina.`,
-              confirmButtonColor: '#111827'
-            });
-            return;
+            authBlocked = true;
+            break;
+          }
+          if (e?.status === 0) {
+            networkProblem = true;
+            break;
           }
         }
       }
 
-      if (!userToUpdate) {
-        console.warn('[updateUser] Documento reportado como duplicado pero no se encontró el usuario.');
+      // Caso: existe usuario con esa cédula pero no tenemos permisos para verlo
+      // (el candidato no está logueado, lo cual es normal en este flujo público).
+      if (authBlocked) {
+        console.warn('[updateUser] Sin permisos para buscar usuario existente.');
         Swal.fire({
-          icon: 'warning', title: 'Aviso',
-          html: 'Su documento ya está registrado pero no pudimos actualizar su cuenta. Contacte a la oficina.',
-          confirmButtonColor: '#111827'
+          icon: 'info',
+          title: 'Usted ya tiene una cuenta registrada',
+          html: `<p style="text-align:left;">Ya existe una cuenta con la cédula <b>${cedula}</b>.</p>
+                 <p style="text-align:left;">Sus datos del formulario <b>se guardaron correctamente</b>.</p>
+                 <p style="text-align:left;">Si no recuerda su contraseña o tiene problemas para ingresar, comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#111827',
+          width: 520
         });
         return;
       }
 
-      // Intentar actualizar
+      if (networkProblem) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Sin conexión con el servidor',
+          html: `<p style="text-align:left;">Sus datos del formulario <b>sí se guardaron</b>.</p>
+                 <p style="text-align:left;">No pudimos actualizar su cuenta de acceso porque se perdió la conexión a internet.</p>
+                 <p style="text-align:left;">Si al terminar el formulario todavía tiene problemas para ingresar, comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#111827',
+          width: 520
+        });
+        return;
+      }
+
+      if (!userToUpdate) {
+        console.warn('[updateUser] El backend dijo que la cédula ya estaba, pero no la encontramos.');
+        Swal.fire({
+          icon: 'warning',
+          title: 'Su cuenta necesita revisión',
+          html: `<p style="text-align:left;">Sus datos del formulario <b>sí se guardaron correctamente</b>.</p>
+                 <p style="text-align:left;">Pero hubo un problema actualizando su cuenta de acceso.</p>
+                 <p style="text-align:left;">Comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#111827',
+          width: 520
+        });
+        return;
+      }
+
+      // Intentamos actualizar la cuenta existente
       try {
         await firstValueFrom(this.http.patch(`${apiUrl}/gestion_admin/usuarios/${userToUpdate.id}/`, patchPayload));
         console.log('[updateUser] Usuario actualizado OK:', userToUpdate.id);
+        Swal.fire({
+          icon: 'success',
+          title: 'Su cuenta fue actualizada',
+          html: `<p style="text-align:left;">Ya teníamos registrada la cédula <b>${cedula}</b>.</p>
+                 <p style="text-align:left;">Actualizamos sus datos de acceso con la información más reciente.</p>
+                 <p style="text-align:left;">Puede ingresar con:</p>
+                 <p style="text-align:left;background:#f5f5f5;padding:10px;border-radius:6px;margin:10px 0;">
+                   <b>Correo:</b> ${correo}<br>
+                   <b>Contraseña:</b> su número de cédula
+                 </p>`,
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#111827',
+          width: 520,
+          timer: 6000,
+          timerProgressBar: true
+        });
       } catch (patchErr: any) {
+        const patchStatus = patchErr?.status;
         const patchBody = patchErr?.error;
         const patchEmailErr = JSON.stringify(patchBody?.correo_electronico || '').toLowerCase();
 
-        // Si el PATCH falla porque el correo pertenece a OTRA persona
+        // El correo pertenece a OTRA persona distinta → ya lo detectamos al principio normalmente,
+        // pero puede ocurrir si se creó entre medias. Avisar.
         if (patchEmailErr.includes('ya registrado') || patchEmailErr.includes('unique')) {
           this.showEmailOwner(correo, cedula);
           return;
         }
 
+        if (patchStatus === 401 || patchStatus === 403) {
+          Swal.fire({
+            icon: 'info',
+            title: 'Usted ya tiene una cuenta registrada',
+            html: `<p style="text-align:left;">Ya existe una cuenta con la cédula <b>${cedula}</b>.</p>
+                   <p style="text-align:left;">Sus datos del formulario <b>se guardaron correctamente</b>.</p>
+                   <p style="text-align:left;">Si no recuerda su contraseña, comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#111827',
+            width: 520
+          });
+          return;
+        }
+
         console.error('[updateUser] PATCH falló:', patchBody);
         Swal.fire({
-          icon: 'warning', title: 'Cuenta no actualizada',
-          html: 'Su documento ya está registrado pero no se pudo actualizar la cuenta. <b>Sus datos del formulario sí se guardaron.</b> Contacte a la oficina.',
-          confirmButtonColor: '#111827'
+          icon: 'warning',
+          title: 'Su cuenta no pudo actualizarse',
+          html: `<p style="text-align:left;">Sus datos del formulario <b>sí se guardaron correctamente</b>.</p>
+                 <p style="text-align:left;">Pero no pudimos actualizar su cuenta de acceso en este momento.</p>
+                 <p style="text-align:left;">Comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#111827',
+          width: 520
         });
       }
     } catch (err: any) {
       console.error('[updateUser] Error general:', err);
       Swal.fire({
-        icon: 'warning', title: 'Aviso sobre su cuenta',
-        html: 'Hubo un problema con su cuenta de acceso. <b>Sus datos del formulario sí se guardaron.</b> Contacte a la oficina.',
-        confirmButtonColor: '#111827'
+        icon: 'warning',
+        title: 'Problema con su cuenta de acceso',
+        html: `<p style="text-align:left;">Sus datos del formulario <b>sí se guardaron correctamente</b>.</p>
+               <p style="text-align:left;">Ocurrió un problema inesperado con su cuenta de acceso.</p>
+               <p style="text-align:left;">Comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#111827',
+        width: 520
       });
     }
   }
