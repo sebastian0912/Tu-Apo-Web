@@ -237,7 +237,7 @@ export class RegistroProcesoContratacion {
 
 
   formulario_vacantes(datos: any): Observable<any> {
-    const url = `${this.apiUrl}/contratacion/subirParte2`;
+    const url = `${this.apiUrl}/gestion_contratacion/subirParte2`;
     return this.http.post(url, datos);
   }
 

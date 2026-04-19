@@ -23,14 +23,14 @@ export class CandidateS {
 
   // Buscar en contratacion por cedula para sacar los numeros
   public buscarEncontratacion(cedula: any): Observable<any> {
-    return this.http.get(`${this.apiUrl}/contratacion/traerNombreCompletoCandidatoSin/${cedula}`, {}).pipe(
+    return this.http.get(`${this.apiUrl}/gestion_contratacion/traerNombreCompletoCandidatoSin/${cedula}`, {}).pipe(
       map((response: any) => response),
       catchError(this.handleError)
     );
   }
 
   buscarCandidatoPorCedula(cedula: string): Observable<any> {
-    const url = `${this.apiUrl}/contratacion/buscarCandidato/${cedula}`;
+    const url = `${this.apiUrl}/gestion_contratacion/buscarCandidato/${cedula}`;
     return this.http.get(url);
   }
 
@@ -38,7 +38,7 @@ export class CandidateS {
   public validarCorreoCedula(correo: string, cedula: string): Observable<any> {
     const params = { cedula, correo };  // Asegurarse de que están en el orden correcto
 
-    return this.http.get(`${this.apiUrl}/contratacion/validar-correo-cedula/`, { params }).pipe(
+    return this.http.get(`${this.apiUrl}/gestion_contratacion/validar-correo-cedula/`, { params }).pipe(
       map((response: any) => response),
       catchError(this.handleError)
     );
@@ -53,7 +53,7 @@ export class CandidateS {
   }
 
   formulario_vacantes(datos: any): Observable<any> {
-    const url = `${this.apiUrl}/contratacion/subirParte2`;
+    const url = `${this.apiUrl}/gestion_contratacion/subirParte2`;
     return this.http.post(url, datos);
   }
 
@@ -106,7 +106,7 @@ export class CandidateS {
   }
 
   subirFirmaBase64(pk: number | string, firmaBase64: string): Observable<UploadFotoResponse> {
-    const url = `${this.apiUrl}/contratacion/candidatos/${pk}/firma-solicitante/`;
+    const url = `${this.apiUrl}/gestion_contratacion/candidatos/${pk}/firma-solicitante/`;
     const body = { firma_base64: firmaBase64 };
     // Sin headers explícitos: HttpClient envía JSON por defecto
     return this.http.post<UploadFotoResponse>(url, body);
