@@ -39,14 +39,6 @@ export class CandidateS {
     );
   }
 
-  // --- Guardar Información Personal ---
-  public guardarInfoPersonal(data: any): Observable<any> {
-    return this.http.post(`${this.apiUrl}/entrevista/info-personal/`, data, {}).pipe(
-      map((response: any) => response),
-      catchError(this.handleError)
-    );
-  }
-
   formulario_vacantes(datos: any): Observable<any> {
     const url = `${this.apiUrl}/gestion_contratacion/subirParte2`;
     return this.http.post(url, datos);
