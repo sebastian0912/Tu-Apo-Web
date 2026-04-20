@@ -45,7 +45,7 @@
     "@angular/build": "^21.2.6",
     "@angular/cli": "^21.2.6",
     "@angular/compiler-cli": "^21.2.7",
-    "@angular/pwa": "^20.0.4",
+    "@angular/pwa": "^21.2.6",
     "@types/express": "^5.0.1",
     "@types/jasmine": "~5.1.0",
     "@types/leaflet": "^1.9.21",
