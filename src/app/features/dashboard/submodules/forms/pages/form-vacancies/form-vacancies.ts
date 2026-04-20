@@ -9,6 +9,7 @@ import Swal from 'sweetalert2';
 import { degrees, PDFCheckBox, PDFDocument, PDFTextField, rgb, StandardFonts } from 'pdf-lib';
 import { DocumentManagementS } from '../../../../../../shared/services/document-management-s/document-management-s';
 import { CandidateS } from '../../../../../../shared/services/candidate-s/candidate-s';
+import { RegistroProcesoContratacion } from '../../services/registro-proceso-contratacion/registro-proceso-contratacion';
 import { PoliciesModal } from '../../components/policies-modal/policies-modal';
 import { ActivatedRoute } from '@angular/router';
 
@@ -86,6 +87,7 @@ export class FormVacancies {
     private dialog: MatDialog,
     private gestionDocumentosService: DocumentManagementS,
     private candidateS: CandidateS,
+    private registroProcesoContratacion: RegistroProcesoContratacion,
     private route: ActivatedRoute
   ) {
 
@@ -1022,9 +1024,12 @@ export class FormVacancies {
         didOpen: () => Swal.showLoading()
       });
 
-      this.candidateS.formulario_vacantes(upperCaseValues).subscribe({
+      // Usar upsert_forms (con fallback automatico a subirParte2) para que
+      // referencias (direccion/tiempo_conoce familiar/personal) se guarden en
+      // el modelo normalizado `Referencia` en vez de perderse.
+      this.registroProcesoContratacion.crearActualizarCandidato2(upperCaseValues).subscribe({
         next: async (response: any) => {
-          if (response && response.message) {
+          if (response && (response.ok === true || response.message || response.numero_documento)) {
             try {
               const allFilesUploaded = await this.subirTodosLosArchivos();
               Swal.close();
