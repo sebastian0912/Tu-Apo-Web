@@ -244,7 +244,7 @@ export class RegistroProcesoContratacion {
   /**
    * ✅ NUEVO: crear o actualizar (idempotente)
    * - Intenta primero: /gestion_contratacion/upsert_forms/
-   * - Si el backend responde 404/405, hace fallback a: /contratacion/subirParte2
+   * - Si el backend responde 404/405, hace fallback a: /gestion_contratacion/subirParte2
    *
    * IMPORTANTE:
    * - Uppercase profundo EXCEPTO correo.
