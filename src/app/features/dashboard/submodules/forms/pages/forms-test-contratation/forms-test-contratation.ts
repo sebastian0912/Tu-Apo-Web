@@ -1679,12 +1679,6 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           }
           this.numeroCedula = upsertResp.numero_documento ?? this.numeroCedula;
 
-          // Formulario Vacantes Part 2
-          const part2: any = await firstValueFrom(this.registroProcesoContratacion.formulario_vacantes(payload));
-          if (!part2 || (!part2.ok && !part2.success && !part2.message)) {
-            return this.handleBackendError(part2, 'Ocurrió un error guardando tu experiencia/vacante.');
-          }
-
           // Upload Files
           let filesOk = true;
           try {
