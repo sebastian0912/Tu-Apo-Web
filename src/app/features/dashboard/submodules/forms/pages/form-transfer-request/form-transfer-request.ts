@@ -19,7 +19,9 @@ import { TransferEpsS } from '../../services/transfer-eps-s/transfer-eps-s';
 export class FormTransferRequest implements OnInit {
   formtraslados!: FormGroup;
   fileName: string = '';
-  base64String: string = ''; // Para almacenar la representación en Base64 del archivo
+  // Subimos el archivo como multipart al backend; gestion_documental se
+  // encarga del almacenamiento. Ya no se hace base64 en el cliente.
+  selectedFile: File | null = null;
 
   @ViewChild('fileInput') fileInput!: ElementRef;
 
@@ -46,13 +48,30 @@ export class FormTransferRequest implements OnInit {
     const element = event.target as HTMLInputElement;
     const fileList: FileList | null = element.files;
     if (fileList && fileList.length > 0) {
-      this.fileName = fileList[0].name;
       const file = fileList[0];
-      const reader = new FileReader();
-      reader.onload = (e: ProgressEvent<FileReader>) => {
-        this.base64String = reader.result as string; // Almacena el string Base64
-      };
-      reader.readAsDataURL(file); // Lee el archivo y lo codifica en Base64
+      // Validación rápida en cliente. El backend valida MIME real + tamaño + cifrado.
+      const ext = (file.name.split('.').pop() || '').toLowerCase();
+      const allowed = ['pdf', 'png', 'jpg', 'jpeg'];
+      if (!allowed.includes(ext)) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Archivo no permitido',
+          text: 'Solo se aceptan archivos PDF/PNG/JPG.',
+        });
+        element.value = '';
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Archivo demasiado grande',
+          text: 'El archivo supera el límite de 5 MB.',
+        });
+        element.value = '';
+        return;
+      }
+      this.fileName = file.name;
+      this.selectedFile = file;
     }
   }
 
@@ -68,7 +87,7 @@ export class FormTransferRequest implements OnInit {
       return;
     }
 
-    if (!this.base64String) {
+    if (!this.selectedFile) {
       Swal.fire({
         icon: 'warning',
         title: 'Archivo requerido',
@@ -111,8 +130,10 @@ export class FormTransferRequest implements OnInit {
     const formData = new FormData();
     formData.append('numero_cedula', this.formtraslados.get('numero_cedula')?.value);
     formData.append('eps_a_trasladar', this.formtraslados.get('eps_a_trasladar')?.value);
-    if (this.base64String) {
-      formData.append('solicitud_traslado', this.base64String);
+    if (this.selectedFile) {
+      // El backend lee request.FILES.get('solicitud_traslado') y crea el
+      // Document en gestion_documental directamente (sin base64).
+      formData.append('solicitud_traslado', this.selectedFile, this.selectedFile.name);
     }
 
     this.transferEpsService.enviarSolicitudTraslado(formData).subscribe({
