@@ -1724,6 +1724,28 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     Swal.close(); // Cerramos el "Guardando..."
     console.error('Error de Backend Interceptado:', err);
 
+    // Caso especial: el backend rechazo el guardado porque el correo ya
+    // pertenece a otra cedula (validacion temprana en CandidatoViewSet/upsert).
+    // Mostramos el mismo modal "Ese correo pertenece a otra cedula" sin
+    // pasar por el flujo generico — asi el usuario sabe exactamente que
+    // arreglar y no se crea Candidato huerfano en BD.
+    const rb = err?.error ?? err;
+    if (rb && typeof rb === 'object' && rb.error_code === 'EMAIL_BELONGS_TO_OTHER_CEDULA') {
+      const owner = rb.owner || {};
+      const fullName = String(owner.nombre_completo || '').trim();
+      const [primerNombre, ...resto] = fullName.split(/\s+/);
+      const apellidos = resto.length >= 2 ? resto.slice(-2).join(' ') : (resto.join(' ') || '');
+      const nombres = resto.length >= 2 ? [primerNombre, ...resto.slice(0, -2)].join(' ') : (primerNombre || '');
+      const info = {
+        nombres: nombres || fullName,
+        apellidos,
+        documento: owner.numero_de_documento || '',
+      };
+      const correo = String(rb.correo_electronico || '').trim();
+      this.showEmailOwnerWithInfo(correo, this.numeroCedula, info);
+      return;
+    }
+
     // Nombres humanos de los campos (de técnico a lo que ve el usuario)
     const campos: Record<string, string> = {
       'numero_documento': 'el número de cédula',
