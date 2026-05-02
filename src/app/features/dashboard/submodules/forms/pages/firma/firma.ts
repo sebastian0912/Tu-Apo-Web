@@ -1393,38 +1393,96 @@ export class Firma implements OnInit {
       didOpen: () => Swal.showLoading()
     });
 
-    this.candidateS.uploadFirma(numeroCedula, file, {
-      hash,
-      version: this.form.value.versionConsentimiento,
-      timestamp: timestampISO,
-      userAgent: this.form.value.userAgent,
-    }).subscribe({
-      next: async () => {
-        Swal.close();
-        this.saving = false;
-        this.firmaSaved = true;
+    // Persistir captura para recuperación si el upload falla
+    this.persistPendingFirma(numeroCedula, dataUrl);
 
-        // Generar documentos con la firma y abrir dialog
-        await this.generarPreviews(numeroCedula);
+    try {
+      await this.uploadFirmaWithRetry(numeroCedula, file, hash, timestampISO);
+      this.clearPendingFirma(numeroCedula);
+      Swal.close();
+      this.saving = false;
+      this.firmaSaved = true;
 
-        await Swal.fire('¡Listo!', 'La firma se guardó correctamente. Ahora puedes revisar los documentos generados.', 'success');
+      await this.generarPreviews(numeroCedula);
 
-        // Auto-abrir dialog de documentos
-        if (this.documentosList.length > 0) {
-          this.openDocumentsDialog();
-        }
-      },
-      error: (err) => {
-        Swal.close();
-        this.saving = false;
-        const msg: string =
-          err?.error?.detail ||
-          err?.error?.message ||
-          err?.message ||
-          'No se pudo guardar la firma. Intenta de nuevo.';
-        Swal.fire('Error', msg, 'error');
+      await Swal.fire('¡Listo!', 'La firma se guardó correctamente. Ahora puedes revisar los documentos generados.', 'success');
+
+      if (this.documentosList.length > 0) {
+        this.openDocumentsDialog();
       }
+    } catch (err: any) {
+      Swal.close();
+      this.saving = false;
+      const msg: string =
+        err?.error?.detail ||
+        err?.error?.message ||
+        err?.message ||
+        'No se pudo guardar la firma. Intenta de nuevo.';
+      const httpStatus = err?.status ?? 0;
+      Swal.fire(
+        'No se pudo guardar (la firma quedó respaldada localmente)',
+        `${msg}<br><br>Estado: ${httpStatus}. Tu firma está guardada en este dispositivo y puedes reintentar.`,
+        'error'
+      );
+    }
+  }
+
+  // ── Robustez: retry con backoff + persistencia local ──
+  private readonly UPLOAD_RETRY_STATUS = new Set<number>([0, 408, 425, 429, 500, 502, 503, 504]);
+
+  private uploadFirmaWithRetry(
+    numeroCedula: string,
+    file: File,
+    hash: string,
+    timestampISO: string,
+    attempts = 3
+  ): Promise<any> {
+    return new Promise((resolve, reject) => {
+      let tryNumber = 0;
+      const run = () => {
+        tryNumber++;
+        this.candidateS.uploadFirma(numeroCedula, file, {
+          hash,
+          version: this.form.value.versionConsentimiento,
+          timestamp: timestampISO,
+          userAgent: this.form.value.userAgent,
+        }).subscribe({
+          next: (res: any) => resolve(res),
+          error: (err: any) => {
+            const code = err?.status ?? 0;
+            const retryable = this.UPLOAD_RETRY_STATUS.has(code);
+            if (retryable && tryNumber < attempts) {
+              const delay = 800 * Math.pow(2, tryNumber - 1);
+              setTimeout(run, delay);
+            } else {
+              reject(err);
+            }
+          },
+        });
+      };
+      run();
     });
+  }
+
+  private firmaStorageKey(numeroCedula: string): string {
+    return `ta_pending_firma_${numeroCedula}`;
+  }
+
+  private persistPendingFirma(numeroCedula: string, dataUrl: string): void {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      localStorage.setItem(
+        this.firmaStorageKey(numeroCedula),
+        JSON.stringify({ dataUrl, ts: Date.now() })
+      );
+    } catch { /* quota o SSR */ }
+  }
+
+  private clearPendingFirma(numeroCedula: string): void {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      localStorage.removeItem(this.firmaStorageKey(numeroCedula));
+    } catch { /* noop */ }
   }
 
   // ══════════════════════════════════════════════════════════

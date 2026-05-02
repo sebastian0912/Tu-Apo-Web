@@ -527,6 +527,14 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       expectativasVidaChecks: [[], req],
       fuenteVacante: ['', req],
 
+      // Evaluación (Opcional) — preguntas que llenaba el evaluador en TesoroApp
+      // y que ahora puede llenar el candidato desde la web.
+      relacionFamiliar: [''],
+      desempenoLaboral: [''],
+      felicitaciones: [''],
+      situacionConflictiva: [''],
+      actividadesDiferentes: [''],
+
       // Step 5: Final
       deseaGenerar: [false, req],
       hojaDeVida: ['']
@@ -1151,6 +1159,13 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       tipoVivienda: (g('tiposViviendaChecks') || []).join(', '),
       personasConQuienConvive: (g('conQuienViveChecks') || []).join(', '),
       personas_a_cargo: (g('personas_a_cargo') || []).join(', '),
+
+      // Evaluación (Opcional) — backend acepta estos nombres en snake_case
+      relacion_familiar: g('relacionFamiliar'),
+      rendimiento_laboral: g('desempenoLaboral'),
+      porque_lo_felicitarian: g('felicitaciones'),
+      malentendido: g('situacionConflictiva'),
+      actividades_diarias: g('actividadesDiferentes'),
     };
 
     // Hijos Array

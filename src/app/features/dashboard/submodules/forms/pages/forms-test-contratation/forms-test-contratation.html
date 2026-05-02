@@ -527,6 +527,21 @@
   <!-- Expectativas moved to Step 1 -->
   <ng-container
   *ngTemplateOutlet="selectField; context: {control: 'fuenteVacante', label: '¿Cómo se enteró?', options: opcionesPromocion}"></ng-container>
+
+  <!-- Evaluación (Opcional) -->
+  <div class="full-width sub-section">
+    <h4>Evaluación (Opcional)</h4>
+  </div>
+  <ng-container
+  *ngTemplateOutlet="textField; context: {control: 'relacionFamiliar', label: '¿Cómo es su relación familiar?'}"></ng-container>
+  <ng-container
+  *ngTemplateOutlet="textField; context: {control: 'desempenoLaboral', label: '¿Cómo considera su desempeño laboral?'}"></ng-container>
+  <ng-container
+  *ngTemplateOutlet="textField; context: {control: 'felicitaciones', label: '¿Reconocimiento/felicitación por rendimiento?'}"></ng-container>
+  <ng-container
+  *ngTemplateOutlet="textField; context: {control: 'situacionConflictiva', label: '¿Ha tenido situación conflictiva?'}"></ng-container>
+  <ng-container
+  *ngTemplateOutlet="selectField; context: {control: 'actividadesDiferentes', label: '¿Dispuesto a realizar actividades diferentes?', options: opcionBinaria, optionsKey: 'display', valueKey: 'value'}"></ng-container>
 </div>
 <div class="actions">
   <button mat-button matStepperPrevious type="button">Anterior</button>

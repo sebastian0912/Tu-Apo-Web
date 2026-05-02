@@ -331,23 +331,77 @@ export class Foto implements OnInit, OnDestroy {
       didOpen: () => Swal.showLoading(),
     });
 
-    this.candidateS.uploadFoto(numeroCedula, file).subscribe({
-      next: () => {
-        Swal.close();
-        this.saving = false;
-        this.fotoSaved = true;
-        Swal.fire('¡Listo!', 'La foto se guardó correctamente como documento tipo 89.', 'success');
-      },
-      error: (err: any) => {
-        Swal.close();
-        this.saving = false;
-        const msg: string =
-          err?.error?.detail ||
-          err?.error?.message ||
-          err?.message ||
-          'No se pudo guardar la foto. Intenta de nuevo.';
-        Swal.fire('Error', msg, 'error');
-      }
+    // Persistir captura para recuperación si el upload falla
+    this.persistPendingFoto(numeroCedula, this.capturedPhotoBase64);
+
+    try {
+      await this.uploadWithRetry(() => this.candidateS.uploadFoto(numeroCedula, file));
+      this.clearPendingFoto(numeroCedula);
+      Swal.close();
+      this.saving = false;
+      this.fotoSaved = true;
+      Swal.fire('¡Listo!', 'La foto se guardó correctamente como documento tipo 89.', 'success');
+    } catch (err: any) {
+      Swal.close();
+      this.saving = false;
+      const msg: string =
+        err?.error?.detail ||
+        err?.error?.message ||
+        err?.message ||
+        'No se pudo guardar la foto. Intenta de nuevo.';
+      const status = err?.status ?? 0;
+      Swal.fire(
+        'No se pudo guardar (la foto quedó respaldada localmente)',
+        `${msg}<br><br>Estado: ${status}. Tu foto está guardada en este dispositivo y puedes reintentar.`,
+        'error'
+      );
+    }
+  }
+
+  // ── Robustez: retry con backoff + persistencia local ──
+  private readonly UPLOAD_RETRY_STATUS = new Set<number>([0, 408, 425, 429, 500, 502, 503, 504]);
+
+  private uploadWithRetry<T>(invoke: () => any, attempts = 3): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      let tryNumber = 0;
+      const run = () => {
+        tryNumber++;
+        invoke().subscribe({
+          next: (res: T) => resolve(res),
+          error: (err: any) => {
+            const code = err?.status ?? 0;
+            const retryable = this.UPLOAD_RETRY_STATUS.has(code);
+            if (retryable && tryNumber < attempts) {
+              const delay = 800 * Math.pow(2, tryNumber - 1);
+              setTimeout(run, delay);
+            } else {
+              reject(err);
+            }
+          },
+        });
+      };
+      run();
     });
+  }
+
+  private fotoStorageKey(numeroCedula: string): string {
+    return `ta_pending_foto_${numeroCedula}`;
+  }
+
+  private persistPendingFoto(numeroCedula: string, dataUrl: string): void {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      localStorage.setItem(
+        this.fotoStorageKey(numeroCedula),
+        JSON.stringify({ dataUrl, ts: Date.now() })
+      );
+    } catch { /* quota o SSR */ }
+  }
+
+  private clearPendingFoto(numeroCedula: string): void {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      localStorage.removeItem(this.fotoStorageKey(numeroCedula));
+    } catch { /* noop */ }
   }
 }
