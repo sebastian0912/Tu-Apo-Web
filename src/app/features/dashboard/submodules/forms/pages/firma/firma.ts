@@ -1287,6 +1287,15 @@ export class Firma implements OnInit {
       this.form.markAllAsTouched();
       return;
     }
+    if (!this.candidatoData) {
+      Swal.fire(
+        'Cédula no registrada',
+        `La cédula ${numeroCedula} no está registrada como candidato. ` +
+        'Usa el botón <b>Buscar</b> para confirmar; si no aparece, completa primero el preregistro antes de firmar.',
+        'warning'
+      );
+      return;
+    }
     this.showSignatureModal = true;
   }
 
@@ -1363,12 +1372,21 @@ export class Firma implements OnInit {
       return;
     }
 
+    const numeroCedula = (this.form.value.numeroCedula || '').toString().trim();
+    if (!this.candidatoData) {
+      Swal.fire(
+        'Cédula no registrada',
+        `No se puede guardar la firma: la cédula ${numeroCedula || '(vacía)'} ` +
+        'no está registrada como candidato. Completa primero el preregistro.',
+        'warning'
+      );
+      return;
+    }
+
     // ── Mostrar dialog de consentimiento ──
     const aceptado = await this.mostrarConsentimiento();
     if (!aceptado) return;
     this.form.patchValue({ consentimientoBiometrico: true });
-
-    const numeroCedula = (this.form.value.numeroCedula || '').toString().trim();
     const dataUrl = this.form.value.firmaBase64;
 
     // ── Generar evidencia de consentimiento ──

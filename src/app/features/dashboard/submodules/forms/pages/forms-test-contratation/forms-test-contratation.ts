@@ -2339,6 +2339,57 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
    * Si el correo también está duplicado (por la MISMA persona), el PATCH lo actualiza.
    * Si el correo está en uso por OTRA persona, se le avisa.
    */
+  /**
+   * Agrega un correo + password como credencial PERSONAL del usuario existente.
+   * No toca su correo principal ni su rol. La persona podrá iniciar sesión
+   * con cualquiera de sus correos (cada uno con su propia contraseña).
+   */
+  private async agregarCredencialPersonal(
+    apiUrl: string,
+    usuarioId: string,
+    correo: string,
+    password: string,
+    cedula: string,
+  ): Promise<void> {
+    try {
+      await firstValueFrom(this.http.post(
+        `${apiUrl}/gestion_admin/usuarios/${usuarioId}/credenciales/`,
+        { correo, password, etiqueta: 'PERSONAL' }
+      ));
+      Swal.fire({
+        icon: 'success',
+        title: 'Correo personal agregado',
+        html: `<p style="text-align:left;">Listo. Ahora puede ingresar al portal operativo con:</p>
+               <p style="text-align:left;background:#f5f5f5;padding:10px;border-radius:6px;margin:10px 0;">
+                 <b>Correo:</b> ${correo}<br>
+                 <b>Contraseña:</b> ${cedula}
+               </p>
+               <p style="text-align:left;">Su cuenta corporativa <b>queda intacta</b>: sigue ingresando con su correo corporativo y su contraseña habitual.</p>`,
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#111827',
+        width: 560,
+      });
+    } catch (err: any) {
+      const status = err?.status;
+      const body = err?.error;
+      console.error('[credenciales] error', status, body);
+      const msg = status === 409
+        ? 'Ese correo ya pertenece a otro usuario. Use un correo distinto.'
+        : status === 401 || status === 403
+          ? 'No tenemos permisos para agregar credenciales desde aquí. Comuníquese con la oficina.'
+          : 'No pudimos agregar el correo personal. Sus datos del formulario sí se guardaron.';
+      Swal.fire({
+        icon: 'warning',
+        title: 'No se pudo agregar el correo personal',
+        html: `<p style="text-align:left;">${msg}</p>
+               <p style="text-align:left;">Su cuenta corporativa <b>no fue modificada</b>. Si necesita acceso operativo, comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#111827',
+        width: 520
+      });
+    }
+  }
+
   private async updateExistingUserByDoc(apiUrl: string, cedula: string, correo: string, password: string, raw: any, emailAlsoDuplicate: boolean): Promise<void> {
     const g = (k: string) => (raw[k] || '');
     const upper = (v: string) => String(v || '').toUpperCase().trim();
@@ -2413,6 +2464,45 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           width: 520
         });
         return;
+      }
+
+      // ── GUARD DE ROL ──────────────────────────────────────────────
+      // El formulario es para OPERARIOS. Si la cédula pertenece a un usuario
+      // con rol distinto (gerencia, coordinacion, jefatura, etc.) NO debemos
+      // sobreescribir su cuenta. En lugar de bloquear seco, ofrecemos agregar
+      // el correo del formulario como credencial PERSONAL adicional — la
+      // cuenta corporativa queda intacta y la persona gana un correo personal
+      // con su propia contraseña para el portal operativo.
+      if (userToUpdate) {
+        const rolNombre = String(userToUpdate?.rol?.nombre ?? '').trim().toUpperCase();
+        if (rolNombre && rolNombre !== 'OPERARIO') {
+          console.warn('[updateUser] cédula con rol', rolNombre, '— ofreciendo credencial adicional');
+          const correoCorporativo = String(userToUpdate?.correo_electronico || '').trim();
+          const result = await Swal.fire({
+            icon: 'info',
+            title: 'Esta cédula tiene una cuenta administrativa',
+            html: `<p style="text-align:left;">La cédula <b>${cedula}</b> ya existe como usuario con rol <b>${rolNombre}</b>${correoCorporativo ? ` y correo corporativo <b>${correoCorporativo}</b>` : ''}.</p>
+                   <p style="text-align:left;">No podemos modificar su cuenta corporativa. Pero podemos <b>agregar el correo personal</b> <b>${correo}</b> a su perfil, con la cédula como contraseña, para que ingrese al portal operativo sin afectar su cuenta corporativa.</p>`,
+            showCancelButton: true,
+            confirmButtonText: 'Sí, agregar correo personal',
+            cancelButtonText: 'No, solo guardar el formulario',
+            confirmButtonColor: '#111827',
+            width: 560
+          });
+          if (result.isConfirmed) {
+            await this.agregarCredencialPersonal(apiUrl, userToUpdate.id, correo, password, cedula);
+          } else {
+            Swal.fire({
+              icon: 'success',
+              title: 'Formulario guardado',
+              html: `<p style="text-align:left;">Sus datos del formulario <b>se guardaron correctamente</b>. Su cuenta corporativa queda como estaba.</p>`,
+              confirmButtonText: 'Entendido',
+              confirmButtonColor: '#111827',
+              width: 520
+            });
+          }
+          return;
+        }
       }
 
       if (!userToUpdate) {
