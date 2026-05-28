@@ -23,6 +23,7 @@ import { ParametrizacionS } from '../../services/parametrizacion/parametrizacion
 import { RegistroProcesoContratacion } from '../../services/registro-proceso-contratacion/registro-proceso-contratacion';
 import { CandidateS } from '../../../../../../shared/services/candidate-s/candidate-s';
 import { DocumentManagementS } from '../../../../../../shared/services/document-management-s/document-management-s';
+import { PoliciesModal } from '../../components/policies-modal/policies-modal';
 
 const STORAGE_KEY = 'formHojaDeVida2';
 const CEDULA_KEY = 'numeroCedula';
@@ -209,8 +210,9 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   mostrarCamposAdicionales = false;
 
   // File Types Mapping
+  // 28 = HOJA_DE_VIDA_M en table_document_type (prod)
   typeMap: { [key: string]: number } = {
-    hojaDeVida: 23
+    hojaDeVida: 28
   };
 
   // Catalog Config Map - Updated to match JSON structure
@@ -267,6 +269,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.openPoliciesDialog();
     this.loadCatalogs();
     this.cargarDatosJSON(); // Colombia
     this.initObservables();
@@ -326,6 +329,14 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   }
   cancelar() { this.formHojaDeVida2.reset(); }
   onSelectionChange() { /* Triggered by UI updates handled in sub */ }
+
+  // Habeas Data: el candidato debe aceptar sí o sí antes de llenar el formulario.
+  // disableClose evita cerrar con ESC o click fuera. PoliciesModal.btnDecline()
+  // recarga la página, así que no hay que manejar el resultado.
+  private openPoliciesDialog(): void {
+    if (!this.isBrowser) return;
+    this.dialog.open(PoliciesModal, { disableClose: true });
+  }
 
   async cargarDatosJSON() {
     this.http.get('files/utils/colombia.json').subscribe({

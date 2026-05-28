@@ -610,7 +610,7 @@ export class FormVacancies {
 
 
   async ngOnInit(): Promise<void> {
-    // this.openDialog();
+    this.openDialog();
     this.cargarDatosJSON();
 
     try {
@@ -1026,6 +1026,10 @@ export class FormVacancies {
         next: async (response: any) => {
           if (response && response.message) {
             try {
+              // Garantizar owner_id válido para la subida documental.
+              // Si el usuario no pasó por buscarCedula(), this.numeroCedula
+              // queda undefined y guardarDocumento envía owner_id="undefined".
+              this.numeroCedula = this.formHojaDeVida2.value.numeroCedula || this.numeroCedula;
               const allFilesUploaded = await this.subirTodosLosArchivos();
               Swal.close();
 
