@@ -28,6 +28,15 @@ import { PoliciesModal } from '../../components/policies-modal/policies-modal';
 const STORAGE_KEY = 'formHojaDeVida2';
 const CEDULA_KEY = 'numeroCedula';
 
+// Empresa para el modal de tratamiento de datos. Se resuelve por el query param
+// ?empresa= del link (slugs alineados con firma/:empresa y foto/:empresa).
+// Default: TU ALIANZA SAS cuando el link no trae empresa o trae un slug inválido.
+const EMPRESAS: Record<string, string> = {
+  'apoyo-laboral': 'APOYO LABORAL T.S. S.A.S.',
+  'tu-alianza': 'TU ALIANZA SAS',
+};
+const EMPRESA_DEFAULT = 'tu-alianza';
+
 const REGEX_NAMES = /^[a-zA-ZñÑáéíóúÁÉÍÓÚ\s]+$/;
 const REGEX_NUMERIC = /^\d+$/;
 const REGEX_PHONE_CO = /^3\d{9}$/;
@@ -335,7 +344,12 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   // recarga la página, así que no hay que manejar el resultado.
   private openPoliciesDialog(): void {
     if (!this.isBrowser) return;
-    this.dialog.open(PoliciesModal, { disableClose: true });
+    const slug = (this.route.snapshot.queryParamMap.get('empresa') || '').toLowerCase().trim();
+    const empresaNombre = EMPRESAS[slug] ?? EMPRESAS[EMPRESA_DEFAULT];
+    this.dialog.open(PoliciesModal, {
+      disableClose: true,
+      data: { empresaNombre },
+    });
   }
 
   async cargarDatosJSON() {
@@ -587,7 +601,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
         const domainValid = f.get('correoDominio')?.valid;
 
         if (user && domain && userValid && domainValid) {
-          const fullEmail = `${user.trim()}@${domain.trim()}`.toLowerCase();
+          const fullEmail = `${user.trim()}@${domain.trim()}`.toUpperCase();
           correoCtrl?.setValue(fullEmail, { emitEvent: false });
           // If needed, re-verify standard email validity
           if (!correoCtrl?.valid) {
@@ -1069,7 +1083,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       pNombre: g('pNombre'),
       sNombre: g('sNombre'),
       genero: g('genero'),
-      correo: g('correo')?.toLowerCase(),
+      correo: g('correo')?.toUpperCase(),
       numCelular: g('numCelular'),
       numWha: g('numWha'),
       departamento: g('departamento'),
@@ -1194,8 +1208,8 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     if (typeof v === 'string') {
       // Phones: Keep digits only
       if (/^\d+$/.test(v) && v.length > 5) return v;
-      // Emails: Keep lowercase
-      if (v.includes('@')) return v.toLowerCase();
+      // Emails: Uppercase (igual que el resto de los datos del formulario)
+      if (v.includes('@')) return v.toUpperCase().trim();
       return v.toUpperCase().trim();
     }
     if (Array.isArray(v)) return v.map(i => this.convertValuesToUpperCase(i));
@@ -1657,7 +1671,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
 
     // Backend duplicate check
     const raw = this.formHojaDeVida2.getRawValue();
-    const correo = String(raw.correo || '').trim().toLowerCase();
+    const correo = String(raw.correo || '').trim().toUpperCase();
     const cedula = String(raw.numeroCedula || '').trim();
 
     try {
@@ -1973,7 +1987,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       "estado_civil": g('estadoCivil'),
 
       "contacto": {
-        "email": (g('correo') || '').toLowerCase(),
+        "email": (g('correo') || '').toUpperCase(),
         "celular": g('numCelular'),
         "whatsapp": g('numWha')
       },
@@ -2064,7 +2078,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
 
     const numeroCedula = String(g('numeroCedula')).substring(0, 20);
     const tipoDoc = String(g('tipoDoc')).substring(0, 4);
-    const correo = (g('correo') || '').toLowerCase().trim();
+    const correo = (g('correo') || '').toUpperCase().trim();
     const password = numeroCedula; // Password = número de cédula
     const nombres = [upper(g('pNombre')), upper(g('sNombre'))].filter(Boolean).join(' ').substring(0, 64);
     const apellidos = [upper(g('pApellido')), upper(g('sApellido'))].filter(Boolean).join(' ').substring(0, 64);
