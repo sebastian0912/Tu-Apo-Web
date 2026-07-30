@@ -34,6 +34,21 @@ export class CandidateS {
     return this.http.get(url);
   }
 
+  /**
+   * Precarga (Modelo A) del candidato para el formulario público. Requiere el
+   * segundo factor `fechaExpedicion` (YYYY-MM-DD) como prueba de titularidad.
+   * El backend devuelve una proyección MINIMIZADA (sin PII de terceros) o 404 si
+   * no hay match. No transforma el error: el llamador trata 404 como "sin datos".
+   */
+  getPrefillByDocumento(tipoDoc: string, numeroDocumento: string, fechaExpedicion: string): Observable<any> {
+    const params: any = {
+      tipo_doc: tipoDoc,
+      numero_documento: numeroDocumento,
+      fecha_expedicion: fechaExpedicion,
+    };
+    return this.http.get(`${this.apiUrl}/gestion_contratacion/candidatos/prefill-by-document/`, { params });
+  }
+
   // validar-correo-cedula/
   public validarCorreoCedula(correo: string, cedula: string): Observable<any> {
     const params = { cedula, correo };  // Asegurarse de que están en el orden correcto

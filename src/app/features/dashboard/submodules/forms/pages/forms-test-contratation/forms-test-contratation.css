@@ -437,3 +437,98 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   display: none !important;
   pointer-events: none;
 }
+
+/* =========================
+   Fila de correo (usuario @ dominio)
+   ---------------------------
+   En escritorio va en línea. En móvil se apila: con los 3 elementos en una
+   sola fila los campos quedan tan angostos que el desplegable del dominio
+   abría fuera de la pantalla.
+========================= */
+.email-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.email-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.email-at {
+  display: flex;
+  align-items: center;
+  padding-top: 15px;
+  font-weight: bold;
+  color: #555;
+}
+
+@media (max-width: 600px) {
+  .email-row {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .email-col {
+    width: 100%;
+  }
+
+  /* El separador "@" pierde sentido apilado; el correo armado ya se
+     previsualiza completo en la línea de abajo. */
+  .email-at {
+    display: none;
+  }
+}
+
+/* =========================
+   Estado visual de los campos
+   ---------------------------
+   .field-ok  → resuelto (con valor y válido)  → verde
+   .field-bad → inválido y ya tocado/sucio     → rojo
+   Sin clase  → pendiente, se deja el estilo por defecto.
+   Los tokens van en :host (no :root): con encapsulación emulada las variables
+   declaradas en :root de un componente no aplican a su propio árbol.
+========================= */
+:host {
+  --field-ok: #16a34a;
+  --field-ok-soft: rgba(22, 163, 74, .06);
+  --field-bad: #dc2626;
+}
+
+/* El borde de Material 3 se pinta en las 3 piezas del notched-outline,
+   por eso hay que alcanzarlas explícitamente. */
+:host ::ng-deep .check-field.field-ok .mdc-notched-outline__leading,
+:host ::ng-deep .check-field.field-ok .mdc-notched-outline__notch,
+:host ::ng-deep .check-field.field-ok .mdc-notched-outline__trailing {
+  border-color: var(--field-ok) !important;
+  border-width: 2px;
+}
+
+:host ::ng-deep .check-field.field-ok .mat-mdc-text-field-wrapper {
+  background-color: var(--field-ok-soft);
+}
+
+:host ::ng-deep .check-field.field-ok .mat-mdc-form-field-icon-suffix,
+:host ::ng-deep .check-field.field-ok .mdc-floating-label {
+  color: var(--field-ok) !important;
+}
+
+:host ::ng-deep .check-field.field-bad .mdc-notched-outline__leading,
+:host ::ng-deep .check-field.field-bad .mdc-notched-outline__notch,
+:host ::ng-deep .check-field.field-bad .mdc-notched-outline__trailing {
+  border-color: var(--field-bad) !important;
+  border-width: 2px;
+}
+
+:host ::ng-deep .check-field.field-bad .mdc-floating-label {
+  color: var(--field-bad) !important;
+}
+
+/* Mientras el campo está enfocado manda el color de foco de Material:
+   marcarlo verde/rojo mientras se escribe distrae más de lo que ayuda. */
+:host ::ng-deep .check-field.mat-focused .mdc-notched-outline__leading,
+:host ::ng-deep .check-field.mat-focused .mdc-notched-outline__notch,
+:host ::ng-deep .check-field.mat-focused .mdc-notched-outline__trailing {
+  border-color: var(--primary) !important;
+}

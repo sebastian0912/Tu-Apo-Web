@@ -9,13 +9,15 @@
     @if (!showForm) {
       <div class="search-container full-width sub-section">
         <h3 style="text-align:center; margin-bottom: 8px;">Validación Previa</h3>
-        <p style="text-align:center; font-size:13px; color:#666; margin-bottom:20px;">Ingrese su tipo y número de documento para verificar si ya tiene un registro. Solo números, sin puntos ni espacios.</p>
+        <p style="text-align:center; font-size:13px; color:#666; margin-bottom:20px;">Ingrese su tipo y número de documento, y la fecha de expedición del documento para verificar y precargar su registro. Solo números, sin puntos ni espacios.</p>
         <form [formGroup]="searchForm" (ngSubmit)="onSearch()">
           <div class="grid-col-2">
             <ng-container
             *ngTemplateOutlet="selectField; context: {control: 'tipo_doc', label: 'Tipo Documento', options: tipoDocs, optionsKey: 'description', valueKey: 'abbreviation', formGroup: searchForm}"></ng-container>
             <ng-container
             *ngTemplateOutlet="textField; context: {control: 'numero_documento', label: 'Número Documento', formGroup: searchForm}"></ng-container>
+            <ng-container
+            *ngTemplateOutlet="dateField; context: {control: 'fecha_expedicion', label: 'Fecha Expedición', formGroup: searchForm}"></ng-container>
           </div>
           <div class="actions" style="justify-content: center;">
             <button mat-raised-button color="primary" type="submit" [disabled]="searchForm.invalid || isSearching">
@@ -71,6 +73,14 @@
                       <strong>Importante:</strong> Todos los campos marcados con * son obligatorios. Escriba sus datos tal como aparecen en su documento de identidad. Use solo letras (sin números ni símbolos) en nombres y apellidos.
                     </div>
                   </div>
+                  <!-- A) Origen de la postulación — primera pregunta del formulario -->
+                  <div class="full-width sub-section">
+                    <h4>Origen de la postulación</h4>
+                  </div>
+                  <div class="grid-layout">
+                    <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'fuenteVacante', label: '¿Cómo se enteró de la vacante?', options: opcionesPromocion}"></ng-container>
+                  </div>
                   <!-- B) Identificación -->
                   <div class="full-width sub-section">
                     <h4>Identificación</h4>
@@ -82,6 +92,14 @@
                     *ngTemplateOutlet="selectField; context: {control: 'tipoDoc', label: 'Tipo de documento', options: tipoDocs, optionsKey: 'description', valueKey: 'abbreviation'}"></ng-container>
                     <ng-container
                     *ngTemplateOutlet="textField; context: {control: 'numeroCedula', label: 'Número de documento', hint: 'Solo números, sin puntos ni espacios. Ej: 1023456789'}"></ng-container>
+                    <!-- Nacimiento va ANTES que Expedición: son las dos fechas de la cédula
+                         y el orden pedido evita que se confundan al digitarlas. -->
+                    <ng-container
+                    *ngTemplateOutlet="dateField; context: {control: 'fechaNacimiento', label: 'Fecha Nacimiento'}"></ng-container>
+                    <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'departamentoNacimiento', label: 'Dpto. Nacimiento', options: filteredDeptoNac, optionsKey: 'departamento', valueKey: 'departamento', searchControl: searchDeptoNac}"></ng-container>
+                    <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'municipioNacimiento', label: 'Ciudad Nacimiento', options: filteredMunNac, searchControl: searchMunNac}"></ng-container>
                     <ng-container
                     *ngTemplateOutlet="dateField; context: {control: 'fechaExpedicionCC', label: 'Fecha Expedición'}"></ng-container>
                     <ng-container
@@ -103,13 +121,7 @@
                     <ng-container
                     *ngTemplateOutlet="textField; context: {control: 'sNombre', label: 'Segundo Nombre', hint: 'Opcional. Déjelo vacío si no tiene'}"></ng-container>
                     <ng-container
-                    *ngTemplateOutlet="dateField; context: {control: 'fechaNacimiento', label: 'Fecha Nacimiento'}"></ng-container>
-                    <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'departamentoNacimiento', label: 'Dpto. Nacimiento', options: filteredDeptoNac, optionsKey: 'departamento', valueKey: 'departamento', searchControl: searchDeptoNac}"></ng-container>
-                    <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'municipioNacimiento', label: 'Ciudad Nacimiento', options: filteredMunNac, searchControl: searchMunNac}"></ng-container>
-                    <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'genero', label: 'Género', options: generos}"></ng-container>
+                    *ngTemplateOutlet="selectField; context: {control: 'genero', label: 'Sexo', options: generos}"></ng-container>
                     <ng-container
                     *ngTemplateOutlet="selectField; context: {control: 'estadoCivil', label: 'Estado Civil', options: estadosCiviles, optionsKey: 'descripcion', valueKey: 'codigo'}"></ng-container>
                   </div>
@@ -135,16 +147,19 @@
                       *ngTemplateOutlet="selectField; context: {control: 'conQuienViveChecks', label: '¿Con quién vive?', options: listaPosiblesRespuestasConquienVive, multiple: true}"></ng-container>
                     </div>
                     <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'tiempoResidenciaZona', label: 'Tiempo en zona', options: haceCuantoViveEnlaZona}"></ng-container>
+                    *ngTemplateOutlet="selectField; context: {control: 'tiempoResidenciaZona', label: 'Cuanto tiempo lleva viviendo en la zona', options: haceCuantoViveEnlaZona}"></ng-container>
                   </div>
                   <!-- E) Correo electrónico -->
                   <div class="full-width sub-section">
                     <h4>Correo Electrónico</h4>
                     <p style="font-size:12px;color:#666;margin-top:4px;">Escriba solo la parte antes del @ en "Usuario" y seleccione su dominio. El correo se armará solo. <strong>Debe ser un correo real al que tenga acceso.</strong></p>
                   </div>
-                  <div class="grid-layout" style="display: flex; gap: 8px; align-items: flex-start;">
+                  <!-- En móvil esta fila se apila (ver .email-row en el CSS): en una
+                       sola línea los 3 elementos quedan muy angostos y el desplegable
+                       del dominio abría fuera de la pantalla. -->
+                  <div class="email-row">
                     <!-- Usuario Input -->
-                    <div style="flex: 1;">
+                    <div class="email-col">
                       <ng-container
                       *ngTemplateOutlet="textField; context: {control: 'correoUsuario', label: 'Usuario', placeholder: 'ej: juan.perez'}"></ng-container>
                       @if (formHojaDeVida2.get('correoUsuario')?.hasError('pattern')) {
@@ -154,14 +169,13 @@
                         </mat-error>
                       }
                     </div>
-                    <div style="display: flex; align-items: center; padding-top: 15px; font-weight: bold; color: #555;">
-                    &#64;</div>
+                    <div class="email-at">&#64;</div>
                     <!-- Dominio Dropdown -->
-                    <div style="flex: 1;">
+                    <div class="email-col">
                     <ng-container *ngTemplateOutlet="selectField; context: {
-                      control: 'correoDominio', 
-                      label: 'Dominio', 
-                      options: filteredDominios, 
+                      control: 'correoDominio',
+                      label: 'Dominio',
+                      options: filteredDominios,
                       searchControl: searchDominio
                     }">
                       </ng-container>
@@ -207,7 +221,7 @@
                   <ng-container
                   *ngTemplateOutlet="selectField; context: {control: 'lateralidad', label: 'Mano dominante', options: listamanos, optionsKey: 'descripcion', valueKey: 'mano'}"></ng-container>
                   <div class="full-width sub-section">
-                    <h4>Tallas</h4>
+                    <h4>Talla de dotación</h4>
                   </div>
                   <ng-container
                   *ngTemplateOutlet="selectField; context: {control: 'tallaCamisa', label: 'Camisa', options: tallas}"></ng-container>
@@ -524,9 +538,7 @@
   *ngTemplateOutlet="selectField; context: {control: 'caracteristicasVivienda', label: 'Características', options: caracteristicasVivienda}"></ng-container>
   <ng-container
   *ngTemplateOutlet="selectField; context: {control: 'comodidadesChecks', label: 'Servicios', options: comodidades, multiple: true}"></ng-container>
-  <!-- Expectativas moved to Step 1 -->
-  <ng-container
-  *ngTemplateOutlet="selectField; context: {control: 'fuenteVacante', label: '¿Cómo se enteró?', options: opcionesPromocion}"></ng-container>
+  <!-- `fuenteVacante` se movió al inicio del paso 1 (Pre-registro). -->
 
   <!-- Evaluación (Opcional) -->
   <div class="full-width sub-section">
@@ -595,7 +607,9 @@
 <!-- TEMPLATES -->
 <ng-template #textField let-control="control" let-label="label" let-type="type" let-formGroup="formGroup"
   let-isAddress="isAddress" let-hint="hint">
-  <mat-form-field appearance="outline" class="w-100 check-field">
+  <mat-form-field appearance="outline" class="w-100 check-field"
+    [class.field-ok]="isFieldOk(control, formGroup)"
+    [class.field-bad]="shouldShowError(control, formGroup)">
     <mat-label>{{label}}</mat-label>
     <input matInput [formControl]="getControl(control, formGroup)"
       [type]="type === 'password' ? (hidePassword ? 'password' : 'text') : (type || 'text')"
@@ -622,36 +636,54 @@
   <ng-template #selectField let-control="control" let-label="label" let-options="options" let-optionsKey="optionsKey"
     let-valueKey="valueKey" let-multiple="multiple" let-disabled="disabled" let-formGroup="formGroup"
     let-searchControl="searchControl">
-    <mat-form-field appearance="outline" class="w-100 check-field">
+    <mat-form-field appearance="outline" class="w-100 check-field"
+      [class.field-ok]="isFieldOk(control, formGroup)"
+      [class.field-bad]="shouldShowError(control, formGroup)">
       <mat-label>{{label}}</mat-label>
-      <mat-select [formControl]="getControl(control, formGroup)" [multiple]="multiple">
 
-        <!-- Search Input -->
-        @if (searchControl) {
-          <mat-option class="search-option sticky-header">
-            <input [formControl]="searchControl" placeholder="Buscar..." (keydown)="$event.stopPropagation()"
-              (click)="$event.stopPropagation()"
-              style="width: 100%; padding: 8px; border: none; border-bottom: 1px solid #ccc; outline: none;">
-            </mat-option>
+      @if (searchControl) {
+        <!-- Listas largas (departamentos/ciudades/dominios): autocompletado.
+             El input escribe sobre `searchControl`, que filtra la lista en vivo;
+             el valor real solo se compromete al elegir una opción. -->
+        <input matInput [formControl]="searchControl" [matAutocomplete]="auto"
+          placeholder="Escriba para filtrar…" autocomplete="off"
+          (focus)="onAutocompleteFocus(searchControl, $event)"
+          (blur)="onAutocompleteBlur(control, searchControl, options, optionsKey, valueKey, formGroup)">
+        <mat-autocomplete #auto="matAutocomplete" autoActiveFirstOption
+          (optionSelected)="onAutocompleteSelected($event, control, searchControl, optionsKey, valueKey, formGroup)">
+          @for (op of options; track op) {
+            <mat-option [value]="op">{{ optionsKey ? op[optionsKey] : op }}</mat-option>
           }
-
+          @if (options?.length === 0) {
+            <mat-option disabled>Sin resultados</mat-option>
+          }
+        </mat-autocomplete>
+        @if (getControl(control, formGroup).value) {
+          <button mat-icon-button matSuffix type="button" aria-label="Limpiar"
+            (click)="clearAutocomplete(control, searchControl, formGroup)">
+            <mat-icon>close</mat-icon>
+          </button>
+        } @else {
+          <mat-icon matSuffix>arrow_drop_down</mat-icon>
+        }
+      } @else {
+        <mat-select [formControl]="getControl(control, formGroup)" [multiple]="multiple">
           @for (op of options; track op) {
             <mat-option [value]="valueKey ? op[valueKey] : op">{{ optionsKey ? op[optionsKey] : op }}</mat-option>
           }
-
-          @if (searchControl && options?.length === 0) {
-            <mat-option disabled>Sin resultados</mat-option>
-          }
-
         </mat-select>
-        @if (shouldShowError(control, formGroup)) {
-          <mat-error>{{ getErrorMessage(control, formGroup) }}</mat-error>
-        }
-      </mat-form-field>
-    </ng-template>
+      }
+
+      @if (shouldShowError(control, formGroup)) {
+        <mat-error>{{ getErrorMessage(control, formGroup) }}</mat-error>
+      }
+    </mat-form-field>
+  </ng-template>
 
     <ng-template #dateField let-control="control" let-label="label" let-formGroup="formGroup">
-      <mat-form-field appearance="outline" class="w-100 check-field">
+      <mat-form-field appearance="outline" class="w-100 check-field"
+        [class.field-ok]="isFieldOk(control, formGroup)"
+        [class.field-bad]="shouldShowError(control, formGroup)">
         <mat-label>{{label}}</mat-label>
         <input matInput [matDatepicker]="dp" [formControl]="getControl(control, formGroup)" readonly (click)="dp.open()"
           (focus)="dp.open()">

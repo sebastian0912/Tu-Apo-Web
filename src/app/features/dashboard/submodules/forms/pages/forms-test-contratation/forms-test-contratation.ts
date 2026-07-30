@@ -6,6 +6,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule, MAT_DATE_LOCALE, DateAdapter, MAT_DATE_FORMATS, NativeDateAdapter } from '@angular/material/core';
 import { MatIconModule } from '@angular/material/icon';
@@ -97,7 +98,7 @@ export class CustomDateAdapter extends NativeDateAdapter {
   selector: 'app-forms-test-contratation',
   imports: [
     CommonModule, ReactiveFormsModule, RouterModule,
-    MatStepperModule, MatInputModule, MatButtonModule, MatSelectModule,
+    MatStepperModule, MatInputModule, MatButtonModule, MatSelectModule, MatAutocompleteModule,
     MatDatepickerModule, MatNativeDateModule, MatIconModule, MatCheckboxModule,
     MatRadioModule, MatDialogModule, MatMenuModule
   ],
@@ -253,6 +254,37 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
 
   private readonly CATALOG_KEYS = Object.keys(this.CATALOG_CONFIG);
 
+  /**
+   * Orden alfabético en español para las listas que vienen de meta-tabla.
+   * `sensitivity: 'base'` iguala acentos y mayúsculas (Á = A) para que no
+   * partan el alfabeto; `numeric` ordena "2" antes que "10".
+   */
+  private static readonly COLLATOR_ES = new Intl.Collator('es', {
+    sensitivity: 'base',
+    numeric: true,
+  });
+
+  /** Texto que ve el usuario en una opción de catálogo (objeto o escalar). */
+  private textoCatalogo(v: any): string {
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'object') {
+      return String(
+        v.description ?? v.descripcion ?? v.nombre ?? v.talla ?? v.codigo ?? v.abbreviation ?? v.mano ?? ''
+      ).trim();
+    }
+    return String(v).trim();
+  }
+
+  /** Clave de deduplicación: el código si existe, si no el texto visible. */
+  private claveCatalogo(v: any): string {
+    if (v !== null && typeof v === 'object') {
+      return String(
+        v.abbreviation ?? v.codigo ?? v.mano ?? v.talla ?? this.textoCatalogo(v)
+      ).toUpperCase().trim();
+    }
+    return String(v ?? '').toUpperCase().trim();
+  }
+
   constructor(
     private fb: FormBuilder,
     private parametrizacionS: ParametrizacionS,
@@ -270,7 +302,9 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     // 1. Init Search Form (Pre-check)
     this.searchForm = this.fb.group({
       tipo_doc: ['CC', Validators.required],
-      numero_documento: ['', [Validators.required, Validators.pattern(REGEX_NUMERIC), Validators.minLength(6), Validators.maxLength(15), this.notPhoneNumberValidator()]]
+      numero_documento: ['', [Validators.required, Validators.pattern(REGEX_NUMERIC), Validators.minLength(6), Validators.maxLength(15), this.notPhoneNumberValidator()]],
+      // Segundo factor (Modelo A): prueba de titularidad para precargar datos.
+      fecha_expedicion: ['', Validators.required]
     });
 
     // 2. Init Main Form
@@ -283,6 +317,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     this.cargarDatosJSON(); // Colombia
     this.initObservables();
     this.initSearchFilters();
+    this.initAutocompleteMirror();
     this.initAutoSave();
 
     // Query Params
@@ -529,8 +564,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       cargoEmpresa1: [''],
       areaExperiencia: [[]],
       fechaRetiro1: [''],
-      // tiempoExperiencia duplicated in old code? 414 vs 333 (laboral info).
-      // I'll keep one.
+      tiempoExperiencia: [''], // Declarado: se ata en HTML (selectField) y se lee en buildPayload
       motivoRetiro1: [''],
       empresas_laborado: [''],
       direccionEmpresa1: [''],
@@ -634,63 +668,13 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       f.get('numeroCedula')?.updateValueAndValidity();
     });
 
-    // Hermanos Logic
-    f.get('tieneHermanos')?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(val => {
-      this.mostrarCamposHermanos = val === 'SI';
-      toggle('numeroHermanos', val === 'SI');
-      if (val !== 'SI') {
-        (f.get('hermanos') as FormArray).clear();
-      }
-    });
-
-    f.get('numeroHermanos')?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(num => {
-      const arr = f.get('hermanos') as FormArray;
-      arr.clear();
-      for (let i = 0; i < (num || 0); i++) {
-        arr.push(this.fb.group({
-          nombre: ['', [this.fullNameValidator(true)]], // Full Name for sibling
-          profesion: ['', [Validators.required, Validators.minLength(2)]],
-          telefono: ['', [Validators.required, this.phoneCOValidator()]]
-        }));
-      }
-    });
-
-    // Desea Generar Logic
-    // Desea Generar Logic
+    // Desea Generar Logic — solo limpia el archivo de HV adjunto cuando se desactiva.
+    // Los "campos adicionales" (vehículo, trabajo actual, hermanos) fueron removidos
+    // del formulario: no existen como controles ni en el HTML, así que no se togglean.
     f.get('deseaGenerar')?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(val => {
-      // Valid if true/SI (depending on value type, HTML says boolean true/false but let's handle truthy)
-      const req = !!val;
-
-      toggle('tieneVehiculo', req);
-      toggle('estaTrabajando', req);
-      toggle('trabajoAntes', req);
-      toggle('solicitoAntes', req);
-      toggle('tieneHermanos', req);
-
-      if (!req) {
+      if (!val) {
         this.limpiarCamposAdicionales();
-        // Force update of children if their parent became hidden/disabled
-        // But toggle logic above enables/disables them? 
-        // No, 'toggle' inside 'tieneVehiculo' subscription handles sub-sub-fields like 'licencia'.
-        // But if 'tieneVehiculo' is disabled, its subscription might not trigger or we just set value to empty.
-        // limpiarCamposAdicionales sets them to null.
       }
-    });
-
-    // Vehiculo
-    f.get('tieneVehiculo')?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(val => {
-      const req = val === 'SI';
-      toggle('licenciaConduccion', req);
-      toggle('categoriaLicencia', req);
-      // Note: For mat-select multiple, 'required' works for checking length > 0
-    });
-
-    // Trabajo Actual
-    f.get('estaTrabajando')?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(val => {
-      const req = val === 'SI';
-      toggle('empresaActual', req);
-      toggle('tipoTrabajo', req);
-      toggle('tipoContrato', req);
     });
 
     // Hijos Logic (Consolidated)
@@ -715,8 +699,6 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       toggle('nombreJefe1', req, [Validators.required]);
       toggle('cargoEmpresa1', req);
       toggle('fechaRetiro1', req);
-      toggle('tiempoExperiencia', req);
-      toggle('motivoRetiro1', req);
       toggle('tiempoExperiencia', req);
       toggle('motivoRetiro1', req);
       toggle('direccionEmpresa1', req, [Validators.required]);
@@ -909,24 +891,9 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   private initAutoSave(): void {
     if (!this.isBrowser) return;
 
-    // Load
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const savedCedula = localStorage.getItem(CEDULA_KEY);
-    if (this.numeroCedula === savedCedula && raw) {
-      try {
-        const data = JSON.parse(raw);
-        // Reconstruct Arrays before patch
-        if (data.hijos) this.actualizarHijos(data.hijos.length);
-
-        // We need to restore the state of the toggles (validators) based on loaded data
-        // Since we use valueChanges to toggle, patching *should* trigger them if we use emitEvent:true (default)
-        // But sometimes patchValue with complex forms is tricky.
-        // Let's rely on the flows triggering.
-        this.formHojaDeVida2.patchValue(data);
-      } catch (e) {
-        console.error('Error loading draft', e);
-      }
-    }
+    // La carga del borrador se hace en startForm(), cuando ya se conoce la cédula
+    // buscada. Antes se hacía aquí comparando this.numeroCedula (todavía '') contra
+    // la cédula guardada, por lo que NUNCA restauraba.
 
     // Save
     this.formHojaDeVida2.valueChanges.pipe(
@@ -968,84 +935,36 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           const config: any = (this.CATALOG_CONFIG as any)[key];
           const rawItems: any[] = results[key] ?? []; // Raw response from new format
 
-          // Map logic based on the config.map provided
-          // The JSON structure has `datos` object inside each item.
-          // We need to access `i.datos` before mapping with our callbacks if the callback expects `datos`.
-          // WAIT - My config map callbacks expect `d` which I intended to be `i.datos`.
-
+          // Cada item del catálogo trae sus campos dentro de `datos`; el
+          // `config.map` de arriba decide la forma final de la opción.
           const mapped = rawItems
             .filter(i => i.activo !== false)
-            .map(i => {
-              const d = i.datos || {};
-              // Use the specific map function from config
-              const val = config.map(d); // This returns the value or object
+            .map(i => config.map(i.datos || {}))
+            .filter((v: any) => v !== null && v !== undefined && this.textoCatalogo(v) !== '');
 
-              // If the result is an object (for code/desc pairs), guard it
-              if (typeof val === 'object' && val !== null) {
-                return { value: val.code ?? val.codigo ?? val.mano ?? val.abbreviation ?? val.talla, viewValue: val.desc ?? val.descripcion ?? val.nombre ?? val.talla ?? val.abbreviation };
-              }
-              // scalar
-              return { value: val, viewValue: val };
-            })
-            .filter(o => o.value != null)
-            .sort((a, b) => String(a.viewValue || '').localeCompare(String(b.viewValue || ''), 'es', { sensitivity: 'base' }));
-
-          // Remove dups (generic)
-          const seen = new Set();
-          const unique = [];
+          // Dedup por código (o por texto si no hay código).
+          const seen = new Set<string>();
+          const unique: any[] = [];
           for (const item of mapped) {
-            const k = String(item.value).toUpperCase();
+            const k = this.claveCatalogo(item);
             if (!seen.has(k)) {
               seen.add(k);
               unique.push(item);
             }
           }
 
-          // Assign
-          // If original config prop expects objects (like tipoDocs), we keep the objects.
-          // But my HTML templates expect `optionsKey` / `valueKey` if it's an object.
-          // Checking `CATALOG_CONFIG`:
-          // TIPOS_IDENTIFICACION -> map returns obj. 
-          // SEXO -> scalar.
-          // So `mapped` is always { value, viewValue }.
-          // We need to unwrap if the original map was scalar?
-          // Actually, my `selectField` template handles objects. 
-          // But `tipoDocs` in HTML uses `optionsKey='description'`, `valueKey='abbreviation'`.
-          // My `mapped` above creates `{value, viewValue}` which is standardized.
+          // Orden alfabético por el texto que ve el usuario. Se usa un
+          // Intl.Collator en español: el `.sort()` por defecto compara unidades
+          // UTF-16, así que mandaba al final del listado todo lo que empezara
+          // por vocal acentuada o Ñ. `numeric` evita que "10" quede antes de "2".
+          unique.sort((a, b) => FormsTestContratation.COLLATOR_ES.compare(
+            this.textoCatalogo(a), this.textoCatalogo(b)
+          ));
 
-          // CORRECTION: The HTML expects specific keys for some, and just list of strings for others.
-          // I should adapt usage to be consistent or just return what HTML expects.
-
-          // Case 1: HTML uses `optionsKey`. (e.g. `tipoDocs`, `estadosCiviles`, `lateralidad`)
-          // I should reshape `mapped` to match what HTML expects or update HTML.
-          // Updating TS is safer.
-
-          // Let's refine the mapping loop to be smarter.
-          if (['tipoDocs', 'estadosCiviles', 'listamanos', 'oficinas'].includes(config.prop)) {
-            // Keep as structured objects but standardized?
-            // No, let's just push generic [{..., ...}] and user standardization in HTML or re-map here.
-            // TIPOS_IDENTIFICACION: HTML expects `description`, `abbreviation`.
-            // My mapping returns that.
-
-            // Wait, my `mapped` logic above wraps everything in `{value, viewValue}`.
-            // This breaks `TIPOS_IDENTIFICACION` which needs `abbreviation`.
-
-            // RE-WRITE of loop:
-            (this as any)[config.prop] = rawItems
-              .filter(i => i.activo !== false)
-              .map(i => config.map(i.datos || {})) // Raw map from config
-              .sort((a: any, b: any) => {
-                const va = a.description || a.descripcion || a.nombre || a;
-                const vb = b.description || b.descripcion || b.nombre || b;
-                return String(va).localeCompare(String(vb));
-              });
-          } else {
-            // Simple string arrays (Generos, RH, etc.)
-            (this as any)[config.prop] = rawItems
-              .filter(i => i.activo !== false)
-              .map(i => config.map(i.datos || {}))
-              .sort(); // Simple sort
-          }
+          // Se asigna conservando la forma que devuelve `config.map` (objeto
+          // {codigo, descripcion} o escalar), porque el HTML la consume vía
+          // `optionsKey`/`valueKey`. Solo se deduplica y se ordena.
+          (this as any)[config.prop] = unique;
         }
         this.loadingCatalogos = false;
       },
@@ -1102,7 +1021,6 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       lugarAnteriorResidencia: g('lugarAnteriorResidencia'),
       razonCambioResidencia: g('razonCambioResidencia'),
       zonasConocidas: g('zonasConocidas'),
-      preferenciaResidencia: g('preferenciaResidencia'),
       fechaNacimiento: this.toYmd(g('fechaNacimiento')),
       estudiaActualmente: g('estudiaActualmente'),
       familiarEmergencia: g('familiarEmergencia'),
@@ -1125,7 +1043,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       apellidoConyugue: g('apellidosConyuge'),
       numDocIdentidadConyugue: g('documentoIdentidadConyuge'),
       viveConElConyugue: g('viveConyuge'),
-      direccionConyugue: addr('direccionConyugue'),
+      direccionConyugue: addr('direccionConyuge'),
       telefonoConyugue: g('telefonoConyugue'),
       barrioMunicipioConyugue: g('barrioMunicipioConyugue'),
       ocupacion_conyugue: g('ocupacionConyuge'),
@@ -1280,9 +1198,191 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     return c as FormGroup;
   }
 
+  // ----------------------------------------------------
+  // Multi-credencial por cédula: una cédula puede acumular X correos de acceso,
+  // cada uno como UsuarioCredencial propia. El correo del formulario NO pisa el
+  // correo ya existente en BD: se ANEXA vía el endpoint público
+  // /gestion_admin/auth/agregar-credenciales/ (no requiere sesión).
+  // ----------------------------------------------------
+  /**
+   * Anexa UN correo como credencial de acceso de la cédula. La contraseña es la
+   * cédula (misma convención del correo principal del formulario). No lanza:
+   * devuelve el resultado para que el llamador decida el mensaje al usuario.
+   *
+   * @returns ok=true si quedó agregado (o ya existía como credencial de la misma
+   *          cédula); ok=false con `rechazo` si el backend lo rechazó/ falló.
+   */
+  private async agregarCorreoComoCredencial(
+    apiUrl: string,
+    cedula: string,
+    correo: string,
+    password: string,
+    etiqueta: string = 'PERSONAL',
+  ): Promise<{ ok: boolean; rechazo?: string }> {
+    const correoNorm = String(correo || '').trim().toLowerCase();
+    if (!correoNorm || !password) return { ok: false, rechazo: 'Datos incompletos.' };
+    try {
+      const res: any = await firstValueFrom(this.http.post(
+        `${apiUrl}/gestion_admin/auth/agregar-credenciales/`,
+        { numero_de_documento: cedula, credenciales: [{ correo: correoNorm, password, etiqueta }] }
+      ));
+      const agregadas = Array.isArray(res?.agregadas) ? res.agregadas : [];
+      const rechazadas = Array.isArray(res?.rechazadas) ? res.rechazadas : [];
+      if (agregadas.length > 0) return { ok: true };
+      if (rechazadas.length > 0) return { ok: false, rechazo: String(rechazadas[0]?.motivo || '') };
+      return { ok: false };
+    } catch (e: any) {
+      console.warn('[credencial] no se pudo anexar:', e?.status, e?.error);
+      return { ok: false, rechazo: 'No se pudo conectar con el servidor.' };
+    }
+  }
+
   shouldShowError(controlName: string, form: FormGroup = this.formHojaDeVida2): boolean {
     const control = form.get(controlName);
     return !!(control && control.invalid && (control.touched || control.dirty));
+  }
+
+  /**
+   * Campo "resuelto": tiene valor Y es válido. Pinta el borde en verde.
+   * Deliberadamente NO exige `touched`: un valor precargado desde backend
+   * también cuenta como resuelto. Y nunca se solapa con `shouldShowError`,
+   * porque un control inválido no puede ser válido a la vez.
+   */
+  isFieldOk(controlName: string, form: FormGroup = this.formHojaDeVida2): boolean {
+    const control = form.get(controlName);
+    if (!control || control.invalid) return false;
+    const v = control.value;
+    if (v === null || v === undefined) return false;
+    if (Array.isArray(v)) return v.length > 0;
+    if (typeof v === 'boolean') return v;
+    return String(v).trim().length > 0;
+  }
+
+  // ----------------------------------------------------
+  // Autocompletado de listas largas (departamentos / ciudades / dominios).
+  // `searchControl` es el texto visible y filtra; el control real del form
+  // solo se compromete cuando se elige una opción, para que no quede un
+  // término de búsqueda a medias haciéndose pasar por valor seleccionado.
+  // ----------------------------------------------------
+
+  /** Texto a mostrar de una opción (objeto o string). */
+  private optionLabel(op: any, optionsKey?: string): string {
+    if (op === null || op === undefined) return '';
+    return String(optionsKey ? op[optionsKey] : op);
+  }
+
+  /**
+   * Al enfocar, re-emite el término actual para que la lista filtrada sea
+   * coherente con lo que se ve.
+   *
+   * En móvil además sube el campo al centro de la pantalla: los campos del
+   * final del formulario quedaban pegados al borde inferior y el panel del
+   * autocompletado abría fuera de la vista (agravado por el teclado virtual).
+   */
+  onAutocompleteFocus(searchControl: FormControl, event?: Event): void {
+    searchControl.setValue(searchControl.value ?? '');
+
+    if (typeof window === 'undefined' || window.innerWidth > 600) return;
+    const campo = (event?.target as HTMLElement | null)?.closest('mat-form-field');
+    if (!campo) return;
+    // Tras el frame en que se abre el panel, para no pelear con su animación.
+    setTimeout(() => campo.scrollIntoView({ block: 'center', behavior: 'smooth' }), 150);
+  }
+
+  onAutocompleteSelected(
+    event: MatAutocompleteSelectedEvent,
+    controlName: string,
+    searchControl: FormControl,
+    optionsKey: string | undefined,
+    valueKey: string | undefined,
+    form: FormGroup = this.formHojaDeVida2,
+  ): void {
+    const op = event.option.value;
+    const real = form.get(controlName);
+    if (!real) return;
+    real.setValue(valueKey ? op[valueKey] : op);
+    real.markAsDirty();
+    real.markAsTouched();
+    searchControl.setValue(this.optionLabel(op, optionsKey), { emitEvent: false });
+    searchControl.setErrors(null);
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Al salir del campo: si lo escrito no corresponde a una opción, se descarta
+   * y se restaura el texto del valor ya comprometido (o se limpia si no hay).
+   * Además espeja el estado de error del control real para que `mat-error`
+   * se pinte, ya que el input está atado a `searchControl`, no al control real.
+   */
+  onAutocompleteBlur(
+    controlName: string,
+    searchControl: FormControl,
+    options: any[],
+    optionsKey: string | undefined,
+    valueKey: string | undefined,
+    form: FormGroup = this.formHojaDeVida2,
+  ): void {
+    const real = form.get(controlName);
+    if (!real) return;
+
+    const typed = String(searchControl.value ?? '').trim();
+    const match = (options || []).find(
+      op => this.optionLabel(op, optionsKey).toLowerCase() === typed.toLowerCase()
+    );
+
+    if (match) {
+      real.setValue(valueKey ? match[valueKey] : match);
+      searchControl.setValue(this.optionLabel(match, optionsKey), { emitEvent: false });
+    } else {
+      const committed = real.value;
+      searchControl.setValue(committed ? String(committed) : '', { emitEvent: false });
+    }
+
+    real.markAsTouched();
+    searchControl.setErrors(this.shouldShowError(controlName, form) ? { mirror: true } : null);
+    this.cdr.markForCheck();
+  }
+
+  clearAutocomplete(controlName: string, searchControl: FormControl, form: FormGroup = this.formHojaDeVida2): void {
+    const real = form.get(controlName);
+    if (real) {
+      real.setValue('');
+      real.markAsDirty();
+      real.markAsTouched();
+    }
+    searchControl.setValue('');
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Mantiene el texto visible del autocompletado sincronizado con el valor real
+   * del formulario (precarga desde backend, y los reset en cascada
+   * departamento → ciudad). En todos estos campos el valor guardado ES el texto
+   * mostrado, así que el espejo es directo.
+   */
+  private initAutocompleteMirror(): void {
+    const pares: Array<{ control: string; search: FormControl }> = [
+      { control: 'departamento', search: this.searchDeptoRes },
+      { control: 'ciudad', search: this.searchMunRes },
+      { control: 'departamentoExpedicionCC', search: this.searchDeptoExp },
+      { control: 'municipioExpedicionCC', search: this.searchMunExp },
+      { control: 'departamentoNacimiento', search: this.searchDeptoNac },
+      { control: 'municipioNacimiento', search: this.searchMunNac },
+      { control: 'correoDominio', search: this.searchDominio },
+    ];
+
+    for (const { control, search } of pares) {
+      const real = this.formHojaDeVida2.get(control);
+      if (!real) continue;
+
+      const inicial = real.value == null ? '' : String(real.value);
+      if (inicial.trim()) search.setValue(inicial, { emitEvent: false });
+
+      real.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(v => {
+        const texto = v == null ? '' : String(v);
+        if (String(search.value ?? '') !== texto) search.setValue(texto, { emitEvent: false });
+      });
+    }
   }
 
   getErrorMessage(controlName: string, form: FormGroup = this.formHojaDeVida2): string {
@@ -1561,14 +1661,133 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   // ----------------------------------------------------
   // 4. Pre-check Search Logic
   // ----------------------------------------------------
-  onSearch() {
+  async onSearch() {
     if (this.searchForm.invalid) {
       this.searchForm.markAllAsTouched();
       return;
     }
 
-    const { tipo_doc, numero_documento } = this.searchForm.value;
-    this.startForm(tipo_doc, numero_documento);
+    const { tipo_doc, numero_documento, fecha_expedicion } = this.searchForm.getRawValue();
+    this.isSearching = true;
+    try {
+      this.startForm(tipo_doc, numero_documento);
+      // Arrastra la fecha de expedición tecleada (segundo factor) al formulario.
+      this.formHojaDeVida2.get('fechaExpedicionCC')?.setValue(fecha_expedicion);
+      // Precarga del servidor (Modelo A) y, por encima, el borrador local si es de esta cédula.
+      await this.precargarDesdeCandidato(tipo_doc, numero_documento, fecha_expedicion);
+      this.restoreDraft(numero_documento);
+    } finally {
+      this.isSearching = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  /**
+   * Precarga (Modelo A) el formulario con los datos ya registrados del candidato.
+   * Espeja el mapeo de `rellenarForm` de TesoroApp pero hacia los controles del web.
+   * Solo trae datos propios de baja sensibilidad (el backend excluye PII de terceros).
+   * Si no hay match (404) o falla la red, el formulario queda en blanco.
+   */
+  private async precargarDesdeCandidato(tipoDoc: string, numero: string, fechaExpedicion: any): Promise<void> {
+    const fechaYmd = this.toYmd(fechaExpedicion);
+    if (!fechaYmd) return;
+
+    let cand: any = null;
+    try {
+      cand = await firstValueFrom(this.candidateS.getPrefillByDocumento(tipoDoc, numero, fechaYmd));
+    } catch {
+      cand = null; // 404 (sin datos / fecha no coincide) o error de red → form en blanco.
+    }
+    if (!cand) return;
+
+    this.foundCandidate = cand;
+    const f = this.formHojaDeVida2;
+
+    const toDate = (v: any): Date | null => {
+      if (!v) return null;
+      if (typeof v === 'string') {
+        const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v.trim());
+        if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])); // midnight local
+      }
+      const d = v instanceof Date ? v : new Date(v);
+      return isNaN(d.getTime()) ? null : d;
+    };
+    const splitMulti = (s: any): string[] =>
+      String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+    const boolToSiNo = (v: any): string => (v === true ? 'SI' : v === false ? 'NO' : '');
+
+    const info = cand.info_cc ?? {};
+    const contacto = cand.contacto ?? {};
+    const residencia = cand.residencia ?? {};
+    const vivienda = cand.vivienda ?? {};
+    const expResumen = cand.experiencia_resumen ?? {};
+    const formacion0 = Array.isArray(cand.formaciones) && cand.formaciones.length ? cand.formaciones[0] : {};
+
+    // Email → usuario + dominio (el observable de `correo` arma el correo completo).
+    const email = String(contacto.email || '');
+    const at = email.indexOf('@');
+    const correoUsuario = at > 0 ? email.slice(0, at) : '';
+    const correoDominio = at > 0 ? email.slice(at + 1) : '';
+
+    f.patchValue({
+      pNombre: cand.primer_nombre || '',
+      sNombre: cand.segundo_nombre || '',
+      pApellido: cand.primer_apellido || '',
+      sApellido: cand.segundo_apellido || '',
+      genero: cand.sexo || '',
+      fechaNacimiento: toDate(cand.fecha_nacimiento),
+      estadoCivil: cand.estado_civil || '',
+      fechaExpedicionCC: toDate(info.fecha_expedicion),
+
+      correoUsuario,
+      correoDominio,
+
+      numCelular: contacto.celular || '',
+      numWha: contacto.whatsapp || '',
+
+      direccionResidencia: residencia.direccion || '',
+      zonaResidencia: residencia.barrio || '',
+      tiempoResidenciaZona: residencia.hace_cuanto_vive || '',
+      lugarAnteriorResidencia: residencia.lugar_anterior || '',
+      razonCambioResidencia: residencia.razon_mudanza || '',
+      zonasConocidas: residencia.zonas_del_pais || '',
+
+      escolaridad: formacion0.nivel || '',
+
+      estudiaActualmente: boolToSiNo(vivienda.estudia_actualmente),
+      experienciaLaboral: boolToSiNo(expResumen.tiene_experiencia),
+      familiaSolo: boolToSiNo(vivienda.familia_un_solo_ingreso),
+      caracteristicasVivienda: vivienda.caracteristicas_vivienda || '',
+      numeroHabitaciones: vivienda.num_habitaciones ?? '',
+      personasPorHabitacion: vivienda.personas_por_habitacion ?? '',
+      numHijosDependientes: vivienda.num_hijos_dependen_economicamente ?? 0,
+      cuidadorHijos: vivienda.responsable_hijos || '',
+
+      conQuienViveChecks: splitMulti(vivienda.personas_con_quien_convive),
+      expectativasVidaChecks: splitMulti(vivienda.expectativas_de_vida),
+      areaExperiencia: splitMulti(expResumen.area_experiencia),
+      tiposViviendaChecks: splitMulti(vivienda.tipo_vivienda),
+      comodidadesChecks: splitMulti(vivienda.servicios),
+    });
+
+    // Cascadas departamento → municipio: set del depto dispara el listener que
+    // puebla la lista y habilita el municipio; luego se setea el municipio.
+    this.setDeptCity('departamentoExpedicionCC', 'municipioExpedicionCC', info.depto_expedicion, info.mpio_expedicion);
+    this.setDeptCity('departamentoNacimiento', 'municipioNacimiento', info.depto_nacimiento, info.mpio_nacimiento);
+    this.setDeptCity('departamento', 'ciudad', cand.departamento, cand.municipio);
+
+    f.updateValueAndValidity();
+    this.cdr.markForCheck();
+  }
+
+  /** Setea depto (dispara la cascada) y luego el municipio dependiente. */
+  private setDeptCity(deptKey: string, cityKey: string, dept: any, city: any): void {
+    const f = this.formHojaDeVida2;
+    const d = String(dept || '').trim();
+    const c = String(city || '').trim();
+    if (!d) return;
+    f.get(deptKey)?.setValue(d); // dispara setupLocationListener (puebla lista + habilita municipio)
+    if (c) f.get(cityKey)?.setValue(c);
   }
 
   // ----------------------------------------------------
@@ -1578,6 +1797,9 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   // Helper: Step Mapping
   // ----------------------------------------------------
   readonly STEP1_KEYS = [
+    // Primera pregunta del formulario. Debe ir acá porque STEP1_KEYS se evalúa
+    // antes que la regla `ctrl.includes('fuente')`, que lo mandaba al paso 3.
+    'fuenteVacante',
     'oficina', 'tipoDoc', 'numeroCedula',
     'fechaExpedicionCC', 'departamentoExpedicionCC', 'municipioExpedicionCC',
     'pNombre', 'sNombre', 'pApellido', 'sApellido', 'genero',
@@ -2360,27 +2582,18 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * El documento ya existe → buscar al usuario por cédula y actualizarlo.
-   * Si el correo también está duplicado (por la MISMA persona), el PATCH lo actualiza.
-   * Si el correo está en uso por OTRA persona, se le avisa.
-   */
-  /**
    * Agrega un correo + password como credencial PERSONAL del usuario existente.
    * No toca su correo principal ni su rol. La persona podrá iniciar sesión
    * con cualquiera de sus correos (cada uno con su propia contraseña).
    */
   private async agregarCredencialPersonal(
     apiUrl: string,
-    usuarioId: string,
     correo: string,
     password: string,
     cedula: string,
   ): Promise<void> {
-    try {
-      await firstValueFrom(this.http.post(
-        `${apiUrl}/gestion_admin/usuarios/${usuarioId}/credenciales/`,
-        { correo, password, etiqueta: 'PERSONAL' }
-      ));
+    const cred = await this.agregarCorreoComoCredencial(apiUrl, cedula, correo, password, 'PERSONAL');
+    if (cred.ok) {
       Swal.fire({
         icon: 'success',
         title: 'Correo personal agregado',
@@ -2394,34 +2607,40 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
         confirmButtonColor: '#111827',
         width: 560,
       });
-    } catch (err: any) {
-      const status = err?.status;
-      const body = err?.error;
-      console.error('[credenciales] error', status, body);
-      const msg = status === 409
-        ? 'Ese correo ya pertenece a otro usuario. Use un correo distinto.'
-        : status === 401 || status === 403
-          ? 'No tenemos permisos para agregar credenciales desde aquí. Comuníquese con la oficina.'
-          : 'No pudimos agregar el correo personal. Sus datos del formulario sí se guardaron.';
-      Swal.fire({
-        icon: 'warning',
-        title: 'No se pudo agregar el correo personal',
-        html: `<p style="text-align:left;">${msg}</p>
-               <p style="text-align:left;">Su cuenta corporativa <b>no fue modificada</b>. Si necesita acceso operativo, comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
-        confirmButtonText: 'Entendido',
-        confirmButtonColor: '#111827',
-        width: 520
-      });
+      return;
     }
+    const rechazo = cred.rechazo || '';
+    const msg = /pertenece a otro/i.test(rechazo)
+      ? 'Ese correo ya pertenece a otro usuario. Use un correo distinto.'
+      : /principal/i.test(rechazo)
+        ? 'Ese ya es su correo de acceso: puede ingresar con él usando su cédula.'
+        : (rechazo || 'No pudimos agregar el correo personal. Sus datos del formulario sí se guardaron.');
+    Swal.fire({
+      icon: 'warning',
+      title: 'No se pudo agregar el correo personal',
+      html: `<p style="text-align:left;">${msg}</p>
+             <p style="text-align:left;">Su cuenta corporativa <b>no fue modificada</b>. Si necesita acceso operativo, comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
+      confirmButtonText: 'Entendido',
+      confirmButtonColor: '#111827',
+      width: 520
+    });
   }
 
+  /**
+   * El documento ya existe en BD. Política multi-correo por cédula:
+   *  - Si el correo del formulario ES distinto al correo principal ya guardado,
+   *    NO lo sobrescribimos: lo ANEXAMOS como credencial de acceso adicional, de
+   *    modo que la cédula acumule X correos (cada uno login propio).
+   *  - Si es el MISMO correo (o la cuenta aún no tenía), refrescamos los datos.
+   *  - Si el correo pertenece a OTRA cédula, se avisa y no se toca nada.
+   */
   private async updateExistingUserByDoc(apiUrl: string, cedula: string, correo: string, password: string, raw: any, emailAlsoDuplicate: boolean): Promise<void> {
     const g = (k: string) => (raw[k] || '');
     const upper = (v: string) => String(v || '').toUpperCase().trim();
 
+    // Sólo datos de perfil. El correo/clave principal se decide más abajo según
+    // si el correo del formulario coincide o no con el principal ya existente.
     const patchPayload: any = {
-      password,
-      correo_electronico: correo,
       nombres: [upper(g('pNombre')), upper(g('sNombre'))].filter(Boolean).join(' ').substring(0, 64),
       apellidos: [upper(g('pApellido')), upper(g('sApellido'))].filter(Boolean).join(' ').substring(0, 64),
     };
@@ -2462,18 +2681,52 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
 
       // Caso: existe usuario con esa cédula pero no tenemos permisos para verlo
       // (el candidato no está logueado, lo cual es normal en este flujo público).
+      // No podemos leer/editar la cuenta, PERO sí podemos anexar el correo como
+      // credencial de acceso por cédula (endpoint público): así la cédula acumula
+      // varios correos de login sin pisar el principal existente.
       if (authBlocked) {
-        console.warn('[updateUser] Sin permisos para buscar usuario existente.');
-        Swal.fire({
-          icon: 'info',
-          title: 'Usted ya tiene una cuenta registrada',
-          html: `<p style="text-align:left;">Ya existe una cuenta con la cédula <b>${cedula}</b>.</p>
-                 <p style="text-align:left;">Sus datos del formulario <b>se guardaron correctamente</b>.</p>
-                 <p style="text-align:left;">Si no recuerda su contraseña o tiene problemas para ingresar, comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
-          confirmButtonText: 'Entendido',
-          confirmButtonColor: '#111827',
-          width: 520
-        });
+        console.warn('[updateUser] Sin sesión: anexando correo como credencial pública.');
+        const cred = await this.agregarCorreoComoCredencial(apiUrl, cedula, correo, password, 'PERSONAL');
+        if (cred.ok) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Correo de acceso agregado',
+            html: `<p style="text-align:left;">Ya existía una cuenta con la cédula <b>${cedula}</b>. Agregamos este correo como acceso adicional.</p>
+                   <p style="text-align:left;">Ahora puede ingresar con:</p>
+                   <p style="text-align:left;background:#f5f5f5;padding:10px;border-radius:6px;margin:10px 0;">
+                     <b>Correo:</b> ${correo}<br>
+                     <b>Contraseña:</b> su número de cédula
+                   </p>
+                   <p style="font-size:12px;color:#666;text-align:left;">Sus otros correos registrados siguen funcionando igual.</p>`,
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#111827',
+            width: 540
+          });
+        } else if (/principal/i.test(cred.rechazo || '')) {
+          // Ese correo ya es el principal de la cédula: la persona ya puede entrar con él.
+          Swal.fire({
+            icon: 'info',
+            title: 'Usted ya tiene una cuenta registrada',
+            html: `<p style="text-align:left;">Ya existe una cuenta con la cédula <b>${cedula}</b> y ese correo ya es su acceso.</p>
+                   <p style="text-align:left;">Sus datos del formulario <b>se guardaron correctamente</b>. Ingrese con <b>${correo}</b> y su número de cédula.</p>
+                   <p style="text-align:left;">Si no recuerda su contraseña, comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#111827',
+            width: 520
+          });
+        } else {
+          Swal.fire({
+            icon: 'info',
+            title: 'Usted ya tiene una cuenta registrada',
+            html: `<p style="text-align:left;">Ya existe una cuenta con la cédula <b>${cedula}</b>.</p>
+                   <p style="text-align:left;">Sus datos del formulario <b>se guardaron correctamente</b>.</p>
+                   ${cred.rechazo ? `<p style="text-align:left;color:#b45309;">${cred.rechazo}</p>` : ''}
+                   <p style="text-align:left;">Si tiene problemas para ingresar, comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#111827',
+            width: 520
+          });
+        }
         return;
       }
 
@@ -2515,7 +2768,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
             width: 560
           });
           if (result.isConfirmed) {
-            await this.agregarCredencialPersonal(apiUrl, userToUpdate.id, correo, password, cedula);
+            await this.agregarCredencialPersonal(apiUrl, correo, password, cedula);
           } else {
             Swal.fire({
               icon: 'success',
@@ -2545,26 +2798,67 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
 
+      // ¿El correo del formulario es DISTINTO al correo principal ya guardado?
+      // Si difiere, NO lo sobrescribimos: lo anexamos como acceso adicional, así
+      // la cédula acumula varios correos. Si coincide, refrescamos principal+clave.
+      const correoExistente = String(userToUpdate?.correo_electronico || '').trim().toUpperCase();
+      const correoNuevo = String(correo || '').trim().toUpperCase();
+      const emailsDifieren = !!correoNuevo && !!correoExistente && correoNuevo !== correoExistente;
+      if (!emailsDifieren) {
+        patchPayload.correo_electronico = correo;
+        patchPayload.password = password;
+      }
+
       // Intentamos actualizar la cuenta existente
       try {
         await firstValueFrom(this.http.patch(`${apiUrl}/gestion_admin/usuarios/${userToUpdate.id}/`, patchPayload));
         console.log('[updateUser] Usuario actualizado OK:', userToUpdate.id);
-        Swal.fire({
-          icon: 'success',
-          title: 'Su cuenta fue actualizada',
-          html: `<p style="text-align:left;">Ya teníamos registrada la cédula <b>${cedula}</b>.</p>
-                 <p style="text-align:left;">Actualizamos sus datos de acceso con la información más reciente.</p>
-                 <p style="text-align:left;">Puede ingresar con:</p>
-                 <p style="text-align:left;background:#f5f5f5;padding:10px;border-radius:6px;margin:10px 0;">
-                   <b>Correo:</b> ${correo}<br>
-                   <b>Contraseña:</b> su número de cédula
-                 </p>`,
-          confirmButtonText: 'Entendido',
-          confirmButtonColor: '#111827',
-          width: 520,
-          timer: 6000,
-          timerProgressBar: true
-        });
+
+        if (emailsDifieren) {
+          // Anexar el nuevo correo como credencial de acceso adicional (no pisa el principal).
+          const cred = await this.agregarCorreoComoCredencial(apiUrl, cedula, correoNuevo, password, 'PERSONAL');
+          if (cred.ok) {
+            Swal.fire({
+              icon: 'success',
+              title: 'Correo de acceso agregado',
+              html: `<p style="text-align:left;">La cédula <b>${cedula}</b> ya tenía el correo <b>${correoExistente}</b>. Agregamos <b>${correoNuevo}</b> como acceso adicional.</p>
+                     <p style="text-align:left;">Puede ingresar con <b>cualquiera</b> de sus correos usando su número de cédula como contraseña.</p>`,
+              confirmButtonText: 'Entendido',
+              confirmButtonColor: '#111827',
+              width: 560,
+              timer: 7000,
+              timerProgressBar: true
+            });
+          } else {
+            Swal.fire({
+              icon: 'warning',
+              title: 'No se pudo agregar el correo adicional',
+              html: `<p style="text-align:left;">Actualizamos sus datos, pero no pudimos agregar <b>${correoNuevo}</b> como acceso.</p>
+                     ${cred.rechazo ? `<p style="text-align:left;color:#b45309;">${cred.rechazo}</p>` : ''}
+                     <p style="text-align:left;">Su correo <b>${correoExistente}</b> sigue funcionando. Si necesita ayuda, comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
+              confirmButtonText: 'Entendido',
+              confirmButtonColor: '#111827',
+              width: 540
+            });
+          }
+        } else {
+          Swal.fire({
+            icon: 'success',
+            title: 'Su cuenta fue actualizada',
+            html: `<p style="text-align:left;">Ya teníamos registrada la cédula <b>${cedula}</b>.</p>
+                   <p style="text-align:left;">Actualizamos sus datos de acceso con la información más reciente.</p>
+                   <p style="text-align:left;">Puede ingresar con:</p>
+                   <p style="text-align:left;background:#f5f5f5;padding:10px;border-radius:6px;margin:10px 0;">
+                     <b>Correo:</b> ${correo}<br>
+                     <b>Contraseña:</b> su número de cédula
+                   </p>`,
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#111827',
+            width: 520,
+            timer: 6000,
+            timerProgressBar: true
+          });
+        }
       } catch (patchErr: any) {
         const patchStatus = patchErr?.status;
         const patchBody = patchErr?.error;
@@ -2628,6 +2922,27 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     this.formHojaDeVida2.get('tipoDoc')?.disable();
     this.formHojaDeVida2.get('numeroCedula')?.disable();
   }
+
+  /**
+   * Restaura el borrador guardado en localStorage por el autosave, solo cuando la
+   * cédula guardada coincide con la que se está buscando. Evita filtrar el borrador
+   * de otra persona en un dispositivo compartido (form público).
+   */
+  private restoreDraft(cedula: string): void {
+    if (!this.isBrowser) return;
+    const savedCedula = localStorage.getItem(CEDULA_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw || !cedula || savedCedula !== cedula) return;
+    try {
+      const data = JSON.parse(raw);
+      // Reconstruye los FormArray antes del patch para que existan los hijos.
+      if (data.hijos) this.actualizarHijos(data.hijos.length);
+      // patchValue con emitEvent por defecto re-dispara los toggles condicionales.
+      this.formHojaDeVida2.patchValue(data);
+    } catch (e) {
+      console.error('Error loading draft', e);
+    }
+  }
   groupCrossValidator(): ValidatorFn {
     return (g: AbstractControl) => {
       const v = g.value;
@@ -2681,7 +2996,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       sNombre: 'Segundo Nombre',
       pApellido: 'Primer Apellido',
       sApellido: 'Segundo Apellido',
-      genero: 'Género',
+      genero: 'Sexo', // etiqueta visible; la clave del control sigue siendo `genero` (contrato con backend)
       fechaNacimiento: 'Fecha de Nacimiento',
       departamentoNacimiento: 'Departamento de Nacimiento',
       municipioNacimiento: 'Ciudad de Nacimiento',
@@ -2695,7 +3010,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       zonaResidencia: 'Barrio',
       departamento: 'Departamento de Residencia',
       ciudad: 'Ciudad de Residencia',
-      tiempoResidenciaZona: 'Tiempo en la Zona',
+      tiempoResidenciaZona: 'Cuanto tiempo lleva viviendo en la zona',
       conQuienViveChecks: '¿Con quién vive?',
       password: 'Contraseña',
       escolaridad: 'Nivel de Escolaridad',
