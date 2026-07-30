@@ -26,8 +26,17 @@ import { CandidateS } from '../../../../../../shared/services/candidate-s/candid
 import { DocumentManagementS } from '../../../../../../shared/services/document-management-s/document-management-s';
 import { PoliciesModal } from '../../components/policies-modal/policies-modal';
 
-const STORAGE_KEY = 'formHojaDeVida2';
-const CEDULA_KEY = 'numeroCedula';
+// Claves con prefijo propio. Antes la guardia del borrador vivía en
+// 'numeroCedula', la MISMA clave que escribe form-vacancies.ts:527; si la
+// persona pasaba por esa pantalla, la cédula guardada cambiaba y restoreDraft
+// descartaba el borrador en silencio aunque siguiera almacenado.
+const STORAGE_KEY = 'tuapo.hv2.draft';
+const CEDULA_KEY = 'tuapo.hv2.cedula';
+const STEP_KEY = 'tuapo.hv2.step';
+
+// Claves anteriores: se leen una sola vez para no perder borradores en curso.
+const STORAGE_KEY_LEGACY = 'formHojaDeVida2';
+const CEDULA_KEY_LEGACY = 'numeroCedula';
 
 // Empresa para el modal de tratamiento de datos. Se resuelve por el query param
 // ?empresa= del link (slugs alineados con firma/:empresa y foto/:empresa).
@@ -899,14 +908,39 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     this.formHojaDeVida2.valueChanges.pipe(
       debounceTime(1000),
       takeUntil(this.destroy$)
-    ).subscribe(val => {
-      const cedula = this.formHojaDeVida2.get('numeroCedula')?.value;
-      if (cedula) {
-        const cleanVal = this.sanitizeForStorage(val);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanVal));
-        localStorage.setItem(CEDULA_KEY, cedula);
-      }
+    ).subscribe(() => this.guardarBorrador());
+
+    // El debounce de 1s pierde lo último escrito si la persona cierra la
+    // pestaña justo después. Estos dos eventos fuerzan el guardado:
+    // 'visibilitychange' cubre el caso de móvil (mandar la app al fondo, que es
+    // donde el sistema puede matar la pestaña sin avisar) y 'pagehide' cubre
+    // cerrar, recargar o navegar fuera. 'beforeunload' no dispara en iOS.
+    const flush = () => this.guardarBorrador();
+    window.addEventListener('pagehide', flush);
+    window.addEventListener('beforeunload', flush);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flush();
     });
+    this.destroy$.subscribe(() => {
+      window.removeEventListener('pagehide', flush);
+      window.removeEventListener('beforeunload', flush);
+    });
+  }
+
+  /** Vuelca el formulario a localStorage. Requiere cédula: es la llave del borrador. */
+  private guardarBorrador(): void {
+    if (!this.isBrowser) return;
+    const cedula = this.formHojaDeVida2.get('numeroCedula')?.value;
+    if (!cedula) return;
+    try {
+      const limpio = this.sanitizeForStorage(this.formHojaDeVida2.getRawValue());
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(limpio));
+      localStorage.setItem(CEDULA_KEY, String(cedula));
+      localStorage.setItem(STEP_KEY, String(this.stepperIndex ?? 0));
+    } catch (e) {
+      // QuotaExceeded u otro fallo de storage: no debe tumbar el formulario.
+      console.warn('[borrador] no se pudo guardar', e);
+    }
   }
 
   private sanitizeForStorage(v: any): any {
@@ -1361,17 +1395,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
    * mostrado, así que el espejo es directo.
    */
   private initAutocompleteMirror(): void {
-    const pares: Array<{ control: string; search: FormControl }> = [
-      { control: 'departamento', search: this.searchDeptoRes },
-      { control: 'ciudad', search: this.searchMunRes },
-      { control: 'departamentoExpedicionCC', search: this.searchDeptoExp },
-      { control: 'municipioExpedicionCC', search: this.searchMunExp },
-      { control: 'departamentoNacimiento', search: this.searchDeptoNac },
-      { control: 'municipioNacimiento', search: this.searchMunNac },
-      { control: 'correoDominio', search: this.searchDominio },
-    ];
-
-    for (const { control, search } of pares) {
+    for (const { control, search } of this.paresAutocompletado()) {
       const real = this.formHojaDeVida2.get(control);
       if (!real) continue;
 
@@ -1812,6 +1836,66 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     'expectativasVidaChecks'
   ];
 
+  /**
+   * Controles que vive cada paso del stepper (el índice del array es el índice
+   * del paso). Es la fuente de verdad del candado: "Siguiente" solo avanza
+   * cuando todos los controles activos del paso son válidos, y el stepper está
+   * en modo lineal para que tampoco se pueda saltar desde el encabezado.
+   *
+   * Se listan también los opcionales y los deshabilitados: `invalid` es false
+   * para ellos, así que nunca bloquean. Los condicionales (cónyuge, padres,
+   * experiencia, hijos, formación) tampoco, porque `initObservables()` les
+   * quita los validadores cuando la condición no aplica.
+   */
+  readonly STEP_KEYS: readonly string[][] = [
+    // Paso 1 — Pre-registro
+    this.STEP1_KEYS,
+
+    // Paso 2 — Detalles
+    [
+      'rh', 'lateralidad',
+      'tallaCamisa', 'tallaPantalon', 'tallaChaqueta', 'tallaCalzado',
+      'lugarAnteriorResidencia', 'razonCambioResidencia', 'zonasConocidas',
+      'familiarEmergencia', 'parentescoFamiliarEmergencia', 'telefonoFamiliarEmergencia',
+      'ocupacionFamiliarEmergencia', 'direccionFamiliarEmergencia', 'barrioFamiliarEmergencia',
+      'nombreInstitucion', 'anoFinalizacion', 'tituloObtenido', 'estudiosExtrasSelect',
+      'estudiaActualmente',
+    ],
+
+    // Paso 3 — Familia y referencias
+    [
+      'nombresConyuge', 'apellidosConyuge', 'viveConyuge', 'documentoIdentidadConyuge',
+      'ocupacionConyuge', 'telefonoConyuge', 'direccionConyuge',
+      'nombrePadre', 'elPadreVive', 'ocupacionPadre', 'direccionPadre', 'telefonoPadre',
+      'nombreMadre', 'madreVive', 'ocupacionMadre', 'direccionMadre', 'telefonoMadre',
+      'nombreReferenciaPersonal1', 'telefonoReferencia1', 'ocupacionReferencia1',
+      'direccionReferenciaPersonal1', 'tiempoConoceReferenciaPersonal1',
+      'nombreReferenciaPersonal2', 'telefonoReferencia2', 'ocupacionReferencia2',
+      'direccionReferenciaPersonal2', 'tiempoConoceReferenciaPersonal2',
+      'nombreReferenciaFamiliar1', 'telefonoReferenciaFamiliar1', 'ocupacionReferenciaFamiliar1',
+      'direccionReferenciaFamiliar1', 'parentescoReferenciaFamiliar1',
+      'nombreReferenciaFamiliar2', 'telefonoReferenciaFamiliar2', 'ocupacionReferenciaFamiliar2',
+      'direccionReferenciaFamiliar2', 'parentescoReferenciaFamiliar2',
+    ],
+
+    // Paso 4 — Experiencia, hijos y vivienda
+    [
+      'experienciaLaboral', 'nombreEmpresa1', 'telefonosEmpresa1', 'direccionEmpresa1',
+      'nombreJefe1', 'cargoEmpresa1', 'areaExperiencia', 'fechaRetiro1',
+      'tiempoExperiencia', 'motivoRetiro1', 'empresas_laborado',
+      'numHijosDependientes', 'cuidadorHijos', 'hijos',
+      'familiaSolo', 'personas_a_cargo', 'tiposViviendaChecks',
+      'numeroHabitaciones', 'personasPorHabitacion', 'caracteristicasVivienda',
+      'comodidadesChecks',
+      // Evaluación (opcional)
+      'relacionFamiliar', 'desempenoLaboral', 'felicitaciones', 'situacionConflictiva',
+      'actividadesDiferentes',
+    ],
+
+    // Paso 5 — Final
+    ['deseaGenerar', 'hojaDeVida'],
+  ];
+
   /*
    * Returns the step index (0-based) where the control resides.
    * Based on structure in HTML.
@@ -1822,6 +1906,9 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
    * Step 4: Final (docs, deseaGenerar)
    */
   private getStepIndex(ctrl: string): number {
+    const enMapa = this.STEP_KEYS.findIndex(keys => keys.includes(ctrl));
+    if (enMapa >= 0) return enMapa;
+
     if (this.STEP1_KEYS.includes(ctrl)) return 0;
 
     // Step 2: Familia & Referencias
@@ -1845,26 +1932,168 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // ----------------------------------------------------
+  // Candado por paso: no se avanza con obligatorios pendientes
+  // ----------------------------------------------------
+
+  /**
+   * Primer control del paso que no cumple; '' si el paso está completo.
+   *
+   * Tiene que ser puro (sin marcar tocados, sin avisos, sin cdr): alimenta el
+   * binding `[completed]` de cada `mat-step` y se evalúa en cada ciclo de
+   * detección de cambios.
+   */
+  private primerInvalidoDelPaso(step: number): string {
+    for (const k of this.STEP_KEYS[step] ?? []) {
+      const c = this.formHojaDeVida2.get(k);
+      // `invalid` ya es false para los deshabilitados y para los que no tienen
+      // validadores activos, así que los opcionales nunca bloquean.
+      if (c?.invalid) return k;
+    }
+    return '';
+  }
+
+  /**
+   * ¿El paso tiene resuelto todo lo obligatorio? Alimenta `[completed]` de cada
+   * `mat-step`: con el stepper en modo lineal, esto es lo que impide saltar de
+   * paso desde el encabezado.
+   */
+  esPasoCompleto(step: number): boolean {
+    // Error de grupo (expedición anterior al nacimiento): se corrige en el paso 1.
+    if (step === 0 && this.formHojaDeVida2.errors?.['expeditionBeforeBirth']) return false;
+    return !this.primerInvalidoDelPaso(step);
+  }
+
+  /**
+   * "Siguiente" del paso `step` (0-based). No avanza si queda algo obligatorio
+   * pendiente: marca los campos en rojo, avisa cuál falta y se queda ahí.
+   *
+   * Revisa desde el paso 1 y no solo el actual porque un paso ya superado puede
+   * quedar incompleto después (p. ej. "¿Con quién vive?" también se edita en el
+   * paso 4). En modo lineal `next()` no haría nada en ese caso y el botón
+   * parecería roto; así se salta al paso que falta y se explica por qué.
+   */
+  siguientePaso(step: number): void {
+    if (!this.revisarPasosHasta(step)) return;
+    this.stepper.next();
+  }
+
+  /** "Anterior": volver nunca se bloquea, aunque un paso previo quedara incompleto. */
+  pasoAnterior(): void {
+    const s = this.stepper;
+    if (!s || s.selectedIndex <= 0) return;
+    // El modo lineal también frena hacia atrás cuando un paso anterior está
+    // incompleto; se libera solo para este salto para no dejar al usuario preso.
+    const linear = s.linear;
+    s.linear = false;
+    s.selectedIndex = s.selectedIndex - 1;
+    s.linear = linear;
+  }
+
+  /**
+   * Revisa los pasos 0..`hasta`. En el primero incompleto: salta a él, marca sus
+   * campos y avisa qué falta. Devuelve true solo si todos están completos.
+   */
+  private revisarPasosHasta(hasta: number): boolean {
+    for (let i = 0; i <= hasta; i++) {
+      this.marcarPasoComoTocado(i);
+      if (this.esPasoCompleto(i)) continue;
+      if (this.stepper && this.stepper.selectedIndex !== i) this.stepper.selectedIndex = i;
+      this.avisarPasoIncompleto(i);
+      return false;
+    }
+    return true;
+  }
+
+  /** Marca los campos del paso como tocados para que se pinte lo que falta. */
+  private marcarPasoComoTocado(step: number): void {
+    for (const k of this.STEP_KEYS[step] ?? []) {
+      this.formHojaDeVida2.get(k)?.markAllAsTouched();
+    }
+    this.espejarErroresAutocompletado();
+    this.cdr.markForCheck();
+  }
+
+  /** Aviso concreto: qué campo del paso falta y por qué. */
+  private avisarPasoIncompleto(step: number): void {
+    if (step === 0 && this.formHojaDeVida2.errors?.['expeditionBeforeBirth']) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Fecha inválida',
+        text: 'La fecha de expedición no puede ser anterior a la fecha de nacimiento.',
+        confirmButtonColor: '#111827',
+      }).then(() => this.enfocarPrimerCampoConError());
+      return;
+    }
+
+    const campo = this.primerInvalidoDelPaso(step);
+    if (!campo) { this.showInvalidFormAlert(); return; }
+
+    const motivo = this.getErrorMessage(campo) || 'Está vacío o tiene un formato incorrecto';
+    Swal.fire({
+      icon: 'warning',
+      title: 'Faltan datos obligatorios',
+      html:
+        `No puede continuar hasta completar <b>todos</b> los campos obligatorios del ` +
+        `<b>paso ${step + 1}</b>.<br><br>Empiece por <b>"${this.fieldHumanName(campo)}"</b>: ` +
+        `${motivo.toLowerCase()}.`,
+      confirmButtonColor: '#111827',
+    }).then(() => this.enfocarPrimerCampoConError());
+  }
+
+  /**
+   * Lleva la vista al primer campo marcado en rojo del paso visible. Se acota al
+   * contenido del paso actual porque los pasos ya visitados siguen en el DOM
+   * (ocultos) y arrastrarían el scroll a un campo que no se ve.
+   */
+  private enfocarPrimerCampoConError(): void {
+    if (!this.isBrowser) return;
+    setTimeout(() => {
+      const paso = document.querySelector('.mat-horizontal-stepper-content-current');
+      const el = (paso ?? document).querySelector('.field-bad') as HTMLElement | null;
+      el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 120);
+  }
+
+  /**
+   * Los campos con autocompletado pintan su `mat-error` a través del control de
+   * búsqueda (es el que está atado al input), no del control real. Sin esto, un
+   * departamento/ciudad/dominio vacío se quedaba sin marcar al intentar avanzar
+   * si el usuario nunca lo tocó.
+   */
+  private espejarErroresAutocompletado(): void {
+    for (const { control, search } of this.paresAutocompletado()) {
+      const malo = this.shouldShowError(control);
+      if (malo) search.markAsTouched();
+      search.setErrors(malo ? { mirror: true } : null);
+    }
+  }
+
+  /** Pares control real ↔ control visible de los campos con autocompletado. */
+  private paresAutocompletado(): Array<{ control: string; search: FormControl }> {
+    return [
+      { control: 'departamento', search: this.searchDeptoRes },
+      { control: 'ciudad', search: this.searchMunRes },
+      { control: 'departamentoExpedicionCC', search: this.searchDeptoExp },
+      { control: 'municipioExpedicionCC', search: this.searchMunExp },
+      { control: 'departamentoNacimiento', search: this.searchDeptoNac },
+      { control: 'municipioNacimiento', search: this.searchMunNac },
+      { control: 'correoDominio', search: this.searchDominio },
+    ];
+  }
+
+  // ----------------------------------------------------
   // 5. Actions (Submit & Upload)
   // ----------------------------------------------------
   async imprimirInformacion2(): Promise<void> {
     if (this.formHojaDeVida2.invalid) {
       this.formHojaDeVida2.markAllAsTouched();
+      this.espejarErroresAutocompletado();
 
-      // Check Group Errors (Cross Validators)
-      const errors = this.formHojaDeVida2.errors;
-      if (errors) {
-        if (errors['expeditionBeforeBirth']) {
-          Swal.fire('Fecha Inválida', 'La fecha de expedición no puede ser anterior a la fecha de nacimiento.', 'error');
-          this.stepper.selectedIndex = 0; // Go to Step 1
-          return;
-        }
-      }
+      // Mismo candado que el botón "Siguiente": salta al primer paso incompleto
+      // (incluye el cruce fecha expedición/nacimiento) y dice qué campo falta.
+      if (!this.revisarPasosHasta(this.STEP_KEYS.length - 1)) return;
 
-      // Check Duplicates in Referencias (Usually assigned to controls, but check global just in case)
-      // The validator assigns errors to specific controls (e.g., 'nombreReferenciaPersonal2').
-      // We find the first invalid control to navigate.
-
+      // Quedó inválido por algo que no está en el mapa de pasos.
       let firstInvalidControl = '';
       const controls = this.formHojaDeVida2.controls;
       for (const key in controls) {
@@ -2173,22 +2402,9 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   // Updated Background Save (Step 1)
   saveStep1InBackgroundAndNext() {
     const f = this.formHojaDeVida2;
-    let invalid = false;
 
-    // Validate only Step 1 keys
-    for (const k of this.STEP1_KEYS) {
-      const c = f.get(k);
-      if (c && c.invalid) {
-        c.markAsTouched();
-        invalid = true;
-      }
-    }
-
-    if (invalid) {
-      // Show alert if user tries to proceed with invalid Step 1
-      Swal.fire('Información Incompleta', 'Por favor completa los campos obligatorios del paso 1.', 'warning');
-      return;
-    }
+    // Candado del paso 1: ni se guarda ni se avanza con obligatorios pendientes.
+    if (!this.revisarPasosHasta(0)) return;
 
     // Prepare Payload (Subset)
     const raw = f.getRawValue();
@@ -2929,16 +3145,45 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
    * de otra persona en un dispositivo compartido (form público).
    */
   private restoreDraft(cedula: string): void {
-    if (!this.isBrowser) return;
-    const savedCedula = localStorage.getItem(CEDULA_KEY);
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw || !cedula || savedCedula !== cedula) return;
+    if (!this.isBrowser || !cedula) return;
+
+    // Claves nuevas y, si no hay nada, las anteriores (borradores en curso al
+    // momento del cambio de nombre de clave).
+    let savedCedula = localStorage.getItem(CEDULA_KEY);
+    let raw = localStorage.getItem(STORAGE_KEY);
+    let paso = localStorage.getItem(STEP_KEY);
+    if (!raw) {
+      savedCedula = localStorage.getItem(CEDULA_KEY_LEGACY);
+      raw = localStorage.getItem(STORAGE_KEY_LEGACY);
+      paso = null;
+    }
+
+    if (!raw || String(savedCedula) !== String(cedula)) return;
+
     try {
       const data = JSON.parse(raw);
       // Reconstruye los FormArray antes del patch para que existan los hijos.
       if (data.hijos) this.actualizarHijos(data.hijos.length);
       // patchValue con emitEvent por defecto re-dispara los toggles condicionales.
       this.formHojaDeVida2.patchValue(data);
+
+      // Devolver a la persona al paso donde iba, no al primero.
+      const idx = Number(paso);
+      if (Number.isFinite(idx) && idx > 0) {
+        setTimeout(() => {
+          try {
+            if (this.stepper) this.stepper.selectedIndex = idx;
+          } catch { /* el paso puede no existir todavia */ }
+        }, 0);
+      }
+
+      Swal.fire({
+        icon: 'info',
+        title: 'Recuperamos tus datos',
+        text: 'Encontramos un formulario a medias con tu documento y lo restauramos. Revisa que todo esté bien antes de continuar.',
+        timer: 4000,
+        showConfirmButton: false,
+      });
     } catch (e) {
       console.error('Error loading draft', e);
     }
@@ -3062,6 +3307,40 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       comodidadesChecks: 'Servicios / Comodidades',
       fuenteVacante: '¿Cómo se enteró de la vacante?',
       numHijosDependientes: 'Número de Hijos',
+      zonasConocidas: 'Zonas que Conoce',
+      ocupacionFamiliarEmergencia: 'Ocupación del Contacto de Emergencia',
+      barrioFamiliarEmergencia: 'Barrio del Contacto de Emergencia',
+      nombreInstitucion: 'Institución Educativa',
+      anoFinalizacion: 'Fecha de Finalización de Estudios',
+      tituloObtenido: 'Título Obtenido',
+      estudiosExtrasSelect: 'Otros Estudios',
+      ocupacionConyuge: 'Ocupación del Cónyuge',
+      ocupacionPadre: 'Ocupación del Padre',
+      ocupacionMadre: 'Ocupación de la Madre',
+      ocupacionReferencia1: 'Referencia Personal 1 (Ocupación)',
+      ocupacionReferencia2: 'Referencia Personal 2 (Ocupación)',
+      direccionReferenciaPersonal1: 'Referencia Personal 1 (Dirección)',
+      direccionReferenciaPersonal2: 'Referencia Personal 2 (Dirección)',
+      tiempoConoceReferenciaPersonal1: 'Referencia Personal 1 (Tiempo de conocerlo)',
+      tiempoConoceReferenciaPersonal2: 'Referencia Personal 2 (Tiempo de conocerlo)',
+      ocupacionReferenciaFamiliar1: 'Referencia Familiar 1 (Ocupación)',
+      ocupacionReferenciaFamiliar2: 'Referencia Familiar 2 (Ocupación)',
+      direccionReferenciaFamiliar1: 'Referencia Familiar 1 (Dirección)',
+      direccionReferenciaFamiliar2: 'Referencia Familiar 2 (Dirección)',
+      nombreEmpresa1: 'Empresa donde Trabajó',
+      telefonosEmpresa1: 'Teléfono de la Empresa',
+      direccionEmpresa1: 'Dirección de la Empresa',
+      nombreJefe1: 'Jefe Inmediato',
+      cargoEmpresa1: 'Cargo Desempeñado',
+      areaExperiencia: 'Áreas de Experiencia',
+      fechaRetiro1: 'Fecha de Retiro',
+      tiempoExperiencia: 'Tiempo de Experiencia',
+      motivoRetiro1: 'Motivo de Retiro',
+      empresas_laborado: 'Otras Empresas',
+      cuidadorHijos: '¿Quién cuida a los hijos?',
+      hijos: 'Datos de los Hijos',
+      deseaGenerar: '¿Generar Hoja de Vida automática?',
+      hojaDeVida: 'Hoja de Vida (PDF)',
     };
     return map[key] || key;
   }

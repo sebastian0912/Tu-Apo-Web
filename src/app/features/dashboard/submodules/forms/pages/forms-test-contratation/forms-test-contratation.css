@@ -253,6 +253,14 @@
   overflow: visible !important;
 }
 
+/* Paso bloqueado: el stepper es lineal, así que no se puede saltar a un paso
+   mientras queden obligatorios pendientes. Se atenúa para que el clic muerto
+   no parezca un error de la página. */
+::ng-deep .mat-step-header[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Responsive */
 /* Default: Hide Mobile Sticky Header */
 .mobile-sticky-group {

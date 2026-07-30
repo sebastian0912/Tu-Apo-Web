@@ -61,9 +61,12 @@
               }
             </div>
             <!-- Stepper -->
-            <mat-horizontal-stepper #stepper [linear]="false" class="custom-stepper">
+            <!-- `linear` + `[completed]` por paso: no se puede saltar de paso (ni con
+                 el botón ni desde el encabezado) mientras queden obligatorios sin
+                 llenar. El detalle de qué falta lo da `siguientePaso()`. -->
+            <mat-horizontal-stepper #stepper [linear]="true" class="custom-stepper">
               <!-- STEP 1: PRE-REGISTRO (PERSONAL + CONTACTO BASICO) -->
-              <mat-step [stepControl]="formHojaDeVida2">
+              <mat-step [completed]="esPasoCompleto(0)">
                 <ng-template matStepLabel>Pre-registro</ng-template>
                 <ng-template matStepContent>
                   <div class="step-header">
@@ -208,7 +211,7 @@
               </ng-template>
             </mat-step>
             <!-- STEP 2: DETALLES ADICIONALES -->
-            <mat-step [stepControl]="formHojaDeVida2">
+            <mat-step [completed]="esPasoCompleto(1)">
               <ng-template matStepLabel>Detalles</ng-template>
               <ng-template matStepContent>
                 <div class="step-header">
@@ -276,13 +279,13 @@
                   *ngTemplateOutlet="selectField; context: {control: 'estudiaActualmente', label: '¿Estudia Actualmente?', options: opcionBinaria, optionsKey: 'display', valueKey: 'value'}"></ng-container>
                 </div>
                 <div class="actions">
-                  <button mat-button matStepperPrevious type="button">Anterior</button>
-                  <button mat-button matStepperNext type="button" class="btn-next">Siguiente</button>
+                  <button mat-button type="button" (click)="pasoAnterior()">Anterior</button>
+                  <button mat-button type="button" class="btn-next" (click)="siguientePaso(1)">Siguiente</button>
                 </div>
               </ng-template>
             </mat-step>
             <!-- STEP 3: FAMILIA Y REFERENCIAS -->
-            <mat-step [stepControl]="formHojaDeVida2">
+            <mat-step [completed]="esPasoCompleto(2)">
               <ng-template matStepLabel>Familia</ng-template>
               <ng-template matStepContent>
                 <div class="step-header">
@@ -407,13 +410,13 @@
                   *ngTemplateOutlet="selectField; context: {control: 'parentescoReferenciaFamiliar2', label: 'Parentesco', options: listaParentescosFamiliares, optionsKey: 'descripcion', valueKey: 'codigo'}"></ng-container>
                 </div>
                 <div class="actions">
-                  <button mat-button matStepperPrevious type="button">Anterior</button>
-                  <button mat-button matStepperNext type="button" class="btn-next">Siguiente</button>
+                  <button mat-button type="button" (click)="pasoAnterior()">Anterior</button>
+                  <button mat-button type="button" class="btn-next" (click)="siguientePaso(2)">Siguiente</button>
                 </div>
               </ng-template>
             </mat-step>
             <!-- STEP 4: EXPERIENCIA Y VIVIENDA (+HIJOS) -->
-            <mat-step [stepControl]="formHojaDeVida2">
+            <mat-step [completed]="esPasoCompleto(3)">
               <ng-template matStepLabel>Experiencia</ng-template>
               <ng-template matStepContent>
                 <div class="step-header">
@@ -556,13 +559,13 @@
   *ngTemplateOutlet="selectField; context: {control: 'actividadesDiferentes', label: '¿Dispuesto a realizar actividades diferentes?', options: opcionBinaria, optionsKey: 'display', valueKey: 'value'}"></ng-container>
 </div>
 <div class="actions">
-  <button mat-button matStepperPrevious type="button">Anterior</button>
-  <button mat-button matStepperNext type="button" class="btn-next">Siguiente</button>
+  <button mat-button type="button" (click)="pasoAnterior()">Anterior</button>
+  <button mat-button type="button" class="btn-next" (click)="siguientePaso(3)">Siguiente</button>
 </div>
 </ng-template>
 </mat-step>
 <!-- STEP 5: FINAL -->
-<mat-step [stepControl]="formHojaDeVida2">
+<mat-step [completed]="esPasoCompleto(4)">
   <ng-template matStepLabel>Finalizar</ng-template>
   <ng-template matStepContent>
     <div class="step-header">
@@ -592,7 +595,7 @@
             *ngTemplateOutlet="selectField; context: {control: 'deseaGenerar', label: '¿Generar HV automática?', options: [{v:true, l:'Sí'}, {v:false, l:'No'}], optionsKey: 'l', valueKey: 'v'}"></ng-container>
           </div>
           <div class="actions">
-            <button mat-button matStepperPrevious type="button">Anterior</button>
+            <button mat-button type="button" (click)="pasoAnterior()">Anterior</button>
             <button mat-raised-button color="primary" type="submit" class="btn-save">ENVIAR FORMULARIO</button>
           </div>
         </ng-template>
