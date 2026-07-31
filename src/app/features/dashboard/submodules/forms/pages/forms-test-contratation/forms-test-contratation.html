@@ -9,25 +9,27 @@
     @if (!showForm) {
       <div class="search-container full-width sub-section">
         <h3 style="text-align:center; margin-bottom: 8px;">Validación Previa</h3>
-        <p style="text-align:center; font-size:13px; color:#666; margin-bottom:20px;">Ingrese su tipo y número de documento, y la fecha de expedición del documento para verificar y precargar su registro. Solo números, sin puntos ni espacios.</p>
+        <p style="text-align:center; font-size:13px; color:#666; margin-bottom:20px;">Ingrese su tipo y número de documento para iniciar el formulario. Solo números, sin puntos ni espacios.</p>
         <form [formGroup]="searchForm" (ngSubmit)="onSearch()">
+          <!-- La fecha de expedición NO va acá: se pide dentro del formulario, en
+               "Identificación". Al digitarla allí se dispara la precarga (es el
+               segundo factor que exige el endpoint prefill-by-document). -->
           <div class="grid-col-2">
             <ng-container
             *ngTemplateOutlet="selectField; context: {control: 'tipo_doc', label: 'Tipo Documento', options: tipoDocs, optionsKey: 'description', valueKey: 'abbreviation', formGroup: searchForm}"></ng-container>
             <ng-container
             *ngTemplateOutlet="textField; context: {control: 'numero_documento', label: 'Número Documento', formGroup: searchForm}"></ng-container>
-            <ng-container
-            *ngTemplateOutlet="dateField; context: {control: 'fecha_expedicion', label: 'Fecha Expedición', formGroup: searchForm}"></ng-container>
           </div>
           <div class="actions" style="justify-content: center;">
             <button mat-raised-button color="primary" type="submit" [disabled]="searchForm.invalid || isSearching">
               @if (!isSearching) {
-                <mat-icon>search</mat-icon>
+                <mat-icon>arrow_forward</mat-icon>
               }
               @if (isSearching) {
                 <mat-icon class="spin">sync</mat-icon>
               }
-              {{ isSearching ? 'VALIDANDO...' : 'CONSULTAR' }}
+              <!-- Ya no consulta al backend acá: solo abre el formulario. -->
+              {{ isSearching ? 'ABRIENDO...' : 'CONTINUAR' }}
             </button>
           </div>
         </form>
@@ -96,15 +98,19 @@
                     <ng-container
                     *ngTemplateOutlet="textField; context: {control: 'numeroCedula', label: 'Número de documento', hint: 'Solo números, sin puntos ni espacios. Ej: 1023456789'}"></ng-container>
                     <!-- Nacimiento va ANTES que Expedición: son las dos fechas de la cédula
-                         y el orden pedido evita que se confundan al digitarlas. -->
+                         y el orden pedido evita que se confundan al digitarlas.
+                         El calendario arranca en multi-year y no deja elegir a
+                         quien no tenga la edad mínima cumplida. -->
                     <ng-container
-                    *ngTemplateOutlet="dateField; context: {control: 'fechaNacimiento', label: 'Fecha Nacimiento'}"></ng-container>
+                    *ngTemplateOutlet="dateField; context: {control: 'fechaNacimiento', label: 'Fecha Nacimiento', min: minFechaNacimiento, max: maxFechaNacimiento, startView: 'multi-year', hint: 'Debe tener al menos 17 años cumplidos'}"></ng-container>
                     <ng-container
                     *ngTemplateOutlet="selectField; context: {control: 'departamentoNacimiento', label: 'Dpto. Nacimiento', options: filteredDeptoNac, optionsKey: 'departamento', valueKey: 'departamento', searchControl: searchDeptoNac}"></ng-container>
                     <ng-container
                     *ngTemplateOutlet="selectField; context: {control: 'municipioNacimiento', label: 'Ciudad Nacimiento', options: filteredMunNac, searchControl: searchMunNac}"></ng-container>
+                    <!-- Segundo factor de la precarga: al elegir esta fecha se
+                         consulta el registro del candidato y se rellena el resto. -->
                     <ng-container
-                    *ngTemplateOutlet="dateField; context: {control: 'fechaExpedicionCC', label: 'Fecha Expedición'}"></ng-container>
+                    *ngTemplateOutlet="dateField; context: {control: 'fechaExpedicionCC', label: 'Fecha Expedición', max: hoy, startView: 'multi-year', hint: 'Con esta fecha buscamos y precargamos sus datos'}"></ng-container>
                     <ng-container
                     *ngTemplateOutlet="selectField; context: {control: 'departamentoExpedicionCC', label: 'Dpto. Expedición', options: filteredDeptoExp, optionsKey: 'departamento', valueKey: 'departamento', searchControl: searchDeptoExp}"></ng-container>
                     <ng-container
@@ -661,14 +667,6 @@
             <mat-option disabled>Sin resultados</mat-option>
           }
         </mat-autocomplete>
-        @if (getControl(control, formGroup).value) {
-          <button mat-icon-button matSuffix type="button" aria-label="Limpiar"
-            (click)="clearAutocomplete(control, searchControl, formGroup)">
-            <mat-icon>close</mat-icon>
-          </button>
-        } @else {
-          <mat-icon matSuffix>arrow_drop_down</mat-icon>
-        }
       } @else {
         <mat-select [formControl]="getControl(control, formGroup)" [multiple]="multiple">
           @for (op of options; track op) {
@@ -677,21 +675,42 @@
         </mat-select>
       }
 
+      <!-- El sufijo va en su PROPIO bloque @if y con un solo nodo raíz.
+           Angular solo proyecta un bloque de control de flujo al slot que le
+           corresponde (`[matSuffix]`) cuando el bloque tiene exactamente un nodo
+           raíz; dentro del bloque de arriba (input + autocomplete) caía al slot
+           por defecto y el icono se dibujaba DEBAJO del input, a la izquierda,
+           estirando el campo. El icono cambia por interpolación, no por otro @if. -->
+      @if (searchControl) {
+        <button mat-icon-button matIconSuffix type="button" class="ac-suffix"
+          [attr.aria-label]="getControl(control, formGroup).value ? 'Limpiar' : 'Ver opciones'"
+          [disabled]="getControl(control, formGroup).disabled"
+          (click)="toggleAutocomplete($event, control, searchControl, formGroup)">
+          <mat-icon>{{ getControl(control, formGroup).value ? 'close' : 'arrow_drop_down' }}</mat-icon>
+        </button>
+      }
+
       @if (shouldShowError(control, formGroup)) {
         <mat-error>{{ getErrorMessage(control, formGroup) }}</mat-error>
       }
     </mat-form-field>
   </ng-template>
 
-    <ng-template #dateField let-control="control" let-label="label" let-formGroup="formGroup">
+    <ng-template #dateField let-control="control" let-label="label" let-formGroup="formGroup" let-hint="hint"
+      let-min="min" let-max="max" let-startView="startView">
       <mat-form-field appearance="outline" class="w-100 check-field"
         [class.field-ok]="isFieldOk(control, formGroup)"
         [class.field-bad]="shouldShowError(control, formGroup)">
         <mat-label>{{label}}</mat-label>
+        <!-- `min`/`max` acotan el calendario: la validación real vive en el
+             control, pero así la fecha inválida ni siquiera se puede elegir. -->
         <input matInput [matDatepicker]="dp" [formControl]="getControl(control, formGroup)" readonly (click)="dp.open()"
-          (focus)="dp.open()">
-          <mat-datepicker-toggle matSuffix [for]="dp"></mat-datepicker-toggle>
-          <mat-datepicker #dp></mat-datepicker>
+          (focus)="dp.open()" [min]="min || null" [max]="max || null">
+          <mat-datepicker-toggle matIconSuffix [for]="dp"></mat-datepicker-toggle>
+          <mat-datepicker #dp [startView]="startView || 'month'"></mat-datepicker>
+          @if (hint) {
+            <mat-hint>{{hint}}</mat-hint>
+          }
           @if (shouldShowError(control, formGroup)) {
             <mat-error>{{ getErrorMessage(control, formGroup) }}</mat-error>
           }

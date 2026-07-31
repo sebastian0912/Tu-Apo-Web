@@ -533,6 +533,49 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   color: var(--field-bad) !important;
 }
 
+/* =========================
+   Sufijo de los autocompletados (departamento / municipio / dominio)
+   ---------------------------
+   `styles.css` global pone `button { min-height: 48px !important }`, que en un
+   campo de 56px deja el icono descentrado y estira la fila. Acá se le devuelve
+   el tamaño estándar de icon-button (40px) y un color discreto, para que la
+   flecha se lea como el desplegable que es y no como un botón más.
+========================= */
+:host ::ng-deep .check-field .ac-suffix.mat-mdc-icon-button {
+  width: 40px;
+  height: 40px;
+  min-height: 40px !important;
+  padding: 8px;
+  --mdc-icon-button-state-layer-size: 40px;
+  flex: 0 0 auto;
+}
+
+:host ::ng-deep .check-field .ac-suffix .mat-mdc-button-touch-target {
+  /* El target de 48px desborda el campo y tapa el borde inferior. */
+  display: none;
+}
+
+:host ::ng-deep .check-field .ac-suffix .mat-icon {
+  color: var(--muted);
+  font-size: 24px;
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
+}
+
+:host ::ng-deep .check-field.field-ok .ac-suffix .mat-icon {
+  color: var(--field-ok);
+}
+
+:host ::ng-deep .check-field.field-bad .ac-suffix .mat-icon {
+  color: var(--field-bad);
+}
+
+/* El icono del datepicker sufre el mismo `min-height` global. */
+:host ::ng-deep .check-field .mat-datepicker-toggle .mdc-icon-button {
+  min-height: 40px !important;
+}
+
 /* Mientras el campo está enfocado manda el color de foco de Material:
    marcarlo verde/rojo mientras se escribe distrae más de lo que ayuda. */
 :host ::ng-deep .check-field.mat-focused .mdc-notched-outline__leading,

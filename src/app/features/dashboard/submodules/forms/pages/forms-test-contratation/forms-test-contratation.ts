@@ -140,6 +140,13 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   showForm = false; // Toggles between search and main form
   foundCandidate: any = null;
 
+  // Precarga (Modelo A) disparada por la fecha de expedición dentro del form.
+  // `prefillEnCurso` corta la reentrada (la precarga escribe fechaExpedicionCC)
+  // y `prefillResuelto` la deja en un solo intento por llenado.
+  private prefillEnCurso = false;
+  private prefillResuelto = false;
+  cargandoPrefill = false;
+
   formHojaDeVida2: FormGroup;
   loadingCatalogos = false;
   oficinaBloqueada = false;
@@ -309,11 +316,12 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     this.isBrowser = isPlatformBrowser(this.platformId);
 
     // 1. Init Search Form (Pre-check)
+    // La fecha de expedición NO se pide acá: vive en el paso "Identificación"
+    // del formulario y desde allí dispara la precarga (segundo factor del
+    // endpoint prefill-by-document). Ver `initPrefillPorFechaExpedicion()`.
     this.searchForm = this.fb.group({
       tipo_doc: ['CC', Validators.required],
       numero_documento: ['', [Validators.required, Validators.pattern(REGEX_NUMERIC), Validators.minLength(6), Validators.maxLength(15), this.notPhoneNumberValidator()]],
-      // Segundo factor (Modelo A): prueba de titularidad para precargar datos.
-      fecha_expedicion: ['', Validators.required]
     });
 
     // 2. Init Main Form
@@ -327,6 +335,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     this.initObservables();
     this.initSearchFilters();
     this.initAutocompleteMirror();
+    this.initPrefillPorFechaExpedicion();
     this.initAutoSave();
 
     // Query Params
@@ -440,7 +449,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       oficina: ['', req],
       tipoDoc: ['', req],
       numeroCedula: ['', doc],
-      fechaExpedicionCC: ['', req],
+      fechaExpedicionCC: ['', [req, this.noFuturaValidator()]],
       departamentoExpedicionCC: ['', req],
       municipioExpedicionCC: [{ value: '', disabled: true }, req],
 
@@ -449,7 +458,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       pApellido: ['', name],
       sApellido: ['', this.nameValidator(false)], // Optional
       genero: ['', req],
-      fechaNacimiento: ['', [req]],
+      fechaNacimiento: ['', [req, this.edadMinimaValidator()]],
       departamentoNacimiento: ['', req],
       municipioNacimiento: [{ value: '', disabled: true }, req],
       estadoCivil: ['', req],
@@ -1078,7 +1087,9 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       numDocIdentidadConyugue: g('documentoIdentidadConyuge'),
       viveConElConyugue: g('viveConyuge'),
       direccionConyugue: addr('direccionConyuge'),
-      telefonoConyugue: g('telefonoConyugue'),
+      // El control se llama `telefonoConyuge` (sin la "u"): leerlo con el nombre
+      // del payload devolvía undefined y el teléfono del cónyuge nunca viajaba.
+      telefonoConyugue: g('telefonoConyuge'),
       barrioMunicipioConyugue: g('barrioMunicipioConyugue'),
       ocupacion_conyugue: g('ocupacionConyuge'),
       nombrePadre: g('nombrePadre'),
@@ -1377,6 +1388,26 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  /**
+   * Botón del sufijo del autocompletado: limpia si ya hay un valor elegido y,
+   * si no, enfoca el input (matAutocomplete abre el panel al recibir el foco),
+   * para que la flecha se comporte como el desplegable que aparenta ser.
+   */
+  toggleAutocomplete(
+    event: Event,
+    controlName: string,
+    searchControl: FormControl,
+    form: FormGroup = this.formHojaDeVida2,
+  ): void {
+    const real = form.get(controlName);
+    if (real?.value) {
+      this.clearAutocomplete(controlName, searchControl, form);
+      return;
+    }
+    const campo = (event.currentTarget as HTMLElement | null)?.closest('mat-form-field');
+    campo?.querySelector('input')?.focus();
+  }
+
   clearAutocomplete(controlName: string, searchControl: FormControl, form: FormGroup = this.formHojaDeVida2): void {
     const real = form.get(controlName);
     if (real) {
@@ -1427,6 +1458,16 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     if (errors['invalidPhone']) return 'Formato 3xxxxxxxxx'; // Custom
     if (errors['invalidDoc']) return 'Solo números'; // Custom
     if (errors['looksLikePhone']) return 'Parece un número de celular, ingrese un documento válido.';
+
+    // Fechas del documento
+    if (errors['fechaFutura']) return 'La fecha no puede ser futura';
+    if (errors['menorDeEdad']) {
+      const edad = errors['menorDeEdad']?.edad;
+      return `Debe tener al menos ${FormsTestContratation.EDAD_MINIMA} años cumplidos` +
+        (typeof edad === 'number' && edad >= 0 ? ` (según esta fecha tiene ${edad})` : '');
+    }
+    if (errors['edadNoPlausible']) return 'Revise la fecha: la edad no es válida';
+    if (errors['expedicionAntesDeNacer']) return 'No puede ser anterior a la fecha de nacimiento';
     if (errors['specialChars']) return 'Sin caracteres especiales';
     if (errors['invalidDate']) return 'Fecha no válida';
 
@@ -1669,6 +1710,78 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     };
   }
 
+  /**
+   * Edad EXACTA en años cumplidos a la fecha de hoy. Comparar solo años
+   * (`hoy.getFullYear() - nacimiento.getFullYear()`) da un año de más a quien
+   * todavía no cumple, que es justo el borde que hay que cuidar acá.
+   */
+  private edadCumplida(nacimiento: Date, referencia: Date = new Date()): number {
+    let edad = referencia.getFullYear() - nacimiento.getFullYear();
+    const cumpleEsteAno =
+      referencia.getMonth() > nacimiento.getMonth() ||
+      (referencia.getMonth() === nacimiento.getMonth() && referencia.getDate() >= nacimiento.getDate());
+    if (!cumpleEsteAno) edad -= 1;
+    return edad;
+  }
+
+  /** Convierte a Date local a medianoche; null si no es una fecha usable. */
+  private aFecha(v: any): Date | null {
+    if (!v) return null;
+    if (v instanceof Date) return isNaN(v.getTime()) ? null : new Date(v.getFullYear(), v.getMonth(), v.getDate());
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v).trim());
+    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+
+  /** Fecha de hoy a medianoche local (para comparar sin arrastrar la hora). */
+  private get hoyLocal(): Date {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  }
+
+  /** Máximo del datepicker de nacimiento: hoy menos `EDAD_MINIMA` años. */
+  get maxFechaNacimiento(): Date {
+    const h = this.hoyLocal;
+    return new Date(h.getFullYear() - FormsTestContratation.EDAD_MINIMA, h.getMonth(), h.getDate());
+  }
+
+  /** Mínimo razonable del datepicker de nacimiento (evita años absurdos). */
+  get minFechaNacimiento(): Date {
+    const h = this.hoyLocal;
+    return new Date(h.getFullYear() - FormsTestContratation.EDAD_MAXIMA, h.getMonth(), h.getDate());
+  }
+
+  /** Ninguna fecha del documento puede ser futura. */
+  get hoy(): Date { return this.hoyLocal; }
+
+  /** Edad mínima aceptada para postularse. */
+  static readonly EDAD_MINIMA = 17;
+  static readonly EDAD_MAXIMA = 90;
+
+  /** Fecha de nacimiento: no futura y con al menos `EDAD_MINIMA` años cumplidos. */
+  private edadMinimaValidator(): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      const nac = this.aFecha(control.value);
+      if (!nac) return null;
+      if (nac > this.hoyLocal) return { fechaFutura: true };
+
+      const edad = this.edadCumplida(nac);
+      if (edad < FormsTestContratation.EDAD_MINIMA) return { menorDeEdad: { edad } };
+      if (edad > FormsTestContratation.EDAD_MAXIMA) return { edadNoPlausible: true };
+      return null;
+    };
+  }
+
+  /** Fecha de expedición: no puede estar en el futuro. */
+  private noFuturaValidator(): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      const d = this.aFecha(control.value);
+      if (!d) return null;
+      return d > this.hoyLocal ? { fechaFutura: true } : null;
+    };
+  }
+
   private dateReasonableValidator(minYear: number): ValidatorFn {
     return (control: AbstractControl): ValidationErrors | null => {
       const val = control.value;
@@ -1691,19 +1804,52 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    const { tipo_doc, numero_documento, fecha_expedicion } = this.searchForm.getRawValue();
+    const { tipo_doc, numero_documento } = this.searchForm.getRawValue();
     this.isSearching = true;
     try {
       this.startForm(tipo_doc, numero_documento);
-      // Arrastra la fecha de expedición tecleada (segundo factor) al formulario.
-      this.formHojaDeVida2.get('fechaExpedicionCC')?.setValue(fecha_expedicion);
-      // Precarga del servidor (Modelo A) y, por encima, el borrador local si es de esta cédula.
-      await this.precargarDesdeCandidato(tipo_doc, numero_documento, fecha_expedicion);
-      this.restoreDraft(numero_documento);
+      // El borrador local manda sobre la precarga del servidor: si hay uno de
+      // esta misma cédula, ya no se consulta el backend (evita pisar lo tecleado
+      // cuando el borrador trae la fecha de expedición).
+      this.prefillEnCurso = false;
+      this.prefillResuelto = this.restoreDraft(numero_documento);
     } finally {
       this.isSearching = false;
       this.cdr.markForCheck();
     }
+  }
+
+  /**
+   * Dispara la precarga (Modelo A) cuando la persona elige la fecha de
+   * expedición dentro del formulario. Esa fecha es el segundo factor que exige
+   * `prefill-by-document`, por eso la consulta no puede salir antes.
+   *
+   * Un solo intento por llenado: si el backend responde, `patchValue` vuelve a
+   * emitir `fechaExpedicionCC` y sin el candado se reconsultaría en bucle.
+   */
+  private initPrefillPorFechaExpedicion(): void {
+    const f = this.formHojaDeVida2;
+    f.get('fechaExpedicionCC')?.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(async (valor) => {
+        if (this.prefillEnCurso || this.prefillResuelto) return;
+        if (!this.toYmd(valor)) return;
+
+        const tipo = f.get('tipoDoc')?.value;
+        const numero = f.get('numeroCedula')?.value;
+        if (!tipo || !numero) return;
+
+        this.prefillEnCurso = true;
+        this.cargandoPrefill = true;
+        try {
+          await this.precargarDesdeCandidato(tipo, numero, valor);
+        } finally {
+          this.prefillEnCurso = false;
+          this.prefillResuelto = true;
+          this.cargandoPrefill = false;
+          this.cdr.markForCheck();
+        }
+      });
   }
 
   /**
@@ -1802,6 +1948,14 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
 
     f.updateValueAndValidity();
     this.cdr.markForCheck();
+
+    Swal.fire({
+      icon: 'success',
+      title: 'Datos precargados',
+      text: 'Encontramos su registro y llenamos los campos que ya teníamos. Revíselos y corrija lo que haga falta.',
+      timer: 3500,
+      showConfirmButton: false,
+    });
   }
 
   /** Setea depto (dispara la cascada) y luego el municipio dependiente. */
@@ -1820,81 +1974,171 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   // ----------------------------------------------------
   // Helper: Step Mapping
   // ----------------------------------------------------
-  readonly STEP1_KEYS = [
-    // Primera pregunta del formulario. Debe ir acá porque STEP1_KEYS se evalúa
-    // antes que la regla `ctrl.includes('fuente')`, que lo mandaba al paso 3.
-    'fuenteVacante',
-    'oficina', 'tipoDoc', 'numeroCedula',
-    'fechaExpedicionCC', 'departamentoExpedicionCC', 'municipioExpedicionCC',
-    'pNombre', 'sNombre', 'pApellido', 'sApellido', 'genero',
-    'fechaNacimiento', 'departamentoNacimiento', 'municipioNacimiento', 'estadoCivil',
-    'correoUsuario', 'correoDominio', 'correo',
-    'numCelular', 'numWha', 'direccionResidencia', 'zonaResidencia',
-    'departamento', 'ciudad', 'tiempoResidenciaZona', 'conQuienViveChecks',
-    // Moved/New Fields
-    'escolaridad',
-    'expectativasVidaChecks'
-  ];
-
   /**
-   * Controles que vive cada paso del stepper (el índice del array es el índice
-   * del paso). Es la fuente de verdad del candado: "Siguiente" solo avanza
-   * cuando todos los controles activos del paso son válidos, y el stepper está
-   * en modo lineal para que tampoco se pueda saltar desde el encabezado.
+   * El formulario tal como se ve: paso → sección (el `<h4>` del HTML) →
+   * controles, **en el mismo orden en que aparecen en pantalla**.
+   *
+   * Es la fuente de verdad del candado por paso y del aviso de "faltan datos".
+   * El orden importa: el mensaje nombra el primer pendiente de la lista y el
+   * scroll salta al primer campo en rojo del DOM. Cuando el arreglo no seguía
+   * el orden visual (expedición antes que nacimiento, por ejemplo) el aviso
+   * nombraba un campo y la pantalla se movía a otro.
    *
    * Se listan también los opcionales y los deshabilitados: `invalid` es false
    * para ellos, así que nunca bloquean. Los condicionales (cónyuge, padres,
    * experiencia, hijos, formación) tampoco, porque `initObservables()` les
    * quita los validadores cuando la condición no aplica.
    */
-  readonly STEP_KEYS: readonly string[][] = [
-    // Paso 1 — Pre-registro
-    this.STEP1_KEYS,
+  readonly MAPA_PASOS: ReadonlyArray<{
+    titulo: string;
+    secciones: ReadonlyArray<{ titulo: string; controles: readonly string[] }>;
+  }> = [
+      {
+        titulo: 'Pre-registro',
+        secciones: [
+          { titulo: 'Origen de la postulación', controles: ['fuenteVacante'] },
+          {
+            titulo: 'Identificación',
+            controles: [
+              'oficina', 'tipoDoc', 'numeroCedula',
+              'fechaNacimiento', 'departamentoNacimiento', 'municipioNacimiento',
+              'fechaExpedicionCC', 'departamentoExpedicionCC', 'municipioExpedicionCC',
+            ],
+          },
+          {
+            titulo: 'Datos Personales',
+            controles: ['pApellido', 'sApellido', 'pNombre', 'sNombre', 'genero', 'estadoCivil'],
+          },
+          {
+            titulo: 'Contacto y Domicilio',
+            controles: [
+              'zonaResidencia', 'departamento', 'ciudad', 'direccionResidencia',
+              'numCelular', 'numWha', 'conQuienViveChecks', 'tiempoResidenciaZona',
+            ],
+          },
+          { titulo: 'Correo Electrónico', controles: ['correoUsuario', 'correoDominio', 'correo'] },
+          { titulo: 'Información de Perfil', controles: ['escolaridad', 'expectativasVidaChecks'] },
+        ],
+      },
+      {
+        titulo: 'Detalles',
+        secciones: [
+          { titulo: 'Información Adicional', controles: ['rh', 'lateralidad'] },
+          {
+            titulo: 'Talla de dotación',
+            controles: ['tallaCamisa', 'tallaPantalon', 'tallaChaqueta', 'tallaCalzado'],
+          },
+          {
+            titulo: 'Residencia (Detalles)',
+            controles: ['lugarAnteriorResidencia', 'razonCambioResidencia', 'zonasConocidas'],
+          },
+          {
+            titulo: 'Contacto de Emergencia',
+            controles: [
+              'familiarEmergencia', 'parentescoFamiliarEmergencia', 'telefonoFamiliarEmergencia',
+              'ocupacionFamiliarEmergencia', 'direccionFamiliarEmergencia', 'barrioFamiliarEmergencia',
+            ],
+          },
+          {
+            titulo: 'Formación Académica (Detalles)',
+            controles: [
+              'nombreInstitucion', 'anoFinalizacion', 'tituloObtenido',
+              'estudiosExtrasSelect', 'estudiaActualmente',
+            ],
+          },
+        ],
+      },
+      {
+        titulo: 'Familia y Referencias',
+        secciones: [
+          {
+            titulo: 'Cónyuge',
+            controles: [
+              'nombresConyuge', 'apellidosConyuge', 'viveConyuge', 'documentoIdentidadConyuge',
+              'ocupacionConyuge', 'telefonoConyuge', 'direccionConyuge',
+            ],
+          },
+          {
+            titulo: 'Padres',
+            controles: [
+              'nombrePadre', 'elPadreVive', 'ocupacionPadre', 'direccionPadre', 'telefonoPadre',
+              'nombreMadre', 'madreVive', 'ocupacionMadre', 'direccionMadre', 'telefonoMadre',
+            ],
+          },
+          {
+            titulo: 'Referencia Personal 1',
+            controles: [
+              'nombreReferenciaPersonal1', 'telefonoReferencia1', 'ocupacionReferencia1',
+              'direccionReferenciaPersonal1', 'tiempoConoceReferenciaPersonal1',
+            ],
+          },
+          {
+            titulo: 'Referencia Personal 2',
+            controles: [
+              'nombreReferenciaPersonal2', 'telefonoReferencia2', 'ocupacionReferencia2',
+              'direccionReferenciaPersonal2', 'tiempoConoceReferenciaPersonal2',
+            ],
+          },
+          {
+            titulo: 'Referencia Familiar 1',
+            controles: [
+              'nombreReferenciaFamiliar1', 'telefonoReferenciaFamiliar1', 'ocupacionReferenciaFamiliar1',
+              'direccionReferenciaFamiliar1', 'parentescoReferenciaFamiliar1',
+            ],
+          },
+          {
+            titulo: 'Referencia Familiar 2',
+            controles: [
+              'nombreReferenciaFamiliar2', 'telefonoReferenciaFamiliar2', 'ocupacionReferenciaFamiliar2',
+              'direccionReferenciaFamiliar2', 'parentescoReferenciaFamiliar2',
+            ],
+          },
+        ],
+      },
+      {
+        titulo: 'Experiencia, Hijos y Vivienda',
+        secciones: [
+          {
+            titulo: 'Experiencia Laboral',
+            controles: [
+              'experienciaLaboral', 'nombreEmpresa1', 'telefonosEmpresa1', 'direccionEmpresa1',
+              'nombreJefe1', 'cargoEmpresa1', 'areaExperiencia', 'fechaRetiro1',
+              'tiempoExperiencia', 'motivoRetiro1', 'empresas_laborado',
+            ],
+          },
+          { titulo: 'Hijos', controles: ['numHijosDependientes', 'cuidadorHijos', 'hijos'] },
+          {
+            // `conQuienViveChecks` también se edita acá, pero se reporta en el
+            // paso 1 (su otra ubicación) para no listarlo dos veces.
+            titulo: 'Vivienda y Economía',
+            controles: [
+              'familiaSolo', 'personas_a_cargo', 'tiposViviendaChecks',
+              'numeroHabitaciones', 'personasPorHabitacion', 'caracteristicasVivienda',
+              'comodidadesChecks',
+            ],
+          },
+          {
+            titulo: 'Evaluación (Opcional)',
+            controles: [
+              'relacionFamiliar', 'desempenoLaboral', 'felicitaciones',
+              'situacionConflictiva', 'actividadesDiferentes',
+            ],
+          },
+        ],
+      },
+      {
+        titulo: 'Datos Finales y Adjuntos',
+        secciones: [
+          { titulo: 'Información Adicional', controles: ['deseaGenerar', 'hojaDeVida'] },
+        ],
+      },
+    ];
 
-    // Paso 2 — Detalles
-    [
-      'rh', 'lateralidad',
-      'tallaCamisa', 'tallaPantalon', 'tallaChaqueta', 'tallaCalzado',
-      'lugarAnteriorResidencia', 'razonCambioResidencia', 'zonasConocidas',
-      'familiarEmergencia', 'parentescoFamiliarEmergencia', 'telefonoFamiliarEmergencia',
-      'ocupacionFamiliarEmergencia', 'direccionFamiliarEmergencia', 'barrioFamiliarEmergencia',
-      'nombreInstitucion', 'anoFinalizacion', 'tituloObtenido', 'estudiosExtrasSelect',
-      'estudiaActualmente',
-    ],
+  /** Controles de cada paso, aplanados desde `MAPA_PASOS` (mismo orden visual). */
+  readonly STEP_KEYS: readonly string[][] =
+    this.MAPA_PASOS.map(p => p.secciones.flatMap(s => [...s.controles]));
 
-    // Paso 3 — Familia y referencias
-    [
-      'nombresConyuge', 'apellidosConyuge', 'viveConyuge', 'documentoIdentidadConyuge',
-      'ocupacionConyuge', 'telefonoConyuge', 'direccionConyuge',
-      'nombrePadre', 'elPadreVive', 'ocupacionPadre', 'direccionPadre', 'telefonoPadre',
-      'nombreMadre', 'madreVive', 'ocupacionMadre', 'direccionMadre', 'telefonoMadre',
-      'nombreReferenciaPersonal1', 'telefonoReferencia1', 'ocupacionReferencia1',
-      'direccionReferenciaPersonal1', 'tiempoConoceReferenciaPersonal1',
-      'nombreReferenciaPersonal2', 'telefonoReferencia2', 'ocupacionReferencia2',
-      'direccionReferenciaPersonal2', 'tiempoConoceReferenciaPersonal2',
-      'nombreReferenciaFamiliar1', 'telefonoReferenciaFamiliar1', 'ocupacionReferenciaFamiliar1',
-      'direccionReferenciaFamiliar1', 'parentescoReferenciaFamiliar1',
-      'nombreReferenciaFamiliar2', 'telefonoReferenciaFamiliar2', 'ocupacionReferenciaFamiliar2',
-      'direccionReferenciaFamiliar2', 'parentescoReferenciaFamiliar2',
-    ],
-
-    // Paso 4 — Experiencia, hijos y vivienda
-    [
-      'experienciaLaboral', 'nombreEmpresa1', 'telefonosEmpresa1', 'direccionEmpresa1',
-      'nombreJefe1', 'cargoEmpresa1', 'areaExperiencia', 'fechaRetiro1',
-      'tiempoExperiencia', 'motivoRetiro1', 'empresas_laborado',
-      'numHijosDependientes', 'cuidadorHijos', 'hijos',
-      'familiaSolo', 'personas_a_cargo', 'tiposViviendaChecks',
-      'numeroHabitaciones', 'personasPorHabitacion', 'caracteristicasVivienda',
-      'comodidadesChecks',
-      // Evaluación (opcional)
-      'relacionFamiliar', 'desempenoLaboral', 'felicitaciones', 'situacionConflictiva',
-      'actividadesDiferentes',
-    ],
-
-    // Paso 5 — Final
-    ['deseaGenerar', 'hojaDeVida'],
-  ];
+  readonly STEP1_KEYS: readonly string[] = this.STEP_KEYS[0];
 
   /*
    * Returns the step index (0-based) where the control resides.
@@ -1908,8 +2152,6 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   private getStepIndex(ctrl: string): number {
     const enMapa = this.STEP_KEYS.findIndex(keys => keys.includes(ctrl));
     if (enMapa >= 0) return enMapa;
-
-    if (this.STEP1_KEYS.includes(ctrl)) return 0;
 
     // Step 2: Familia & Referencias
     if (ctrl.includes('Conyuge') || ctrl.includes('Padre') || ctrl.includes('Madre') || ctrl.includes('Referencia')) return 2;
@@ -1929,6 +2171,16 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
 
     // Default to Step 1 (Detalles) for everything else (rh, lateralidad, tallas, educacion, etc.)
     return 1;
+  }
+
+  /** Título de la sección (`<h4>`) donde vive el control; '' si no está mapeado. */
+  private seccionDelControl(ctrl: string): string {
+    for (const paso of this.MAPA_PASOS) {
+      for (const sec of paso.secciones) {
+        if (sec.controles.includes(ctrl)) return sec.titulo;
+      }
+    }
+    return '';
   }
 
   // ----------------------------------------------------
@@ -2013,9 +2265,65 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  /** Aviso concreto: qué campo del paso falta y por qué. */
+  /**
+   * Pendientes del paso agrupados por la sección (el `<h4>`) donde están, en el
+   * mismo orden en que se ven. Cada entrada trae el motivo concreto del error.
+   */
+  private pendientesDelPaso(step: number): Array<{ seccion: string; campos: Array<{ campo: string; motivo: string }> }> {
+    const out: Array<{ seccion: string; campos: Array<{ campo: string; motivo: string }> }> = [];
+
+    for (const sec of this.MAPA_PASOS[step]?.secciones ?? []) {
+      const campos: Array<{ campo: string; motivo: string }> = [];
+
+      for (const k of sec.controles) {
+        const c = this.formHojaDeVida2.get(k);
+        if (!c?.invalid) continue;
+
+        // El FormArray de hijos no tiene un campo propio al que apuntar: se
+        // desglosa por hijo para no decir solo "Datos de los Hijos".
+        if (k === 'hijos') {
+          campos.push(...this.pendientesDeHijos());
+          continue;
+        }
+        campos.push({
+          campo: this.fieldHumanName(k),
+          motivo: this.getErrorMessage(k) || 'Está vacío o tiene un formato incorrecto',
+        });
+      }
+
+      if (campos.length) out.push({ seccion: sec.titulo, campos });
+    }
+    return out;
+  }
+
+  /** Pendientes dentro del FormArray de hijos, uno por hijo y subcampo. */
+  private pendientesDeHijos(): Array<{ campo: string; motivo: string }> {
+    const etiquetas: { [k: string]: string } = {
+      nombreHijo: 'Nombre', sexoHijo: 'Sexo', fechaNacimientoHijo: 'Fecha de nacimiento',
+      docIdentidadHijo: 'Documento', ocupacionHijo: 'Ocupación', cursoHijo: 'Curso',
+    };
+    const out: Array<{ campo: string; motivo: string }> = [];
+    this.hijosFormArray?.controls.forEach((grupo, i) => {
+      const g = grupo as FormGroup;
+      for (const k of Object.keys(g.controls)) {
+        if (!g.get(k)?.invalid) continue;
+        out.push({
+          campo: `Hijo ${i + 1} — ${etiquetas[k] || k}`,
+          motivo: this.getErrorMessage(k, g) || 'Está vacío o tiene un formato incorrecto',
+        });
+      }
+    });
+    return out;
+  }
+
+  /** Aviso concreto: qué falta en el paso, agrupado por sección. */
   private avisarPasoIncompleto(step: number): void {
-    if (step === 0 && this.formHojaDeVida2.errors?.['expeditionBeforeBirth']) {
+    const pendientes = this.pendientesDelPaso(step);
+
+    // El cruce expedición/nacimiento se espeja en `fechaExpedicionCC`, así que
+    // normalmente ya viene en la lista. Este es el respaldo por si solo quedó
+    // marcado a nivel de grupo.
+    if (!pendientes.length && this.formHojaDeVida2.errors?.['expeditionBeforeBirth']) {
       Swal.fire({
         icon: 'error',
         title: 'Fecha inválida',
@@ -2025,18 +2333,26 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    const campo = this.primerInvalidoDelPaso(step);
-    if (!campo) { this.showInvalidFormAlert(); return; }
+    if (!pendientes.length) { this.showInvalidFormAlert(); return; }
 
-    const motivo = this.getErrorMessage(campo) || 'Está vacío o tiene un formato incorrecto';
+    const total = pendientes.reduce((n, s) => n + s.campos.length, 0);
+    const secciones = pendientes.map(s =>
+      `<div style="margin-bottom:10px;">` +
+      `<div style="font-weight:700;color:#2563eb;font-size:13px;text-transform:uppercase;">${s.seccion}</div>` +
+      `<ul style="margin:4px 0 0 18px;padding:0;">` +
+      s.campos.map(c => `<li><b>${c.campo}</b>: ${c.motivo.toLowerCase()}</li>`).join('') +
+      `</ul></div>`
+    ).join('');
+
     Swal.fire({
       icon: 'warning',
-      title: 'Faltan datos obligatorios',
+      title: `Faltan ${total} ${total === 1 ? 'dato' : 'datos'} en el paso ${step + 1}`,
       html:
-        `No puede continuar hasta completar <b>todos</b> los campos obligatorios del ` +
-        `<b>paso ${step + 1}</b>.<br><br>Empiece por <b>"${this.fieldHumanName(campo)}"</b>: ` +
-        `${motivo.toLowerCase()}.`,
+        `<p style="text-align:left;margin:0 0 12px;">Complete lo siguiente en ` +
+        `<b>${this.MAPA_PASOS[step]?.titulo ?? `paso ${step + 1}`}</b>:</p>` +
+        `<div style="text-align:left;font-size:14px;max-height:320px;overflow:auto;">${secciones}</div>`,
       confirmButtonColor: '#111827',
+      width: 560,
     }).then(() => this.enfocarPrimerCampoConError());
   }
 
@@ -2107,10 +2423,14 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
         const stepIdx = this.getStepIndex(firstInvalidControl);
         this.stepper.selectedIndex = stepIdx;
         const humanName = this.fieldHumanName(firstInvalidControl);
+        const seccion = this.seccionDelControl(firstInvalidControl);
+        const motivo = this.getErrorMessage(firstInvalidControl) || 'Está vacío o tiene un formato incorrecto';
         Swal.fire({
           icon: 'warning',
           title: 'Formulario Incompleto',
-          html: `Revise el campo <b>"${humanName}"</b> en el <b>paso ${stepIdx + 1}</b>. Está vacío o tiene un formato incorrecto.`,
+          html: `Revise <b>"${humanName}"</b> en el <b>paso ${stepIdx + 1}</b>` +
+            (seccion ? `, sección <b>${seccion}</b>` : '') +
+            `: ${motivo.toLowerCase()}.`,
           confirmButtonColor: '#111827'
         });
       } else {
@@ -2430,14 +2750,26 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
         "whatsapp": g('numWha')
       },
 
+      // Departamento/municipio de residencia van también en el candidato:
+      // el paso 1 se guarda solo y, si la persona abandona ahí, esto es todo
+      // lo que queda registrado.
+      "departamento": upper(g('departamento')),
+      "municipio": upper(g('ciudad')),
+
       "residencia": {
         "barrio": upper(g('zonaResidencia')),
+        "direccion": upper(g('direccionResidencia')),
         "hace_cuanto_vive": upper(g('tiempoResidenciaZona'))
       },
 
+      // Los departamentos faltaban acá: se enviaban solo los municipios, así
+      // que un abandono tras el paso 1 dejaba el depto de expedición y el de
+      // nacimiento vacíos.
       "info_cc": {
         "fecha_expedicion": this.toYmd(g('fechaExpedicionCC')),
+        "depto_expedicion": upper(g('departamentoExpedicionCC')),
         "mpio_expedicion": upper(g('municipioExpedicionCC')),
+        "depto_nacimiento": upper(g('departamentoNacimiento')),
         "mpio_nacimiento": upper(g('municipioNacimiento'))
       },
 
@@ -3143,9 +3475,12 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
    * Restaura el borrador guardado en localStorage por el autosave, solo cuando la
    * cédula guardada coincide con la que se está buscando. Evita filtrar el borrador
    * de otra persona en un dispositivo compartido (form público).
+   *
+   * Devuelve `true` si restauró algo: quien llama lo usa para saltarse la
+   * precarga del servidor y no pisar lo que la persona ya había escrito.
    */
-  private restoreDraft(cedula: string): void {
-    if (!this.isBrowser || !cedula) return;
+  private restoreDraft(cedula: string): boolean {
+    if (!this.isBrowser || !cedula) return false;
 
     // Claves nuevas y, si no hay nada, las anteriores (borradores en curso al
     // momento del cambio de nombre de clave).
@@ -3158,7 +3493,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       paso = null;
     }
 
-    if (!raw || String(savedCedula) !== String(cedula)) return;
+    if (!raw || String(savedCedula) !== String(cedula)) return false;
 
     try {
       const data = JSON.parse(raw);
@@ -3184,15 +3519,32 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
         timer: 4000,
         showConfirmButton: false,
       });
+      return true;
     } catch (e) {
       console.error('Error loading draft', e);
+      return false;
     }
   }
   groupCrossValidator(): ValidatorFn {
     return (g: AbstractControl) => {
       const v = g.value;
-      if (v.fechaExpedicionCC && v.fechaNacimiento) {
-        if (new Date(v.fechaExpedicionCC) < new Date(v.fechaNacimiento)) return { expeditionBeforeBirth: true };
+
+      // Expedición vs nacimiento. Antes esto devolvía de una y se saltaba los
+      // controles de duplicados de abajo; ahora solo se anota y se sigue.
+      const nacD = this.aFecha(v.fechaNacimiento);
+      const expD = this.aFecha(v.fechaExpedicionCC);
+      const expedicionInvalida = !!(nacD && expD && expD < nacD);
+
+      // Se espeja en el control para que el campo se pinte en rojo y tenga su
+      // propio mensaje; el error de grupo por sí solo no marca ningún campo.
+      const ctrlExp = g.get('fechaExpedicionCC');
+      if (ctrlExp) {
+        const errs = { ...(ctrlExp.errors || {}) };
+        if (!!errs['expedicionAntesDeNacer'] !== expedicionInvalida) {
+          if (expedicionInvalida) errs['expedicionAntesDeNacer'] = true;
+          else delete errs['expedicionAntesDeNacer'];
+          ctrlExp.setErrors(Object.keys(errs).length ? errs : null, { emitEvent: false });
+        }
       }
 
       // Helper for duplicates
@@ -3224,7 +3576,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       checkDup(v.telefonoReferencia1, v.telefonoReferencia2, g.get('telefonoReferencia2'), 'duplicateReferencePhone', true);
       checkDup(v.telefonoReferenciaFamiliar1, v.telefonoReferenciaFamiliar2, g.get('telefonoReferenciaFamiliar2'), 'duplicateReferencePhone', true);
 
-      return null;
+      return expedicionInvalida ? { expeditionBeforeBirth: true } : null;
     };
   }
 
