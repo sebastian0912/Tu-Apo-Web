@@ -1,1 +1,203 @@
-<p>form-occupational-health-and-safety-test works!</p>
+<div class="pagina">
+  <form [formGroup]="form" class="hoja" (ngSubmit)="guardar()">
+
+    <!-- ══ Encabezado del formato ══ -->
+    <header class="formato-header">
+      <div class="logo-celda">
+        <img [src]="logoEmpresa" [alt]="empresa.nombre" />
+      </div>
+      <div class="formato-tabla">
+        <div class="fila-titulo">{{ FORMATO.sistema }}</div>
+        <div class="fila-titulo pequena">{{ FORMATO.formato }}</div>
+        <div class="fila-meta">
+          <span>{{ FORMATO.codigo }}</span>
+          <span>{{ FORMATO.version }}</span>
+          <span>{{ FORMATO.emision }}</span>
+          <span>{{ FORMATO.pagina }}</span>
+        </div>
+      </div>
+    </header>
+
+    <h2 class="titulo-formato">{{ TITULO }}</h2>
+
+    <!-- ══ Documento del trabajador ══ -->
+    <section class="bloque-documento">
+      <label class="campo-doc">
+        <span>N° DE CÉDULA:</span>
+        <input type="text" inputmode="numeric" formControlName="numeroCedula"
+          placeholder="Solo números" autocomplete="off" />
+      </label>
+      <button type="button" class="btn-secundario" (click)="buscarCandidato()" [disabled]="cargandoCandidato">
+        <mat-icon>search</mat-icon>
+        {{ cargandoCandidato ? 'Buscando…' : 'Buscar datos' }}
+      </button>
+      @if (nombreCompleto) {
+        <p class="aviso-ok"><mat-icon>check_circle</mat-icon> {{ nombreCompleto }}</p>
+      }
+    </section>
+
+    <section class="bloque-datos">
+      <label class="campo-linea ancho-total">
+        <span>Nombre Completo del Trabajador:</span>
+        <input type="text" formControlName="nombre" autocomplete="off" />
+      </label>
+      <div class="campo-linea fecha">
+        <span>Fecha Diligenciamiento:</span>
+        <div class="fecha-partes">
+          <input type="text" inputmode="numeric" maxlength="2" formControlName="fechaDia" aria-label="Día" />
+          <b>/</b>
+          <input type="text" inputmode="numeric" maxlength="2" formControlName="fechaMes" aria-label="Mes" />
+          <b>/</b>
+          <input type="text" inputmode="numeric" maxlength="4" formControlName="fechaAnio" aria-label="Año" />
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ 1 ══ -->
+    <section class="punto">
+      <h3 class="enunciado"><b>1.</b> {{ P1_ENUNCIADO }}</h3>
+      <p class="pregunta">{{ P1_PREGUNTA }}</p>
+      <div class="opciones-imagen">
+        @for (op of P1_OPCIONES; track op.letra) {
+          <label class="opcion-img" [class.elegida]="form.get('p1')?.value === op.letra">
+            <input type="radio" formControlName="p1" [value]="op.letra" />
+            <span class="lienzo">
+              <img [src]="op.imagen" [alt]="op.texto" loading="lazy" />
+              <span class="equis" aria-hidden="true">✕</span>
+            </span>
+            <span class="opcion-texto"><b>{{ op.letra }}.</b> {{ op.texto }}</span>
+          </label>
+        }
+      </div>
+    </section>
+
+    <!-- ══ 2 ══ -->
+    <section class="punto">
+      <h3 class="enunciado"><b>2.</b> {{ P2_ENUNCIADO }}</h3>
+      <p class="pregunta">{{ P2_PREGUNTA }}</p>
+      <div class="opciones-imagen">
+        @for (op of P2_OPCIONES; track op.letra) {
+          <label class="opcion-img" [class.elegida]="form.get('p2')?.value === op.letra">
+            <input type="radio" formControlName="p2" [value]="op.letra" />
+            <span class="lienzo">
+              <img [src]="op.imagen" [alt]="op.texto" loading="lazy" />
+              <span class="equis" aria-hidden="true">✕</span>
+            </span>
+            <span class="opcion-texto"><b>{{ op.letra }}.</b> {{ op.texto }}</span>
+          </label>
+        }
+      </div>
+    </section>
+
+    <!-- ══ 3 ══ -->
+    <section class="punto">
+      <h3 class="enunciado"><b>3.</b> {{ P3_ENUNCIADO }}</h3>
+      <div class="enunciados-vf" formArrayName="p3">
+        @for (e of P3_ENUNCIADOS; track e.clave; let i = $index) {
+          <article class="tarjeta-vf">
+            <div class="vf-texto">
+              <p>{{ e.texto }}</p>
+              <!-- El índice va como texto: en un radio, `formControlName` lo
+                   consume además RadioControlValueAccessor, que lo declara
+                   `string` (lo usa para agrupar el radio-group). -->
+              <div class="vf-botones" role="group" [attr.aria-label]="e.texto">
+                <label class="vf-btn" [class.activo]="p3Array.at(i).value === 'V'">
+                  <input type="radio" [formControlName]="i.toString()" value="V" />
+                  <span>V</span>
+                </label>
+                <label class="vf-btn" [class.activo]="p3Array.at(i).value === 'F'">
+                  <input type="radio" [formControlName]="i.toString()" value="F" />
+                  <span>F</span>
+                </label>
+              </div>
+            </div>
+            <img class="vf-img" [src]="e.imagen" [alt]="e.texto" loading="lazy" />
+          </article>
+        }
+      </div>
+    </section>
+
+    <!-- ══ 4 ══ -->
+    <section class="punto">
+      <h3 class="enunciado"><b>4.</b> {{ P4_ENUNCIADO }}</h3>
+      <div class="peligros" formArrayName="p4">
+        @for (url of P4_IMAGENES; track url; let i = $index) {
+          <figure class="peligro">
+            <img [src]="url" [alt]="'Situación ' + (i + 1)" loading="lazy" />
+            <figcaption>
+              <textarea [formControlName]="i" rows="3"
+                [attr.aria-label]="'Peligros o consecuencias de la situación ' + (i + 1)"
+                placeholder="Peligros o consecuencias…"></textarea>
+            </figcaption>
+          </figure>
+        }
+      </div>
+    </section>
+
+    <!-- ══ 5 ══ -->
+    <section class="punto">
+      <h3 class="enunciado"><b>5.</b> {{ P5_ENUNCIADO }}</h3>
+
+      <div class="divulgacion">
+        <p>{{ P5_DIVULGACION }}</p>
+        <div class="si-no">
+          @for (op of ['SI', 'NO']; track op) {
+            <label class="casilla-sino" [class.elegida]="form.get('divulgacion')?.value === op">
+              <input type="radio" formControlName="divulgacion" [value]="op" />
+              <span class="etiqueta">{{ op }}</span>
+              <span class="caja" aria-hidden="true">X</span>
+            </label>
+          }
+        </div>
+      </div>
+
+      <p class="pregunta">{{ P5_PREGUNTA }}</p>
+      <div class="opciones-texto">
+        @for (op of P5_OPCIONES; track op.letra) {
+          <label class="opcion-larga" [class.elegida]="form.get('p5')?.value === op.letra">
+            <input type="radio" formControlName="p5" [value]="op.letra" />
+            <span class="marca" aria-hidden="true">X</span>
+            <span class="cuerpo"><b>{{ op.letra }}.</b> {{ op.texto }}</span>
+          </label>
+        }
+      </div>
+    </section>
+
+    <!-- ══ Criterio + evaluador ══ -->
+    <section class="punto criterio">
+      <h3 class="enunciado">Criterio de evaluación:</h3>
+      @for (linea of CRITERIO; track linea) {
+        <p class="criterio-linea">{{ linea }}</p>
+      }
+    </section>
+
+    <section class="bloque-datos">
+      <label class="campo-linea">
+        <span>Nombre del Evaluador:</span>
+        <input type="text" formControlName="nombreEvaluador" autocomplete="off" />
+      </label>
+      <label class="campo-linea">
+        <span>Calificación:</span>
+        <input type="text" inputmode="decimal" formControlName="calificacion" autocomplete="off" />
+      </label>
+    </section>
+
+    <!-- ══ Acciones ══ -->
+    <div class="acciones">
+      <button type="button" class="btn-secundario" (click)="descargarPdf()" [disabled]="guardando">
+        <mat-icon>visibility</mat-icon> Ver PDF
+      </button>
+      <button type="submit" class="btn-principal" [disabled]="guardando">
+        <mat-icon>{{ guardando ? 'hourglass_top' : 'save_alt' }}</mat-icon>
+        {{ guardando ? 'Guardando…' : 'Guardar evaluación' }}
+      </button>
+    </div>
+
+    @if (guardado) {
+      <p class="aviso-guardado">
+        <mat-icon>check_circle</mat-icon>
+        La evaluación quedó guardada en el expediente del trabajador.
+      </p>
+    }
+  </form>
+</div>

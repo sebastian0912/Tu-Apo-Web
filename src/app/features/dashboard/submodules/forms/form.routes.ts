@@ -10,8 +10,11 @@ import { Foto } from './pages/foto/foto';
 
 export const routes: Routes = [
   { path: 'formulario-seguridad-salud-trabajo', component: FormOccupationalHealthAndSafetyTest },
+  { path: 'formulario-seguridad-salud-trabajo/:empresa', component: FormOccupationalHealthAndSafetyTest },
   { path: 'formulario-pre-registro-vacantes', component: FormPreRegistrationVacancies },
   { path: 'formulario-lectura-escritura', component: FormReadingAndWritingTest },
+  // Con la temporal en la ruta (apoyo-laboral | tu-alianza): define logo y código.
+  { path: 'formulario-lectura-escritura/:empresa', component: FormReadingAndWritingTest },
   { path: 'formulario-solicitud-traslado', component: FormTransferRequest },
   { path: 'formulario-vacantes', component: FormVacancies },
   { path: 'formulario-contratation', component: FormsTestContratation },

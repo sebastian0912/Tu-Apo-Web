@@ -1,1 +1,165 @@
-<p>form-reading-and-writing-test works!</p>
+<div class="pagina">
+  <form [formGroup]="form" class="hoja" (ngSubmit)="guardar()">
+
+    <!-- ══ Encabezado del formato (misma tabla del papel) ══ -->
+    <header class="formato-header">
+      <div class="logo-celda">
+        <img [src]="logoEmpresa" [alt]="empresa.nombre" />
+      </div>
+      <div class="formato-tabla">
+        <div class="fila-titulo">{{ FORMATO.proceso }}</div>
+        <div class="fila-titulo">{{ FORMATO.titulo }}</div>
+        <div class="fila-meta">
+          <span>{{ FORMATO.codigo }}</span>
+          <span>{{ FORMATO.version }}</span>
+          <span>{{ FORMATO.emision }}</span>
+          <span>{{ FORMATO.pagina }}</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ══ Documento del candidato ══ -->
+    <section class="bloque-documento">
+      <label class="campo-doc">
+        <span>N° DE DOCUMENTO:</span>
+        <input type="text" inputmode="numeric" formControlName="numeroCedula"
+          placeholder="Solo números" autocomplete="off" />
+      </label>
+      <button type="button" class="btn-secundario" (click)="buscarCandidato()" [disabled]="cargandoCandidato">
+        <mat-icon>search</mat-icon>
+        {{ cargandoCandidato ? 'Buscando…' : 'Buscar datos' }}
+      </button>
+      @if (nombreCompleto) {
+        <p class="aviso-ok"><mat-icon>check_circle</mat-icon> {{ nombreCompleto }}</p>
+      }
+    </section>
+
+    <!-- ══ Datos del encabezado impreso ══ -->
+    <section class="bloque-datos">
+      <label class="campo-linea ancho-total">
+        <span>NOMBRE:</span>
+        <input type="text" formControlName="nombre" autocomplete="off" />
+      </label>
+      <label class="campo-linea">
+        <span>EDAD:</span>
+        <input type="text" inputmode="numeric" formControlName="edad" autocomplete="off" />
+      </label>
+      <label class="campo-linea">
+        <span>GRADO DE ESCOLARIDAD:</span>
+        <input type="text" formControlName="escolaridad" autocomplete="off" />
+      </label>
+    </section>
+
+    <!-- ══ 1. Completar palabras ══ -->
+    <section class="punto">
+      <h3 class="enunciado">1. Complete la palabra según el dibujo</h3>
+
+      <div class="dibujos">
+        @for (palabra of PALABRAS; track palabra.clave; let iP = $index) {
+          <figure class="dibujo" [class.resuelto]="palabraCompleta(iP)">
+            <img [src]="palabra.imagen" [alt]="palabra.etiqueta" loading="lazy" />
+            <figcaption class="casillas">
+              @for (letra of letrasDe(iP).controls; track $index; let iL = $index) {
+                @if (esEspacioEnBlanco(iP, iL)) {
+                  <input class="casilla" type="text" maxlength="1" autocomplete="off"
+                    [id]="'letra-' + iP + '-' + iL"
+                    [value]="letra.value"
+                    [attr.aria-label]="palabra.etiqueta + ', letra ' + (iL + 1)"
+                    (input)="alEscribirLetra($event, iP, iL)"
+                    (keydown)="alBorrarLetra($event, iP, iL)" />
+                } @else {
+                  <span class="casilla pista">{{ letra.value }}</span>
+                }
+              }
+            </figcaption>
+          </figure>
+        }
+      </div>
+    </section>
+
+    <!-- ══ 2. Operaciones ══ -->
+    <section class="punto">
+      <h3 class="enunciado">2. Realice las siguientes operaciones matemáticas.</h3>
+      <ol class="operaciones" formArrayName="operaciones">
+        @for (op of OPERACIONES; track op.letra; let i = $index) {
+          <li>
+            <span class="op-letra">{{ op.letra }}.</span>
+            <span class="op-texto">{{ op.texto }}</span>
+            <input class="op-input" type="text" inputmode="numeric" autocomplete="off"
+              [formControlName]="i" [attr.aria-label]="'Resultado de ' + op.texto" />
+          </li>
+        }
+      </ol>
+    </section>
+
+    <!-- ══ 3. Opción múltiple ══ -->
+    <section class="punto">
+      <h3 class="enunciado">3. {{ PREGUNTA_RAMOS }}</h3>
+      <div class="opciones">
+        @for (op of OPCIONES_RAMOS; track op.letra) {
+          <label class="opcion" [class.elegida]="form.get('ramos')?.value === op.valor">
+            <input type="radio" formControlName="ramos" [value]="op.valor" />
+            <span class="marca" aria-hidden="true">X</span>
+            <span class="opcion-texto">{{ op.letra }}. {{ op.valor }}</span>
+          </label>
+        }
+      </div>
+    </section>
+
+    <!-- ══ 4. Comparar números ══ -->
+    <section class="punto">
+      <h3 class="enunciado">
+        4. Observe cada uno de los números y coloque una X sobre la línea, si estos <b>NO SON IGUALES</b>
+      </h3>
+      <p class="ejemplo">
+        <em>Ejemplo: 345 <span class="ej-x">X</span> 348,</em>
+        <em class="ej-der">210 _______ 210</em>
+      </p>
+
+      <div class="pares">
+        <div class="pares-col" formArrayName="paresIzquierda">
+          @for (par of PARES_IZQUIERDA; track $index; let i = $index) {
+            <label class="par" [class.marcado]="paresIzquierdaArray.at(i).value">
+              <span class="num izq">{{ par.izquierda }}</span>
+              <input type="checkbox" [formControlName]="i"
+                [attr.aria-label]="par.izquierda + ' y ' + par.derecha + ' no son iguales'" />
+              <span class="raya"><span class="x">X</span></span>
+              <span class="num der">{{ par.derecha }}</span>
+            </label>
+          }
+        </div>
+
+        <div class="pares-col" formArrayName="paresDerecha">
+          @for (par of PARES_DERECHA; track $index; let i = $index) {
+            <label class="par" [class.marcado]="paresDerechaArray.at(i).value">
+              <span class="num izq">{{ par.izquierda }}</span>
+              <input type="checkbox" [formControlName]="i"
+                [attr.aria-label]="par.izquierda + ' y ' + par.derecha + ' no son iguales'" />
+              <span class="raya"><span class="x">X</span></span>
+              <span class="num der">{{ par.derecha }}</span>
+            </label>
+          }
+        </div>
+      </div>
+      <p class="pista-uso"><mat-icon>touch_app</mat-icon> Toque la línea para marcar la X.</p>
+    </section>
+
+    <!-- ══ Acciones ══ -->
+    <div class="acciones">
+      <button type="button" class="btn-secundario" (click)="descargarPdf()" [disabled]="guardando">
+        <mat-icon>visibility</mat-icon> Ver PDF
+      </button>
+      <button type="submit" class="btn-principal" [disabled]="guardando">
+        <mat-icon>{{ guardando ? 'hourglass_top' : 'save_alt' }}</mat-icon>
+        {{ guardando ? 'Guardando…' : 'Guardar prueba' }}
+      </button>
+    </div>
+
+    @if (guardado) {
+      <p class="aviso-guardado">
+        <mat-icon>check_circle</mat-icon>
+        La prueba quedó guardada en el expediente del candidato.
+      </p>
+    }
+  </form>
+</div>

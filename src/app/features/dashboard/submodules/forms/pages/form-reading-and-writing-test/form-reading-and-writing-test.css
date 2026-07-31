@@ -1,0 +1,622 @@
+/* =========================================================
+   Prueba de lecto-escritura (formato AL SE-RE-6 v04)
+   La pantalla imita la hoja impresa, pero sin ancho fijo:
+   en móvil se apila y las casillas de letras se envuelven.
+   Los tokens van en :host, no en :root: con encapsulación
+   emulada las variables de :root no aplican al componente.
+   ========================================================= */
+:host {
+  display: block;
+
+  --tinta: #111827;
+  --tenue: #6b7280;
+  --linea: #111827;
+  --borde: #d1d5db;
+  --acento: #2563eb;
+  --ok: #16a34a;
+  --papel: #ffffff;
+
+  font-family: 'Roboto', 'Helvetica Neue', sans-serif;
+  color: var(--tinta);
+}
+
+.pagina {
+  display: flex;
+  justify-content: center;
+  padding: 20px 16px 48px;
+  background: #f3f4f6;
+  min-height: 100%;
+}
+
+/* Proporción carta, pero fluida. */
+.hoja {
+  width: 100%;
+  max-width: 900px;
+  background: var(--papel);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, .07);
+}
+
+/* ── Encabezado del formato ── */
+.formato-header {
+  display: grid;
+  grid-template-columns: minmax(110px, 190px) 1fr;
+  border: 1px solid var(--linea);
+}
+
+.logo-celda {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-right: 1px solid var(--linea);
+}
+
+.logo-celda img {
+  max-width: 100%;
+  max-height: 54px;
+  object-fit: contain;
+}
+
+.formato-tabla {
+  display: flex;
+  flex-direction: column;
+}
+
+.fila-titulo {
+  text-align: center;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--linea);
+  line-height: 1.2;
+}
+
+.fila-meta {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  font-size: 11px;
+  flex: 1;
+}
+
+.fila-meta span {
+  padding: 5px 4px;
+  text-align: center;
+  border-right: 1px solid var(--linea);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.15;
+}
+
+.fila-meta span:last-child {
+  border-right: none;
+}
+
+/* ── Bloque de documento (no está en el papel: es para traer los datos) ── */
+.bloque-documento {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 18px 0 4px;
+  padding: 12px 14px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+}
+
+.campo-doc {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.campo-doc span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  color: #1e40af;
+}
+
+.campo-doc input {
+  border: 1px solid var(--borde);
+  border-radius: 6px;
+  background: #fff;
+  padding: 9px 10px;
+  font-size: 15px;
+  min-height: 42px;
+}
+
+.aviso-ok {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ok);
+}
+
+.aviso-ok mat-icon,
+.pista-uso mat-icon,
+.aviso-guardado mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+/* ── Datos del encabezado impreso (líneas, como el papel) ── */
+.bloque-datos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 24px;
+  margin: 20px 0 8px;
+}
+
+.campo-linea {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.campo-linea.ancho-total {
+  grid-column: 1 / -1;
+}
+
+.campo-linea span {
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.campo-linea input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  border-bottom: 1px solid var(--linea);
+  background: transparent;
+  font-size: 14px;
+  padding: 6px 4px 3px;
+  text-transform: uppercase;
+}
+
+.campo-linea input:focus {
+  outline: none;
+  border-bottom-width: 2px;
+  border-bottom-color: var(--acento);
+}
+
+/* ── Puntos de la prueba ── */
+.punto {
+  margin-top: 26px;
+}
+
+.enunciado {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 12px;
+  line-height: 1.35;
+}
+
+/* 1. Dibujos */
+.dibujos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px 14px;
+}
+
+.dibujo {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 6px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  transition: border-color .15s, background .15s;
+}
+
+.dibujo.resuelto {
+  border-color: rgba(22, 163, 74, .35);
+  background: rgba(22, 163, 74, .05);
+}
+
+.dibujo img {
+  width: 100%;
+  max-width: 150px;
+  height: 110px;
+  object-fit: contain;
+}
+
+.casillas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+.casilla {
+  width: 26px;
+  height: 34px;
+  border: none;
+  border-bottom: 2px solid var(--linea);
+  background: transparent;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0;
+  color: var(--tinta);
+}
+
+input.casilla:focus {
+  outline: none;
+  border-bottom-color: var(--acento);
+  background: rgba(37, 99, 235, .07);
+}
+
+/* Las pistas ya impresas: se ven, no se editan. */
+.casilla.pista {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 3px;
+  font-weight: 500;
+  color: var(--tenue);
+}
+
+/* 2. Operaciones */
+.operaciones {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px 24px;
+}
+
+.operaciones li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.op-letra {
+  width: 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.op-texto {
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 74px;
+}
+
+.op-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  border-bottom: 1px solid var(--linea);
+  background: transparent;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 6px 4px 3px;
+}
+
+.op-input:focus {
+  outline: none;
+  border-bottom-width: 2px;
+  border-bottom-color: var(--acento);
+}
+
+/* 3. Opción múltiple */
+.opciones {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.opcion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  cursor: pointer;
+  min-height: 48px;
+  transition: border-color .15s, background .15s;
+}
+
+.opcion:hover {
+  border-color: var(--acento);
+}
+
+.opcion.elegida {
+  border-color: var(--acento);
+  background: rgba(37, 99, 235, .08);
+}
+
+/* El radio nativo se oculta pero sigue siendo el control accesible. */
+.opcion input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.opcion .marca {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border: 1.5px solid var(--borde);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 15px;
+  color: transparent;
+}
+
+.opcion.elegida .marca {
+  border-color: var(--acento);
+  color: var(--acento);
+}
+
+.opcion input[type="radio"]:focus-visible + .marca {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
+}
+
+.opcion-texto {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* 4. Comparación de números */
+.ejemplo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 40px;
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--tenue);
+}
+
+.ej-x {
+  display: inline-block;
+  min-width: 28px;
+  text-align: center;
+  border-bottom: 1px solid var(--linea);
+  font-weight: 800;
+  color: var(--tinta);
+}
+
+.pares {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 40px;
+}
+
+.pares-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.par {
+  display: grid;
+  grid-template-columns: 1fr 90px 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.par:hover {
+  background: rgba(37, 99, 235, .05);
+}
+
+.par input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.num {
+  font-size: 15px;
+  font-style: italic;
+}
+
+.num.izq {
+  text-align: right;
+}
+
+.raya {
+  border-bottom: 1px solid var(--linea);
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.raya .x {
+  font-weight: 800;
+  font-size: 16px;
+  color: transparent;
+}
+
+.par.marcado .raya {
+  border-bottom-color: var(--acento);
+}
+
+.par.marcado .raya .x {
+  color: var(--acento);
+}
+
+.par input[type="checkbox"]:focus-visible ~ .raya {
+  outline: 2px solid var(--acento);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+.pista-uso {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--tenue);
+}
+
+/* ── Acciones ── */
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 32px;
+  padding-top: 18px;
+  border-top: 1px solid var(--borde);
+}
+
+.btn-principal,
+.btn-secundario {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.btn-principal {
+  background: #111827;
+  color: #fff;
+}
+
+.btn-principal:disabled,
+.btn-secundario:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.btn-secundario {
+  background: #fff;
+  color: var(--tinta);
+  border-color: var(--borde);
+}
+
+.btn-secundario:hover:not(:disabled) {
+  border-color: var(--acento);
+  color: var(--acento);
+}
+
+.aviso-guardado {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin: 14px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ok);
+}
+
+/* ── Responsive ── */
+@media (max-width: 760px) {
+  .pagina {
+    padding: 0 0 40px;
+    background: #fff;
+  }
+
+  .hoja {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 14px;
+  }
+
+  .formato-header {
+    grid-template-columns: 90px 1fr;
+  }
+
+  .fila-titulo {
+    font-size: 11.5px;
+  }
+
+  /* Cuatro celdas de metadatos no caben en una línea de móvil. */
+  .fila-meta {
+    grid-template-columns: repeat(2, 1fr);
+    font-size: 10px;
+  }
+
+  .fila-meta span:nth-child(2) {
+    border-right: none;
+  }
+
+  .fila-meta span:nth-child(-n+2) {
+    border-bottom: 1px solid var(--linea);
+  }
+
+  .bloque-datos {
+    grid-template-columns: 1fr;
+  }
+
+  .dibujos {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px 8px;
+  }
+
+  .dibujo img {
+    height: 88px;
+  }
+
+  .casilla {
+    width: 22px;
+    height: 30px;
+    font-size: 16px;
+  }
+
+  .pares {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .acciones {
+    flex-direction: column-reverse;
+  }
+
+  .btn-principal,
+  .btn-secundario {
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .dibujos {
+    grid-template-columns: 1fr;
+  }
+
+  .dibujo img {
+    height: 110px;
+  }
+}

@@ -213,6 +213,24 @@
             </div>
           }
 
+          <!-- Pruebas que siguen. Aparecen apenas la búsqueda encuentra a la
+               persona: solo necesitan la cédula, no la firma. -->
+          @if (puedeContinuarAPruebas) {
+            <div class="next-step-panel">
+              <p class="next-step-hint">
+                <mat-icon>arrow_forward</mat-icon>
+                Continuar con las pruebas
+              </p>
+              @for (prueba of PRUEBAS_SIGUIENTES; track prueba.ruta) {
+                <button type="button" mat-flat-button class="v-btn-accent next-step-btn"
+                  (click)="irAPrueba(prueba.ruta)">
+                  <mat-icon>{{ prueba.icono }}</mat-icon>
+                  <span>{{ prueba.etiqueta }}</span>
+                </button>
+              }
+            </div>
+          }
+
         </div>
       </section>
 

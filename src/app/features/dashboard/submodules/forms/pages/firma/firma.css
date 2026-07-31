@@ -536,6 +536,49 @@
   margin-right: 6px;
 }
 
+/* Paso siguiente (prueba de lecto-escritura): se separa del bloque de la firma
+   con un borde para que se lea como "lo que sigue" y no como otra acción más. */
+.next-step-panel {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--brand-dark, #d1d5db);
+  text-align: center;
+}
+
+.next-step-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.next-step-hint mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+
+.next-step-btn {
+  width: 100%;
+  min-height: 48px;
+}
+
+/* Van una debajo de otra: en el panel angosto de la firma, dos botones en
+   línea dejan las etiquetas cortadas. */
+.next-step-btn + .next-step-btn {
+  margin-top: 8px;
+}
+
+.next-step-btn mat-icon {
+  margin-right: 6px;
+}
+
 /* =========================================
    5. BUTTONS
    ========================================= */

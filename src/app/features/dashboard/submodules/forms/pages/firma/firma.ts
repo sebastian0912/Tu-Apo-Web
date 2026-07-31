@@ -1,8 +1,8 @@
-import { 
-  Component, OnInit
+import {
+  ChangeDetectorRef, Component, OnInit
 , ChangeDetectionStrategy } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators, FormGroup } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Title, Meta, DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import Swal from 'sweetalert2';
 import { CommonModule } from '@angular/common';
@@ -121,10 +121,15 @@ export class Firma implements OnInit {
     private candidateS: CandidatoNewS,
     private legacyCandidateS: CandidateS,
     private route: ActivatedRoute,
+    private router: Router,
     private documentS: DocumentManagementS,
     private sanitizer: DomSanitizer,
     private titleService: Title,
-    private metaService: Meta
+    private metaService: Meta,
+    // El componente es OnPush: sin marcar la vista, lo que llega por HTTP o por
+    // una promesa no se repinta hasta el siguiente evento (de ahí el "tocó
+    // darle dos veces a consultar").
+    private cdr: ChangeDetectorRef,
   ) {
     this.form = this.fb.group({
       numeroCedula: ['', [Validators.required, Validators.pattern(/^\d{5,15}$/)]],
@@ -139,12 +144,41 @@ export class Firma implements OnInit {
 
   get f() { return this.form.controls as any; }
 
+  /**
+   * Pruebas que siguen al proceso. Se muestran apenas la búsqueda encuentra a
+   * la persona: no dependen de la firma, solo de la cédula, y así se pueden
+   * llenar sin tener que firmar primero.
+   */
+  readonly PRUEBAS_SIGUIENTES = [
+    { ruta: 'formulario-lectura-escritura', icono: 'edit_note', etiqueta: 'Prueba lecto-escritura' },
+    { ruta: 'formulario-seguridad-salud-trabajo', icono: 'health_and_safety', etiqueta: 'Evaluación SST' },
+  ];
+
+  /** Hay a quién asociarle las pruebas: la búsqueda ya trajo el candidato. */
+  get puedeContinuarAPruebas(): boolean {
+    return !!this.candidatoData && !this.searching;
+  }
+
+  /**
+   * Abre la prueba arrastrando la cédula (precarga el encabezado sin volver a
+   * digitarla) y la temporal (define el logo y el código del formato).
+   */
+  irAPrueba(ruta: string): void {
+    const cedula = String(this.form.get('numeroCedula')?.value || '').trim();
+    this.router.navigate(
+      ['/formulario', ruta, this.empresaSlug],
+      { queryParams: cedula ? { cedula } : {} },
+    );
+  }
+
   // ───────── Ciclo de vida ─────────
   ngOnInit(): void {
     // ── Detectar empresa desde el parámetro de ruta ──
     const slug = (this.route.snapshot.paramMap.get('empresa') || 'apoyo-laboral').toLowerCase();
     const cfg = Firma.EMPRESAS[slug] ?? Firma.EMPRESAS['apoyo-laboral'];
-    this.empresaSlug = slug;
+    // Se normaliza a un slug conocido: con uno inventado en la URL, los botones
+    // de las pruebas armaban rutas como /formulario-lectura-escritura/xyz.
+    this.empresaSlug = Firma.EMPRESAS[slug] ? slug : 'apoyo-laboral';
     this.empresaNombre = cfg.nombre;
     this.TEXTO_CONSENTIMIENTO = this.buildTextoConsentimiento(cfg.nombre);
 
@@ -304,6 +338,9 @@ export class Firma implements OnInit {
 
     this.searching = true;
     this.nombreCompleto = null;
+    // Se limpia el candidato anterior: si no, los botones de las pruebas
+    // quedarían apuntando a la persona de la búsqueda pasada.
+    this.candidatoData = null;
     this.documentosList = [];
     this.currentDocIndex = 0;
     Swal.fire({
@@ -328,10 +365,14 @@ export class Firma implements OnInit {
 
         this.candidatoData = cand;
         this.nombreCompleto = this.buildNombreCompleto(cand);
+        this.cdr.markForCheck();
 
         if (this.nombreCompleto) {
           Swal.fire('Cédula encontrada', this.nombreCompleto, 'success');
-          this.generarPreviews(numeroCedula);
+          // Los previews son varios PDF generados en el hilo principal y tardan.
+          // Se sueltan en un macrotask para que la ficha del candidato y los
+          // botones de las pruebas se pinten de una, sin esperarlos.
+          setTimeout(() => this.generarPreviews(numeroCedula), 0);
         } else {
           Swal.fire('Cédula encontrada', 'No se pudieron leer nombres.', 'info');
         }
@@ -340,6 +381,8 @@ export class Firma implements OnInit {
         Swal.close();
         this.searching = false;
         this.nombreCompleto = null;
+        this.candidatoData = null;
+        this.cdr.markForCheck();
 
         const msg: string =
           err?.error?.message ||
@@ -361,6 +404,7 @@ export class Firma implements OnInit {
   async generarPreviews(cedula: string): Promise<void> {
     this.loadingDocs = true;
     this.documentosList = [];
+    this.cdr.markForCheck();
 
     try {
       const firmaUrl = this.signaturePreview || '';
@@ -423,6 +467,7 @@ export class Firma implements OnInit {
       Swal.fire('Error', 'No se pudieron generar los documentos de vista previa.', 'error');
     } finally {
       this.loadingDocs = false;
+      this.cdr.markForCheck();
     }
   }
 
@@ -432,6 +477,8 @@ export class Firma implements OnInit {
       title,
       safeUrl: this.sanitizer.bypassSecurityTrustResourceUrl(URL.createObjectURL(blob))
     });
+    // Cada documento se muestra apenas queda listo, en vez de todos al final.
+    this.cdr.markForCheck();
   }
 
   // ══════════════════════════════════════════════════════════
@@ -1303,9 +1350,13 @@ export class Firma implements OnInit {
     this.signaturePreview = base64;
     this.showSignatureModal = false;
     this.form.patchValue({ firmaBase64: base64 });
+    this.cdr.markForCheck();
+
     const numeroCedula = this.form.get('numeroCedula')?.value;
     if (numeroCedula) {
-      this.generarPreviews(numeroCedula);
+      // Igual que en la búsqueda: primero se pinta la firma capturada y los
+      // PDF se regeneran después, sin congelar la pantalla.
+      setTimeout(() => this.generarPreviews(numeroCedula), 0);
     }
   }
 
@@ -1403,6 +1454,7 @@ export class Firma implements OnInit {
     const file = this.dataUrlToFile(dataUrl, fileName);
 
     this.saving = true;
+    this.cdr.markForCheck();
     Swal.fire({
       icon: 'info',
       title: 'Guardando…',
@@ -1420,6 +1472,7 @@ export class Firma implements OnInit {
       Swal.close();
       this.saving = false;
       this.firmaSaved = true;
+      this.cdr.markForCheck();
 
       await this.generarPreviews(numeroCedula);
 
@@ -1431,6 +1484,7 @@ export class Firma implements OnInit {
     } catch (err: any) {
       Swal.close();
       this.saving = false;
+      this.cdr.markForCheck();
       const msg: string =
         err?.error?.detail ||
         err?.error?.message ||
@@ -1509,6 +1563,9 @@ export class Firma implements OnInit {
   openDocumentsDialog(): void {
     this.currentDocIndex = 0;
     this.showDocumentsDialog = true;
+    // También se abre desde el flujo de guardado (tras un await), no solo desde
+    // un clic, así que la vista hay que marcarla a mano.
+    this.cdr.markForCheck();
   }
 
   closeDocumentsDialog(): void {
