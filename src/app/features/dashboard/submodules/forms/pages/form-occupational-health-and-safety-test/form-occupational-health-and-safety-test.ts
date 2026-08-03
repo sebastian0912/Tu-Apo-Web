@@ -149,6 +149,11 @@ export class FormOccupationalHealthAndSafetyTest implements OnInit {
   cargandoCandidato = false;
   nombreCompleto: string | null = null;
 
+  /** DataURL por imagen ya descargada; sobrevive entre intentos de PDF. */
+  private readonly cacheImagenes = new Map<string, string>();
+  /** Imágenes que el servidor no entregó en el último `generarPdf()`. */
+  private imagenesFaltantes: string[] = [];
+
   constructor(
     private fb: FormBuilder,
     private route: ActivatedRoute,
@@ -277,16 +282,48 @@ export class FormOccupationalHealthAndSafetyTest implements OnInit {
     this.guardando = true;
     this.cdr.markForCheck();
 
-    Swal.fire({
+    const cargando = (texto: string) => Swal.fire({
       icon: 'info',
       title: 'Guardando…',
-      text: 'Generando el PDF de la evaluación.',
+      text: texto,
       allowOutsideClick: false,
       didOpen: () => Swal.showLoading(),
     });
 
+    cargando('Generando el PDF de la evaluación.');
+
     try {
-      const blob = await this.generarPdf(cedula);
+      let blob = await this.generarPdf(cedula);
+
+      // Si el servidor no entregó los dibujos, el PDF sale con los recuadros
+      // vacíos. No se sube así en silencio: quedaría un formato mutilado en el
+      // expediente y con "guardado correctamente" en pantalla.
+      while (this.imagenesFaltantes.length) {
+        const eleccion = await Swal.fire({
+          icon: 'warning',
+          title: 'No cargaron las imágenes del formato',
+          text: `${this.imagenesFaltantes.length} imagen(es) no se pudieron descargar del servidor. `
+            + 'Si guarda así, el PDF queda con los recuadros vacíos.',
+          showDenyButton: true,
+          showCancelButton: true,
+          confirmButtonText: 'Reintentar',
+          denyButtonText: 'Guardar sin imágenes',
+          cancelButtonText: 'Cancelar',
+          confirmButtonColor: '#111827',
+        });
+
+        if (eleccion.isDenied) break;
+        if (!eleccion.isConfirmed) {
+          this.guardando = false;
+          this.cdr.markForCheck();
+          return;
+        }
+
+        cargando('Descargando de nuevo las imágenes del formato.');
+        blob = await this.generarPdf(cedula);
+      }
+
+      cargando('Subiendo el formato al expediente.');
       const nombreArchivo = `PRUEBA_SST_${cedula}.pdf`;
       const archivo = new File([blob], nombreArchivo, { type: 'application/pdf' });
 
@@ -321,6 +358,17 @@ export class FormOccupationalHealthAndSafetyTest implements OnInit {
   async descargarPdf(): Promise<void> {
     const cedula = String(this.form.get('numeroCedula')?.value || 'prueba').trim();
     const blob = await this.generarPdf(cedula);
+
+    // Es solo vista previa: se descarga igual, pero avisando qué falta.
+    if (this.imagenesFaltantes.length) {
+      Swal.fire(
+        'PDF sin imágenes',
+        `${this.imagenesFaltantes.length} imagen(es) no se pudieron descargar del servidor; `
+        + 'los recuadros quedan vacíos en esta vista previa.',
+        'warning',
+      );
+    }
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -340,11 +388,19 @@ export class FormOccupationalHealthAndSafetyTest implements OnInit {
     const ancho = doc.internal.pageSize.getWidth() - margen * 2;
     const v = this.form.getRawValue();
 
-    // Las imágenes se cargan una sola vez: se usan en pantalla y en el PDF.
-    const cache = new Map<string, string | null>();
+    // Las imágenes se cargan una sola vez y quedan en caché entre intentos:
+    // reintentar solo vuelve a pedir las que el servidor no entregó.
+    this.imagenesFaltantes = [];
     const img = async (url: string): Promise<string | null> => {
-      if (!cache.has(url)) cache.set(url, await this.aDataUrl(url));
-      return cache.get(url) ?? null;
+      const enCache = this.cacheImagenes.get(url);
+      if (enCache) return enCache;
+      const dato = await this.aDataUrl(url);
+      if (dato) {
+        this.cacheImagenes.set(url, dato);
+        return dato;
+      }
+      if (!this.imagenesFaltantes.includes(url)) this.imagenesFaltantes.push(url);
+      return null;
     };
 
     const logo = await img(this.logoEmpresa);
@@ -688,20 +744,27 @@ export class FormOccupationalHealthAndSafetyTest implements OnInit {
     return doc.output('blob');
   }
 
-  /** Descarga una imagen del sitio y la vuelve DataURL para `doc.addImage`. */
+  /**
+   * Descarga una imagen del sitio y la vuelve DataURL para `doc.addImage`.
+   * Se intenta primero contra la caché del navegador y, si falla, saltándola:
+   * cuando el origen responde 504 el service worker deja el asset sin cachear
+   * y `force-cache` reintentaría contra la nada.
+   */
   private async aDataUrl(url: string): Promise<string | null> {
-    try {
-      const r = await fetch(url, { cache: 'force-cache' });
-      if (!r.ok) return null;
-      const blob = await r.blob();
-      return await new Promise<string>((res, rej) => {
-        const fr = new FileReader();
-        fr.onload = () => res(String(fr.result));
-        fr.onerror = () => rej(new Error('reader fail'));
-        fr.readAsDataURL(blob);
-      });
-    } catch {
-      return null;
+    for (const modo of ['force-cache', 'reload'] as const) {
+      try {
+        const r = await fetch(url, { cache: modo });
+        if (!r.ok) continue;
+        const blob = await r.blob();
+        if (!blob.size) continue;
+        return await new Promise<string>((res, rej) => {
+          const fr = new FileReader();
+          fr.onload = () => res(String(fr.result));
+          fr.onerror = () => rej(new Error('reader fail'));
+          fr.readAsDataURL(blob);
+        });
+      } catch { /* se prueba el siguiente modo */ }
     }
+    return null;
   }
 }

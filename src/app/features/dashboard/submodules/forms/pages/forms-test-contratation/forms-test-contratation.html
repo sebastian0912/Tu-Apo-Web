@@ -161,7 +161,7 @@
                   <!-- E) Correo electrónico -->
                   <div class="full-width sub-section">
                     <h4>Correo Electrónico</h4>
-                    <p style="font-size:12px;color:#666;margin-top:4px;">Escriba solo la parte antes del @ en "Usuario" y seleccione su dominio. El correo se armará solo. <strong>Debe ser un correo real al que tenga acceso.</strong></p>
+                    <p style="font-size:12px;color:#666;margin-top:4px;">Escriba solo la parte antes del @ en "Usuario" y seleccione su dominio. El correo se armará solo. <strong>Sin tildes ni espacios</strong> (escriba "sebastian", no "sebastián"). <strong>Debe ser un correo real al que tenga acceso.</strong></p>
                   </div>
                   <!-- En móvil esta fila se apila (ver .email-row en el CSS): en una
                        sola línea los 3 elementos quedan muy angostos y el desplegable
@@ -169,14 +169,10 @@
                   <div class="email-row">
                     <!-- Usuario Input -->
                     <div class="email-col">
+                      <!-- El motivo exacto (tilde / espacio / @) lo pinta el
+                           mat-error del propio campo vía getErrorMessage. -->
                       <ng-container
-                      *ngTemplateOutlet="textField; context: {control: 'correoUsuario', label: 'Usuario', placeholder: 'ej: juan.perez'}"></ng-container>
-                      @if (formHojaDeVida2.get('correoUsuario')?.hasError('pattern')) {
-                        <mat-error
-                          style="font-size: 11px;">
-                          Sin "&#64;"
-                        </mat-error>
-                      }
+                      *ngTemplateOutlet="textField; context: {control: 'correoUsuario', label: 'Usuario', placeholder: 'ej: juan.perez', sanitizar: 'usuarioCorreo', hint: 'Sin tildes ni espacios'}"></ng-container>
                     </div>
                     <div class="email-at">&#64;</div>
                     <!-- Dominio Dropdown -->
@@ -615,14 +611,17 @@
 
 <!-- TEMPLATES -->
 <ng-template #textField let-control="control" let-label="label" let-type="type" let-formGroup="formGroup"
-  let-isAddress="isAddress" let-hint="hint">
+  let-isAddress="isAddress" let-hint="hint" let-placeholder="placeholder" let-sanitizar="sanitizar">
   <mat-form-field appearance="outline" class="w-100 check-field"
     [class.field-ok]="isFieldOk(control, formGroup)"
     [class.field-bad]="shouldShowError(control, formGroup)">
     <mat-label>{{label}}</mat-label>
+    <!-- `sanitizar` limpia el valor mientras se escribe (hoy solo el usuario
+         del correo: le quita tildes y espacios en vivo). -->
     <input matInput [formControl]="getControl(control, formGroup)"
       [type]="type === 'password' ? (hidePassword ? 'password' : 'text') : (type || 'text')"
-      [placeholder]="isAddress ? 'CL 12 33 24' : ''"
+      [placeholder]="isAddress ? 'CL 12 33 24' : (placeholder || '')"
+      (input)="sanitizar === 'usuarioCorreo' ? normalizarUsuarioCorreo($event, control, formGroup) : null"
       (blur)="isAddress ? normalizeAddressControl(control, formGroup) : null">
       @if (type === 'password') {
         <button mat-icon-button matSuffix (click)="hidePassword = !hidePassword" type="button"

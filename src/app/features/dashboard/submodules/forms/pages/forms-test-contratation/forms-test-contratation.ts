@@ -441,7 +441,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     const doc = [req, this.docValidator()]; // Numeric only
 
     // Email Split Validators
-    const emailUserVal = [req, Validators.pattern(/^[^@]+$/)]; // No @ allowed
+    const emailUserVal = [req, this.usuarioCorreoValidator()]; // sin tildes, sin espacios, sin @
     const emailDomainVal = [req, Validators.pattern(/^[^@]+\.[a-zA-Z]{2,}$/)]; // No @, valid domain structure
 
     return this.fb.group({
@@ -1459,6 +1459,12 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     if (errors['invalidDoc']) return 'Solo números'; // Custom
     if (errors['looksLikePhone']) return 'Parece un número de celular, ingrese un documento válido.';
 
+    // Usuario del correo
+    if (errors['espacioEnUsuario']) return 'No puede llevar espacios';
+    if (errors['tildeEnUsuario']) return 'Sin tildes ni ñ (escriba "sebastian", no "sebastián")';
+    if (errors['arrobaEnUsuario']) return 'No escriba el @, se agrega solo';
+    if (errors['caracterInvalidoUsuario']) return 'Solo letras, números y . _ - +';
+
     // Fechas del documento
     if (errors['fechaFutura']) return 'La fecha no puede ser futura';
     if (errors['menorDeEdad']) {
@@ -1699,6 +1705,46 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       if (/^3\d{9}$/.test(val)) return { looksLikePhone: true };
       return null;
     };
+  }
+
+  /** Caracteres que un buzón real admite antes del @. */
+  private static readonly USUARIO_CORREO_OK = /^[a-zA-Z0-9._%+-]+$/;
+
+  /**
+   * Usuario del correo (lo que va antes del @). Ni tildes ni ñ ni espacios:
+   * "sebastián" o "sebastian guarnizo" no arman una dirección válida y el
+   * correo termina rebotando. Se distingue el motivo para poder decírselo.
+   */
+  private usuarioCorreoValidator(): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      const v = String(control.value ?? '');
+      if (!v) return null;
+      if (/\s/.test(v)) return { espacioEnUsuario: true };
+      if (v.includes('@')) return { arrobaEnUsuario: true };
+      // Cualquier cosa fuera de ASCII: tildes, ñ, diéresis…
+      if (/[^\x00-\x7F]/.test(v)) return { tildeEnUsuario: true };
+      if (!FormsTestContratation.USUARIO_CORREO_OK.test(v)) return { caracterInvalidoUsuario: true };
+      return null;
+    };
+  }
+
+  /**
+   * Limpia el usuario del correo mientras se escribe: quita tildes (NFD deja la
+   * letra base y se descartan los diacríticos, así ñ→n), espacios y símbolos
+   * que no valen. Validar solo no basta: en móvil el teclado mete la tilde sin
+   * que la persona se dé cuenta y el campo queda en rojo sin saber por qué.
+   */
+  normalizarUsuarioCorreo(event: Event, controlName: string, form: FormGroup = this.formHojaDeVida2): void {
+    const input = event.target as HTMLInputElement;
+    const limpio = String(input.value ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')   // diacriticos: a-acento -> a, enie -> n
+      .replace(/\s+/g, '')
+      .replace(/[^a-zA-Z0-9._%+-]/g, '');
+
+    if (limpio === input.value) return;
+    input.value = limpio;
+    form.get(controlName)?.setValue(limpio);
   }
 
   private notPhoneNumberValidator(): ValidatorFn {
