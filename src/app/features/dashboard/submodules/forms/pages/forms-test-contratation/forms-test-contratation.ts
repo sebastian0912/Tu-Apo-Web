@@ -59,6 +59,10 @@ const PARENT_STATUS_OPTIONS = [
 ];
 const MOTIVO_RETIRO_OPTIONS = ['VOLUNTARIO', 'TERMINACION DE CONTRATO', 'ABANDONO DE CARGO'];
 
+// Fuente de verdad: gestion_admin.Sede == NUMERO_POR_OFICINA del backend
+// (GET /gestion_contratacion/oficinas/). Toda oficina de esta lista TIENE
+// rango de numeracion de contratos; si se agrega una que no lo tenga, el
+// backend rechaza el guardado con 400.
 const OFICINAS = [
   'ADMINISTRATIVOS',
   'ANDES',
@@ -66,7 +70,7 @@ const OFICINAS = [
   'CARTAGENITA',
   'FACA_PRIMERA',
   'FACA_PRINCIPAL',
-  'FONTIBON',
+  'FONTIBÓN',
   'FORANEOS',
   'FUNZA',
   'MADRID',
@@ -75,10 +79,10 @@ const OFICINAS = [
   'SOACHA',
   'SOTAQUIRA',
   'SUBA',
-  'TOCANCIPA',
+  'TOCANCIPÁ',
   'USME',
   'VIRTUAL',
-  'ZIPAQUIRA',
+  'ZIPAQUIRÁ',
 ];
 
 interface BulItem {

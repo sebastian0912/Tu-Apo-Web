@@ -260,9 +260,14 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
 
   sexos: any[] = ['M', 'F'];
 
+  // Fuente de verdad: gestion_admin.Sede == NUMERO_POR_OFICINA del backend
+  // (GET /gestion_contratacion/oficinas/). Toda oficina de esta lista TIENE
+  // rango de numeracion de contratos; si se agrega una que no lo tenga, el
+  // backend rechaza el guardado con 400.
   oficinas: string[] = [
-    'VIRTUAL',
     'ADMINISTRATIVOS',
+    'ANDES',
+    'BOSA',
     'CARTAGENITA',
     'FACA_PRIMERA',
     'FACA_PRINCIPAL',
@@ -270,12 +275,15 @@ export class FormPreRegistrationVacancies implements OnInit, AfterViewInit {
     'FORANEOS',
     'FUNZA',
     'MADRID',
+    'MONTE_VERDE',
     'ROSAL',
     'SOACHA',
+    'SOTAQUIRA',
     'SUBA',
     'TOCANCIPÁ',
+    'USME',
+    'VIRTUAL',
     'ZIPAQUIRÁ',
-    'BRIGADA',
   ];
 
   listaPosiblesRespuestasConquienVive: any[] = [

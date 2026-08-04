@@ -1871,10 +1871,30 @@ export class FormVacancies {
     'HABITACIÓN',
   ];
 
+  // Fuente de verdad: gestion_admin.Sede == NUMERO_POR_OFICINA del backend
+  // (GET /gestion_contratacion/oficinas/). Toda oficina de esta lista TIENE
+  // rango de numeracion de contratos; si se agrega una que no lo tenga, el
+  // backend rechaza el guardado con 400.
   oficinas: string[] = [
-    'ANDES', 'BOSA', 'CARTAGENITA', 'FACA_PRIMERA', 'FACA_PRINCIPAL', 'FONTIBÓN',
-    'FORANEOS', 'FUNZA', 'MADRID', 'MONTE_VERDE', 'ROSAL', 'SOACHA', 'SUBA',
-    'TOCANCIPÁ', 'USME'
+    'ADMINISTRATIVOS',
+    'ANDES',
+    'BOSA',
+    'CARTAGENITA',
+    'FACA_PRIMERA',
+    'FACA_PRINCIPAL',
+    'FONTIBÓN',
+    'FORANEOS',
+    'FUNZA',
+    'MADRID',
+    'MONTE_VERDE',
+    'ROSAL',
+    'SOACHA',
+    'SOTAQUIRA',
+    'SUBA',
+    'TOCANCIPÁ',
+    'USME',
+    'VIRTUAL',
+    'ZIPAQUIRÁ',
   ];
 
 
