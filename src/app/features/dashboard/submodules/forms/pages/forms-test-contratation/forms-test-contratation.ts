@@ -2785,7 +2785,10 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     const formValue = {
       "oficina": upper(g('oficina')),
       "tipo_doc": g('tipoDoc'),
-      "numero_documento": g('numeroCedula'),
+      // String() explícito: si el control trae la cédula como número (borrador
+      // viejo restaurado, autocompletado), el JSON viaja con un int y el
+      // backend revienta al hashear la clave ("Password must be a string").
+      "numero_documento": String(g('numeroCedula')).trim(),
       "primer_apellido": upper(g('pApellido')),
       "segundo_apellido": upper(g('sApellido')),
       "primer_nombre": upper(g('pNombre')),
@@ -2839,7 +2842,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       ],
 
       // Password = número de cédula (automático, no lo ingresa el usuario)
-      "password": g('numeroCedula')
+      "password": String(g('numeroCedula')).trim()
     };
 
     // Guardar paso 1 con feedback al usuario
