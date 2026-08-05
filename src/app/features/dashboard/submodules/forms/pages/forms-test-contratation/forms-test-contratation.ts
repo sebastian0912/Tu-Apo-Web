@@ -33,10 +33,22 @@ import { PoliciesModal } from '../../components/policies-modal/policies-modal';
 const STORAGE_KEY = 'tuapo.hv2.draft';
 const CEDULA_KEY = 'tuapo.hv2.cedula';
 const STEP_KEY = 'tuapo.hv2.step';
+// Momento en que se guardó el borrador. Sin esto los datos personales se
+// quedaban en el equipo indefinidamente (el formulario se llena en oficinas
+// con computadores compartidos). Ver `BORRADOR_TTL_MS` y `limpiarBorrador()`.
+const STAMP_KEY = 'tuapo.hv2.ts';
 
 // Claves anteriores: se leen una sola vez para no perder borradores en curso.
 const STORAGE_KEY_LEGACY = 'formHojaDeVida2';
 const CEDULA_KEY_LEGACY = 'numeroCedula';
+
+// Campos que guardan un `Date`. `JSON.stringify` de un Date da una cadena ISO,
+// pero antes de eso `sanitizeForStorage` lo copiaba campo por campo y un Date
+// no tiene propiedades enumerables: quedaba `{}`. Al restaurar, ese `{}` pasaba
+// `Validators.required` (no está vacío) y `aFecha()` lo volvía null, así que el
+// candado de edad mínima dejaba de aplicar y la fecha viajaba vacía al backend.
+const CAMPOS_FECHA = ['fechaNacimiento', 'fechaExpedicionCC', 'anoFinalizacion', 'fechaRetiro1'] as const;
+const CAMPOS_FECHA_HIJO = ['fechaNacimientoHijo'] as const;
 
 // Empresa para el modal de tratamiento de datos. Se resuelve por el query param
 // ?empresa= del link (slugs alineados con firma/:empresa y foto/:empresa).
@@ -47,9 +59,20 @@ const EMPRESAS: Record<string, string> = {
 };
 const EMPRESA_DEFAULT = 'tu-alianza';
 
-const REGEX_NAMES = /^[a-zA-ZñÑáéíóúÁÉÍÓÚ\s]+$/;
+// Apellidos reales llevan apóstrofo y guion (O'CONNOR, ANA-MARÍA) y la diéresis
+// existe en español (ARGÜELLO). El punto permite la inicial intermedia ("J.").
+const REGEX_NAMES = /^[a-zA-ZñÑáéíóúüÁÉÍÓÚÜ'’\-.\s]+$/;
 const REGEX_NUMERIC = /^\d+$/;
 const REGEX_PHONE_CO = /^3\d{9}$/;
+
+// Tope de hijos que se pueden detallar (coincide con Validators.max del control).
+const MAX_HIJOS = 10;
+// Adjunto de hoja de vida: solo PDF real y con tope de tamaño.
+// 50 MB para no rechazar en el navegador lo que el backend sí acepta
+// (`MAX_UPLOAD_MB` en gestion_documental/models.py). Una HV escaneada con el
+// celular pasa de 10 MB con facilidad.
+const MAX_ARCHIVO_MB = 50;
+const MIME_PDF = new Set(['application/pdf', 'application/x-pdf', 'application/acrobat']);
 
 const OPCION_BINARIA = [{ value: 'SI', display: 'SÍ' }, { value: 'NO', display: 'NO' }];
 const PARENT_STATUS_OPTIONS = [
@@ -84,15 +107,6 @@ const OFICINAS = [
   'VIRTUAL',
   'ZIPAQUIRÁ',
 ];
-
-interface BulItem {
-  activo?: boolean;
-  datos?: any;
-}
-interface Option {
-  value: string;
-  viewValue: string;
-}
 
 @Injectable()
 export class CustomDateAdapter extends NativeDateAdapter {
@@ -142,18 +156,26 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   searchForm: FormGroup; // Pre-check form
   isSearching = false;
   showForm = false; // Toggles between search and main form
-  foundCandidate: any = null;
 
   // Precarga (Modelo A) disparada por la fecha de expedición dentro del form.
   // `prefillEnCurso` corta la reentrada (la precarga escribe fechaExpedicionCC)
-  // y `prefillResuelto` la deja en un solo intento por llenado.
+  // y `prefillResuelto` solo se marca cuando la precarga REALMENTE trajo datos:
+  // antes se marcaba siempre, así que equivocarse en la fecha de expedición
+  // (lo más común) mataba la precarga para el resto de la sesión.
   private prefillEnCurso = false;
   private prefillResuelto = false;
+  /** Última fecha ya consultada: evita repetir la misma llamada fallida. */
+  private ultimaFechaPrefill = '';
   cargandoPrefill = false;
+
+  /** Envío en curso: bloquea el botón para que no salgan dos registros. */
+  enviando = false;
+
+  /** `cedula|correo` para el que ya se intentó crear la cuenta de acceso. */
+  private usuarioRegistradoPara = '';
 
   formHojaDeVida2: FormGroup;
   loadingCatalogos = false;
-  oficinaBloqueada = false;
 
   // Stepper State
   stepperTotal = 0;
@@ -217,9 +239,6 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   parentStatusOptions = PARENT_STATUS_OPTIONS;
   motivoRetiroOptions = MOTIVO_RETIRO_OPTIONS;
   oficinas = OFICINAS;
-  categoriasLicencia = ['A1', 'A2', 'B1', 'B2', 'B3', 'C1', 'C2', 'C3'];
-  tiposContrato = ['Obra labor', 'Prestación de servicios', 'Fijo', 'Indefinido', 'Aprendizaje'];
-  tallasRopa = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
 
   dominiosCorreo = [
     'GMAIL.COM', 'HOTMAIL.COM', 'YAHOO.COM', 'ICLOUD.COM', 'OUTLOOK.COM',
@@ -233,11 +252,6 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   // Search Controls for Selects
   searchDominio = new FormControl('');
   filteredDominios: string[] = [];
-
-  // Search Controls for Selects
-  mostrarCamposHermanos = false;
-  mostrarSubirHojaVida = false;
-  mostrarCamposAdicionales = false;
 
   // File Types Mapping
   // 28 = HOJA_DE_VIDA_M en table_document_type (prod)
@@ -295,6 +309,39 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     return String(v).trim();
   }
 
+  /**
+   * Texto comparable: mayúsculas y sin tildes. `colombia.json` guarda los
+   * departamentos en capitalización normal ("Cundinamarca") pero el backend los
+   * devuelve en MAYÚSCULAS, así que comparar con `===` dejaba la lista de
+   * municipios vacía en toda precarga.
+   */
+  private normalizarTexto(v: any): string {
+    return String(v ?? '').trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+
+  /** Departamento tal como está escrito en colombia.json (o el original si no existe). */
+  private canonDepto(v: any): string {
+    const t = this.normalizarTexto(v);
+    if (!t) return '';
+    const d = this.datos?.find((x: any) => this.normalizarTexto(x.departamento) === t);
+    return d?.departamento ?? String(v ?? '').trim();
+  }
+
+  /** Municipio tal como está escrito en colombia.json (o el original si no existe). */
+  private canonCiudad(depto: any, v: any): string {
+    const t = this.normalizarTexto(v);
+    if (!t) return '';
+    const d = this.datos?.find((x: any) => this.normalizarTexto(x.departamento) === this.normalizarTexto(depto));
+    return (d?.ciudades ?? []).find((c: string) => this.normalizarTexto(c) === t) ?? String(v ?? '').trim();
+  }
+
+  /** Escapa texto que viene del backend o del usuario antes de meterlo en el HTML de un Swal. */
+  private esc(v: any): string {
+    return String(v ?? '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
   /** Clave de deduplicación: el código si existe, si no el texto visible. */
   private claveCatalogo(v: any): string {
     if (v !== null && typeof v === 'object') {
@@ -340,15 +387,17 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     this.initSearchFilters();
     this.initAutocompleteMirror();
     this.initPrefillPorFechaExpedicion();
+    this.vigilarFechasIdentidad();
     this.initAutoSave();
 
     // Query Params
     this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe(params => {
       const ofi = (params.get('oficina') || '').toUpperCase().trim();
+      // Deshabilitar el control ya bloquea el campo en pantalla; no hace falta
+      // una bandera aparte (el template no la usaba).
       if (ofi && this.oficinas.includes(ofi)) {
         this.formHojaDeVida2.get('oficina')?.setValue(ofi);
         this.formHojaDeVida2.get('oficina')?.disable();
-        this.oficinaBloqueada = true;
       }
     });
   }
@@ -393,8 +442,6 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
   }
-  cancelar() { this.formHojaDeVida2.reset(); }
-  onSelectionChange() { /* Triggered by UI updates handled in sub */ }
 
   // Habeas Data: el candidato debe aceptar sí o sí antes de llenar el formulario.
   // disableClose evita cerrar con ESC o click fuera. PoliciesModal.btnDecline()
@@ -410,6 +457,9 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async cargarDatosJSON() {
+    // La URL es relativa y el error abre un Swal (necesita `document`): en SSR
+    // ambas cosas revientan el render del servidor.
+    if (!this.isBrowser) return;
     this.http.get('files/utils/colombia.json').subscribe({
       next: (d: any) => {
         this.datos = d;
@@ -434,7 +484,6 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   // ----------------------------------------------------
   private initForm(): FormGroup {
     const req = Validators.required;
-    const txt = [req, Validators.minLength(2), this.noSpecialCharsValidator()];
 
     // Strict Validators
     const name = [req, Validators.minLength(2), Validators.maxLength(30), this.nameValidator()]; // Letters only
@@ -481,12 +530,6 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       tiempoResidenciaZona: ['', req],
       conQuienViveChecks: [[], req],
 
-      // Password: se usa el número de cédula automáticamente (no visible al usuario)
-      password: [''],
-      // Escolaridad moved here effectively by validation keys logic, control stays same
-      // Expectativas moved here effectively
-
-
       // Fields NOT in Step 1 but required later
       rh: ['', req], // Moved out of step 1 list
       lateralidad: ['', req],
@@ -517,32 +560,36 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
 
       // Step 3: Family
       // Conyuge (Validators applied via toggle in observable logic)
+      //
+      // OJO: estos campos NO nacen obligatorios. Solo se dibujan cuando el
+      // estado civil es CA/UL y "¿vive con el cónyuge?" es SI, y es el `toggle`
+      // de `initObservables()` el que les pone `required`. Cuando nacían
+      // obligatorios, el aviso de "faltan datos" pedía la dirección y el
+      // documento del cónyuge sin que existiera ningún campo en pantalla.
       nombresConyuge: [''],
       apellidosConyuge: [''],
-      viveConyuge: [''], // Note: old code had viveConyuge AND viveConElConyugue? Checking usage.. 
-      // Checking old code: viveConElConyugue line 75 service. viveConyuge line 359 initForm.
-      // I will keep what was there to be safe.
-      viveConElConyugue: [''],
+      viveConyuge: [''],
 
-      documentoIdentidadConyuge: ['', doc],
-      direccionConyuge: ['', [Validators.required]],
-      telefonoConyuge: ['', phone],
+      documentoIdentidadConyuge: ['', this.docValidator()],
+      direccionConyuge: [''],
+      telefonoConyuge: ['', this.phoneCOValidator()],
       barrioMunicipioConyugue: [''],
       ocupacionConyuge: [''],
 
-      // Padres
+      // Padres. Igual que el cónyuge: dirección/teléfono/ocupación solo se
+      // dibujan (y solo se exigen) cuando el estado es "VIVE".
       nombrePadre: [{ value: '', disabled: false }, this.fullNameValidator(true)],
       elPadreVive: ['', req],
       ocupacionPadre: [''],
-      direccionPadre: ['', [Validators.required]],
-      telefonoPadre: ['', phone],
+      direccionPadre: [''],
+      telefonoPadre: ['', this.phoneCOValidator()],
       barrioPadre: [''],
 
       nombreMadre: [{ value: '', disabled: false }, this.fullNameValidator(true)],
       madreVive: ['', req],
       ocupacionMadre: [''],
-      direccionMadre: ['', [Validators.required]],
-      telefonoMadre: ['', phone],
+      direccionMadre: [''],
+      telefonoMadre: ['', this.phoneCOValidator()],
       barrioMadre: [''],
 
       // Referencias
@@ -550,19 +597,13 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       telefonoReferencia1: ['', phone],
       ocupacionReferencia1: [''],
       direccionReferenciaPersonal1: ['', [Validators.required]],
-      tiempoConoceReferenciaPersonal1: [''], // Was tiempoConoceReferencia1 in HTML bound? 
-      // Old initForm calls it 'tiempoConoceReferenciaPersonal1'. HTML binding 'tiempoConoceReferencia1'.
-      // Wait, let's verify old code key.
-      tiempoConoceReferencia1: [''], // Binding alias if needed or actual control.
-      // barrioReferenciaPersonal1 REMOVED
+      tiempoConoceReferenciaPersonal1: [''],
 
       nombreReferenciaPersonal2: ['', fullName],
       telefonoReferencia2: ['', phone],
       ocupacionReferencia2: [''],
       direccionReferenciaPersonal2: ['', [Validators.required]],
       tiempoConoceReferenciaPersonal2: [''],
-      tiempoConoceReferencia2: [''], // Match
-      // barrioReferenciaPersonal2 REMOVED
 
       nombreReferenciaFamiliar1: ['', fullName],
       telefonoReferenciaFamiliar1: ['', phone],
@@ -581,7 +622,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       // Step 4: Experience & Housing
       experienciaLaboral: ['', req],
       nombreEmpresa1: [''],
-      telefonosEmpresa1: [''],
+      telefonosEmpresa1: ['', this.telefonoEmpresaValidator()],
       nombreJefe1: [''],
       cargoEmpresa1: [''],
       areaExperiencia: [[]],
@@ -617,7 +658,10 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       actividadesDiferentes: [''],
 
       // Step 5: Final
-      deseaGenerar: [false, req],
+      // `deseaGenerar` se eliminó: no existe en el backend (ni como campo ni en
+      // ningún serializer), `buildPayload` nunca lo enviaba, y su observable
+      // llamaba a `limpiarCamposAdicionales()` — así que responder "No" borraba
+      // en silencio el PDF de hoja de vida que la persona acababa de adjuntar.
       hojaDeVida: ['']
     }, { validators: this.groupCrossValidator() });
   }
@@ -629,17 +673,35 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     const f = this.formHojaDeVida2;
 
     // Helper for conditional validation
+    //
+    // `setValidators` REEMPLAZA los validadores del control, así que al activar
+    // un campo condicional se perdía su validador de formato y, por ejemplo, el
+    // teléfono del padre pasaba a aceptar "ABC". Este mapa vuelve a añadirlo
+    // siempre, sin que cada llamada tenga que acordarse.
+    const FORMATO: Record<string, ValidatorFn> = {
+      telefonoConyuge: this.phoneCOValidator(),
+      telefonoPadre: this.phoneCOValidator(),
+      telefonoMadre: this.phoneCOValidator(),
+      documentoIdentidadConyuge: this.docValidator(),
+      // El teléfono de la empresa nunca tuvo formato y aceptaba cualquier cosa
+      // ("ABC"). Ahora exige un número real, pero admite fijo además de celular.
+      telefonosEmpresa1: this.telefonoEmpresaValidator(),
+    };
+
     const toggle = (ctrlName: string, required: boolean, validators: ValidatorFn[] = []) => {
       const c = f.get(ctrlName);
       if (!c) return;
       if (required) {
-        c.setValidators([Validators.required, ...validators]);
+        const propio = FORMATO[ctrlName];
+        c.setValidators([Validators.required, ...(propio ? [propio] : []), ...validators]);
         c.enable({ emitEvent: false });
+        this.restaurarRecordado(ctrlName);
       } else {
         c.clearValidators();
-        c.setValue('', { emitEvent: false });
-        // Optional: Disable if you want them greyed out
-        // c.disable({emitEvent: false}); 
+        // Se vacía para no enviar datos que ya no aplican, pero recordando el
+        // valor: un clic equivocado en "¿el padre vive?" borraba nombre,
+        // dirección y teléfono sin posibilidad de recuperarlos.
+        this.vaciarRecordando(ctrlName);
       }
       c.updateValueAndValidity({ emitEvent: false });
     };
@@ -690,20 +752,15 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       f.get('numeroCedula')?.updateValueAndValidity();
     });
 
-    // Desea Generar Logic — solo limpia el archivo de HV adjunto cuando se desactiva.
-    // Los "campos adicionales" (vehículo, trabajo actual, hermanos) fueron removidos
-    // del formulario: no existen como controles ni en el HTML, así que no se togglean.
-    f.get('deseaGenerar')?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(val => {
-      if (!val) {
-        this.limpiarCamposAdicionales();
-      }
-    });
-
     // Hijos Logic (Consolidated)
     f.get('numHijosDependientes')?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(num => {
-      const n = Number(num) || 0;
+      // El valor se acota ANTES de tocar el FormArray. El input es `type=number`
+      // y no tenía tope: con un número negativo (basta bajar el spinner desde 0)
+      // `actualizarHijos` entraba en un bucle infinito síncrono y congelaba la
+      // pestaña; con uno enorme creaba miles de FormGroup.
+      const n = this.acotarHijos(num);
 
-      // Sanitize input (remove leading zeros, e.g. "01" -> "1")
+      // Sanitize input (remove leading zeros, e.g. "01" -> "1", y descarta -4 / 2.5)
       if (String(num) !== String(n)) {
         f.get('numHijosDependientes')?.setValue(n, { emitEvent: false });
       }
@@ -742,8 +799,11 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       toggle('documentoIdentidadConyuge', req);
       toggle('direccionConyuge', req, [Validators.required]);
       toggle('telefonoConyuge', req);
-      // toggle('barrioConyuge', req); // REMOVED
       toggle('ocupacionConyuge', req);
+      // El barrio se guarda (el backend lo persiste como `barrio_municipio_conyugue`)
+      // pero no se exige: se limpia cuando la sección no aplica y se devuelve si vuelve.
+      if (req) this.restaurarRecordado('barrioMunicipioConyugue');
+      else this.vaciarRecordando('barrioMunicipioConyugue');
     });
 
     // Estado Civil Logic - Auto-toggle Spouse
@@ -755,15 +815,17 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       if (requiresRef) {
         if (!conyugeCtrl?.value) conyugeCtrl?.setValue('SI');
       } else {
-        // No casado/unión libre → limpiar TODOS los campos de cónyuge
+        // No casado/unión libre → limpiar TODOS los campos de cónyuge.
+        // Se vacían recordando el valor: si vuelve a marcar CASADO/UNIÓN LIBRE
+        // (o se equivocó al elegir), `toggle()` se lo devuelve.
         conyugeCtrl?.setValue('');
         const conyugeFields = [
           'nombresConyuge', 'apellidosConyuge', 'documentoIdentidadConyuge',
-          'viveConElConyugue', 'direccionConyuge', 'telefonoConyuge',
+          'direccionConyuge', 'telefonoConyuge',
           'barrioMunicipioConyugue', 'ocupacionConyuge'
         ];
         for (const field of conyugeFields) {
-          f.get(field)?.setValue('', { emitEvent: false });
+          this.vaciarRecordando(field);
           f.get(field)?.clearValidators();
           f.get(field)?.updateValueAndValidity({ emitEvent: false });
         }
@@ -782,8 +844,11 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       // Address/Phone/Job -> Required ONLY if Alive (VIVE)
       toggle(`direccion${prefix}`, isVive, [Validators.required]);
       toggle(`telefono${prefix}`, isVive);
-      // toggle(`barrio${prefix}`, isVive); // REMOVED
       toggle(`ocupacion${prefix}`, isVive);
+      // El barrio se guarda (el backend lo persiste como `barrio_padre` /
+      // `barrio_madre`) pero es opcional, igual que el del contacto de emergencia.
+      if (isVive) this.restaurarRecordado(`barrio${prefix}`);
+      else this.vaciarRecordando(`barrio${prefix}`);
 
       // Name: 
       // User said: "lo conoce? si o no, si si klos campos son obligatorios, y no no"
@@ -817,9 +882,42 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     this.setupLocationListener('departamentoNacimiento', 'municipioNacimiento', 'ciudadesNacimiento');
   }
 
+  /**
+   * Vacía un control recordando lo que tenía, para poder devolvérselo si la
+   * condición que lo ocultó vuelve a cumplirse.
+   */
+  private vaciarRecordando(nombre: string): void {
+    const c = this.formHojaDeVida2.get(nombre);
+    if (!c) return;
+    const v = c.value;
+    if (v !== '' && v !== null && v !== undefined) this.valoresRecordados.set(nombre, v);
+    c.setValue('', { emitEvent: false });
+  }
+
+  /** Devuelve el valor recordado si el campo volvió a aplicar y está vacío. */
+  private restaurarRecordado(nombre: string): void {
+    const c = this.formHojaDeVida2.get(nombre);
+    if (!c) return;
+    const actual = c.value;
+    if (actual !== '' && actual !== null && actual !== undefined) return;
+    const guardado = this.valoresRecordados.get(nombre);
+    if (guardado === undefined) return;
+    c.setValue(guardado, { emitEvent: false });
+    this.valoresRecordados.delete(nombre);
+  }
+
+  /** Último valor de cada campo condicional antes de vaciarse. Ver `toggle()`. */
+  private readonly valoresRecordados = new Map<string, any>();
+
   private setupLocationListener(deptKey: string, cityKey: string, listProp: 'ciudadesResidencia' | 'ciudadesExpedicionCC' | 'ciudadesNacimiento') {
     this.formHojaDeVida2.get(deptKey)?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(dept => {
-      const dData = this.datos?.find((d: any) => d.departamento === dept);
+      // Comparación normalizada: colombia.json trae "Cundinamarca" y el backend
+      // devuelve "CUNDINAMARCA". Con `===` la lista de municipios quedaba vacía
+      // en toda precarga y la persona no podía elegir ciudad.
+      const objetivo = this.normalizarTexto(dept);
+      const dData = objetivo
+        ? this.datos?.find((d: any) => this.normalizarTexto(d.departamento) === objetivo)
+        : null;
       this[listProp] = dData ? dData.ciudades : [];
       this.formHojaDeVida2.get(cityKey)?.enable();
 
@@ -875,10 +973,20 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  /** Número de hijos utilizable: entero, entre 0 y `MAX_HIJOS`. */
+  private acotarHijos(v: any): number {
+    const n = Math.floor(Number(v));
+    if (!Number.isFinite(n)) return 0;
+    return Math.min(MAX_HIJOS, Math.max(0, n));
+  }
+
   private actualizarHijos(num: number): void {
     const arr = this.formHojaDeVida2.get('hijos') as FormArray;
-    while (arr.length > num) arr.removeAt(arr.length - 1);
-    while (arr.length < num) {
+    // Segunda red: si `num` llegara negativo, `removeAt(-1)` sobre un FormArray
+    // vacío no quita nada y el `while` no termina nunca.
+    const total = this.acotarHijos(num);
+    while (arr.length > total) arr.removeAt(arr.length - 1);
+    while (arr.length < total) {
       const g = this.fb.group({
         nombreHijo: ['', [Validators.required]],
         sexoHijo: ['', Validators.required],
@@ -940,9 +1048,15 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  /** Cuánto vive un borrador antes de descartarse (equipos compartidos). */
+  private static readonly BORRADOR_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+  /** Tras enviar con éxito ya no se guarda nada más en este dispositivo. */
+  private borradorDeshabilitado = false;
+
   /** Vuelca el formulario a localStorage. Requiere cédula: es la llave del borrador. */
   private guardarBorrador(): void {
-    if (!this.isBrowser) return;
+    if (!this.isBrowser || this.borradorDeshabilitado) return;
     const cedula = this.formHojaDeVida2.get('numeroCedula')?.value;
     if (!cedula) return;
     try {
@@ -950,15 +1064,36 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(limpio));
       localStorage.setItem(CEDULA_KEY, String(cedula));
       localStorage.setItem(STEP_KEY, String(this.stepperIndex ?? 0));
+      localStorage.setItem(STAMP_KEY, String(Date.now()));
     } catch (e) {
       // QuotaExceeded u otro fallo de storage: no debe tumbar el formulario.
       console.warn('[borrador] no se pudo guardar', e);
     }
   }
 
+  /**
+   * Borra el borrador del equipo. Se llama al enviar con éxito y cuando el
+   * borrador está caducado: son datos personales (cédula, celular, dirección,
+   * fecha de nacimiento) en un computador que suele ser compartido.
+   */
+  private limpiarBorrador(): void {
+    if (!this.isBrowser) return;
+    try {
+      for (const k of [STORAGE_KEY, CEDULA_KEY, STEP_KEY, STAMP_KEY, STORAGE_KEY_LEGACY, CEDULA_KEY_LEGACY]) {
+        localStorage.removeItem(k);
+      }
+    } catch (e) {
+      console.warn('[borrador] no se pudo limpiar', e);
+    }
+  }
+
   private sanitizeForStorage(v: any): any {
     // Simple cyclic breaker / clean
     if (v === null || v === undefined) return v;
+    // Un Date se guarda como cadena ISO. Si se deja caer al recorrido genérico
+    // de abajo se convierte en `{}` (no tiene propiedades enumerables) y al
+    // restaurar el borrador se perdían TODAS las fechas del formulario.
+    if (v instanceof Date) return isNaN(v.getTime()) ? '' : v.toISOString();
     if (typeof v !== 'object') return v;
     const copy: any = Array.isArray(v) ? [] : {};
     for (const k in v) {
@@ -967,6 +1102,27 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       copy[k] = this.sanitizeForStorage(v[k]);
     }
     return copy;
+  }
+
+  /**
+   * Devuelve las fechas del borrador a objetos `Date` (el datepicker los exige).
+   * Lo que no sea una fecha usable se deja vacío para que el campo vuelva a
+   * pedirse, en vez de colarse como valor "no vacío" que burla los validadores.
+   */
+  private revivirFechas(data: any): any {
+    if (!data || typeof data !== 'object') return data;
+    for (const k of CAMPOS_FECHA) {
+      if (k in data) data[k] = this.aFecha(data[k]) ?? '';
+    }
+    if (Array.isArray(data.hijos)) {
+      for (const h of data.hijos) {
+        if (!h || typeof h !== 'object') continue;
+        for (const k of CAMPOS_FECHA_HIJO) {
+          if (k in h) h[k] = this.aFecha(h[k]) ?? '';
+        }
+      }
+    }
+    return data;
   }
 
   // ----------------------------------------------------
@@ -1014,17 +1170,46 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           (this as any)[config.prop] = unique;
         }
         this.loadingCatalogos = false;
+        this.avisarSiNoHayCatalogos();
+        this.cdr.markForCheck();
       },
       error: () => {
         this.loadingCatalogos = false;
-        Swal.fire({
-          icon: 'error',
-          title: 'Error cargando opciones',
-          text: 'No se pudieron cargar las listas de selección (tipo documento, género, escolaridad, etc.). Recargue la página.',
-          confirmButtonColor: '#111827'
-        });
+        this.avisarCatalogosCaidos();
+        this.cdr.markForCheck();
       }
     });
+  }
+
+  /**
+   * `bulkValores` atrapa sus propios errores y responde con listas vacías, así
+   * que la rama `error:` de arriba casi nunca se ejecuta: sin esta comprobación
+   * el formulario quedaba con TODOS los desplegables vacíos y sin un solo aviso.
+   * Se avisa solo si no llegó ni un catálogo (fallo total, no una tabla suelta).
+   */
+  private avisarSiNoHayCatalogos(): void {
+    const vacios = this.CATALOG_KEYS.filter((k) => {
+      const prop = (this.CATALOG_CONFIG as any)[k].prop;
+      return !((this as any)[prop]?.length);
+    });
+    if (vacios.length === this.CATALOG_KEYS.length) this.avisarCatalogosCaidos();
+  }
+
+  private avisarCatalogosCaidos(): void {
+    if (!this.isBrowser) return;
+    Swal.fire({
+      icon: 'error',
+      title: 'No se pudieron cargar las opciones',
+      html: '<p style="text-align:left;">No pudimos traer las listas del formulario ' +
+        '(tipo de documento, escolaridad, tallas, etc.), así que los desplegables ' +
+        'aparecerán vacíos.</p>' +
+        '<p style="text-align:left;">Revise su conexión y <b>recargue la página</b>. ' +
+        'Si sigue igual, avise en la oficina antes de seguir llenando.</p>',
+      confirmButtonText: 'Recargar',
+      confirmButtonColor: '#111827',
+      showCancelButton: true,
+      cancelButtonText: 'Seguir así',
+    }).then((r) => { if (r.isConfirmed && typeof window !== 'undefined') window.location.reload(); });
   }
 
   private str(v: any): string { return String(v ?? '').trim(); }
@@ -1191,16 +1376,54 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   // ----------------------------------------------------
   // 6. Helpers
   // ----------------------------------------------------
-  subirArchivo(event: any, campo: string) {
-    const file = event.target.files?.[0];
-    if (file) {
-      if (file.name.length > 100) {
-        Swal.fire('Error', 'El nombre es muy largo (máximo 100).', 'error');
-        event.target.value = '';
-        return;
-      }
-      this.uploadedFiles[campo] = { file, fileName: file.name };
-      this.formHojaDeVida2.patchValue({ [campo]: file.name });
+  /**
+   * Adjunta la hoja de vida. Valida extensión, MIME declarado, tamaño y la
+   * FIRMA REAL del archivo: antes solo se miraba el largo del nombre, así que
+   * un ejecutable de 500 MB renombrado a `.pdf` entraba sin problema
+   * (`accept=".pdf"` del input es solo una sugerencia del navegador).
+   */
+  async subirArchivo(event: any, campo: string) {
+    const input = event?.target as HTMLInputElement | undefined;
+    const file: File | undefined = input?.files?.[0];
+    if (!file) return;
+
+    const rechazar = (titulo: string, texto: string) => {
+      if (input) input.value = '';
+      Swal.fire({ icon: 'error', title: titulo, text: texto, confirmButtonColor: '#111827' });
+    };
+
+    if (file.name.length > 100) {
+      return rechazar('Nombre muy largo', 'El nombre del archivo no puede pasar de 100 caracteres. Renómbrelo e inténtelo de nuevo.');
+    }
+    if (!/\.pdf$/i.test(file.name)) {
+      return rechazar('Solo se acepta PDF', 'El archivo debe terminar en .pdf. Si tiene una foto o un Word, conviértalo a PDF primero.');
+    }
+    if (file.type && !MIME_PDF.has(file.type.toLowerCase())) {
+      return rechazar('El archivo no es un PDF', `Se recibió un archivo de tipo "${file.type}". Adjunte su hoja de vida en PDF.`);
+    }
+    if (!file.size) {
+      return rechazar('Archivo vacío', 'El archivo está vacío (0 KB). Revise que se haya guardado bien.');
+    }
+    if (file.size > MAX_ARCHIVO_MB * 1024 * 1024) {
+      const mb = (file.size / (1024 * 1024)).toFixed(1);
+      return rechazar('Archivo muy pesado', `Su archivo pesa ${mb} MB y el máximo son ${MAX_ARCHIVO_MB} MB. Comprímalo o escanee con menor calidad.`);
+    }
+    if (!(await this.esPdfReal(file))) {
+      return rechazar('El archivo no es un PDF real', 'El archivo dice ser PDF pero su contenido no lo es. Vuelva a exportarlo como PDF.');
+    }
+
+    this.uploadedFiles[campo] = { file, fileName: file.name };
+    this.formHojaDeVida2.patchValue({ [campo]: file.name });
+    this.cdr.markForCheck();
+  }
+
+  /** Un PDF siempre empieza por la firma `%PDF-`, independientemente del nombre. */
+  private async esPdfReal(file: File): Promise<boolean> {
+    try {
+      const buf = await file.slice(0, 5).arrayBuffer();
+      return new TextDecoder().decode(new Uint8Array(buf)) === '%PDF-';
+    } catch {
+      return false; // Si no se puede leer, no se sube.
     }
   }
 
@@ -1224,10 +1447,6 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       return firstValueFrom(this.gestionDocumentosService.guardarDocumento(d.fileName, this.numeroCedula, this.typeMap[k], d.file as File));
     });
     return Promise.all(promises).then(() => true).catch(() => false);
-  }
-
-  limpiarCamposAdicionales() {
-    this.uploadedFiles['hojaDeVida'] = { file: '', fileName: '' };
   }
 
   updateStepperStats() {
@@ -1456,10 +1675,13 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     if (errors['pattern']) return 'Formato inválido';
 
     // Custom & New
-    if (errors['invalidAddress']) return 'Dirección inválida. Ej: CL 12 33 24'; // UX Rule
+    if (errors['invalidAddress']) {
+      return 'Dirección inválida. Urbana: CL 12 33 24 · Rural: KM 5 VIA FUNZA o VEREDA EL ROSAL FINCA LA ESPERANZA';
+    }
 
     if (errors['invalidName']) return 'Solo letras y espacios'; // Custom
     if (errors['invalidPhone']) return 'Formato 3xxxxxxxxx'; // Custom
+    if (errors['invalidPhoneEmpresa']) return 'Celular (3101234567) o fijo (6012345678)';
     if (errors['invalidDoc']) return 'Solo números'; // Custom
     if (errors['looksLikePhone']) return 'Parece un número de celular, ingrese un documento válido.';
 
@@ -1478,6 +1700,17 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     }
     if (errors['edadNoPlausible']) return 'Revise la fecha: la edad no es válida';
     if (errors['expedicionAntesDeNacer']) return 'No puede ser anterior a la fecha de nacimiento';
+    if (errors['expedicionAntesDeEdadMinima']) {
+      return `Con esta fecha la cédula se habría expedido antes de los ${FormsTestContratation.EDAD_EXPEDICION_CC} años: revise la fecha de nacimiento`;
+    }
+    // El datepicker acota el calendario con [min]/[max]; sin esto el valor
+    // precargado fuera de rango solo decía "Valor inválido".
+    if (errors['matDatepickerMax']) {
+      return controlName === 'fechaNacimiento'
+        ? `Debe tener al menos ${FormsTestContratation.EDAD_MINIMA} años cumplidos`
+        : 'La fecha no puede ser futura';
+    }
+    if (errors['matDatepickerMin']) return 'Revise la fecha: está fuera del rango permitido';
     if (errors['specialChars']) return 'Sin caracteres especiales';
     if (errors['invalidDate']) return 'Fecha no válida';
 
@@ -1488,7 +1721,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     if (errors['nameRepeatedChar']) return `Nombre inválido. Revisa la palabra: ${errors['nameRepeatedChar'].word}.`;
 
     if (errors['duplicateReferenceName']) return 'Este nombre ya fue usado en otra referencia.';
-    if (errors['duplicateReferencePhone']) return 'Este teléfono ya fue usado en otra referencia.';
+    if (errors['duplicateReferencePhone']) return 'Este teléfono ya lo usó en otra referencia o es el suyo propio.';
 
     return 'Valor inválido';
   }
@@ -1513,14 +1746,14 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   // 3. Validation Helpers (Strict)
   // ----------------------------------------------------
 
-  // Stopwords Set
+  // Palabras que delatan un nombre inventado. Las letras sueltas NO están en la
+  // lista: son iniciales intermedias legítimas ("MARIA J GOMEZ"), que antes se
+  // rechazaban. Que el nombre no sea solo iniciales lo controla
+  // `fullNameValidator` exigiendo dos palabras de dos letras o más.
   private readonly STOPWORDS = new Set([
     'NO', 'NA', 'N/A', 'SN', 'S/N', 'NULL', 'NULO', 'NONE', 'SIN',
-    'PRUEBA', 'TEST', 'DEMO', 'XXX', 'XXXX', 'ASD', 'QWERTY',
-    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L',
-    'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'
-  ]); // Added single letters as stopwords for full names? User request says "NO, NA..."
-  // User didn't ask for single letters, but "Normalización" implies checking against this list.
+    'PRUEBA', 'TEST', 'DEMO', 'XXX', 'XXXX', 'ASD', 'QWERTY'
+  ]);
 
   private normalizeSpaces(val: string): string {
     return val ? val.trim().replace(/\s+/g, ' ') : '';
@@ -1538,6 +1771,13 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
 
     // 2. Remove accents
     v = v.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+    // 3. Separar la v\u00eda pegada al n\u00famero ("CL12 33 24" -> "CL 12 33 24"): as\u00ed la
+    //    escribe mucha gente y la direcci\u00f3n se rechazaba sin motivo aparente.
+    v = v.replace(
+      /\b(CALLE|CLLE|CLL|CL|CARRERA|CRRA|CRA|CRR|KRA|KRR|KR|CR|DIAGONAL|DIAG|DG|TRANSVERSAL|TRANSV|TRV|TV|AVENIDA|AVDA|AVEN|AV|AUTOPISTA|AUTO|AUT|CIRCULAR|CIRC|KILOMETRO|KM|MANZANA|MZ)(\d)/g,
+      '$1 $2'
+    );
 
     const tokens = v.split(' ');
     const out: string[] = [];
@@ -1569,7 +1809,13 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       'MANZANA': 'MZ', 'MZ': 'MZ',
       'CASA': 'CASA',
       'LOTE': 'LOTE',
-      'KILOMETRO': 'KM', 'KM': 'KM', 'KILÓMETRO': 'KM'
+      'KILOMETRO': 'KM', 'KM': 'KM', 'KILÓMETRO': 'KM',
+      // Zona rural: buena parte de las oficinas (FORANEOS, SOTAQUIRA, ANDES)
+      // recibe direcciones sin nomenclatura urbana.
+      'VEREDA': 'VEREDA', 'VDA': 'VEREDA', 'FINCA': 'FINCA',
+      'SECTOR': 'SECTOR', 'CONJUNTO': 'CONJUNTO',
+      'BARRIO': 'BARRIO', 'BRR': 'BARRIO', 'BR': 'BARRIO',
+      'CORREGIMIENTO': 'CORREGIMIENTO', 'CGTO': 'CORREGIMIENTO'
     };
 
     for (const t of tokens) {
@@ -1597,25 +1843,40 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     return final.join(' ');
   }
 
+  /** Vías urbanas con nomenclatura numérica (CL 12 33 24). */
+  private static readonly VIAS_URBANAS = new Set(['CL', 'CR', 'DG', 'TV', 'AV', 'AK', 'AUT', 'CIRC', 'VIA']);
+  /**
+   * Encabezados de dirección rural o de conjunto. No llevan la doble
+   * numeración urbana ("VEREDA EL ROSAL FINCA LA ESPERANZA" no tiene números),
+   * así que se validan solo por longitud: antes se rechazaban todas y las
+   * oficinas de FORANEOS/SOTAQUIRA/ANDES no podían registrar a nadie.
+   */
+  private static readonly VIAS_RURALES = new Set([
+    'KM', 'MZ', 'VEREDA', 'FINCA', 'LOTE', 'SECTOR', 'CASA', 'CONJUNTO', 'BARRIO', 'CORREGIMIENTO',
+  ]);
+
   addressCOValidator(): ValidatorFn {
     return (control: AbstractControl): ValidationErrors | null => {
       if (!control.value) return null;
 
       const val = this.normalizeAddressCO(control.value);
-      const tokens = val.split(' ');
+      const tokens = val.split(' ').filter(Boolean);
+      const cabeza = tokens[0] ?? '';
 
-      // 1. Min Tokens
-      if (tokens.length < 4) return { invalidAddress: true };
+      if (FormsTestContratation.VIAS_URBANAS.has(cabeza)) {
+        // Urbana: al menos 4 partes y dos de ellas con números (vía, placa y nº).
+        if (tokens.length < 4) return { invalidAddress: true };
+        const numTokens = tokens.filter(t => /^\d/.test(t) || /\d$/.test(t));
+        if (numTokens.length < 2) return { invalidAddress: true };
+        return null;
+      }
 
-      // 2. Must start with VIA
-      const VALID_VIAS = new Set(['CL', 'CR', 'DG', 'TV', 'AV', 'AK', 'AUT', 'CIRC', 'VIA']);
-      if (!VALID_VIAS.has(tokens[0])) return { invalidAddress: true };
+      if (FormsTestContratation.VIAS_RURALES.has(cabeza)) {
+        // Rural: basta con que diga algo más que el encabezado.
+        return tokens.length >= 3 ? null : { invalidAddress: true };
+      }
 
-      // 3. At least 2 numeric tokens
-      const numTokens = tokens.filter(t => /^\d/.test(t) || /\d$/.test(t));
-      if (numTokens.length < 2) return { invalidAddress: true };
-
-      return null;
+      return { invalidAddress: true };
     };
   }
 
@@ -1631,14 +1892,6 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   }
 
 
-
-  private noSpecialCharsValidator(): ValidatorFn {
-    return (control: AbstractControl): ValidationErrors | null => {
-      if (!control.value) return null;
-      const valid = /^[a-zA-Z0-9\s]*$/.test(control.value);
-      return valid ? null : { specialChars: true };
-    };
-  }
 
   private nameValidator(required = true): ValidatorFn {
     return (control: AbstractControl): ValidationErrors | null => {
@@ -1678,8 +1931,10 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       const norm = this.normalizeSpaces(val).toUpperCase();
       const words = norm.split(' ');
 
-      // 2. Min 2 Words (Name + Surname)
-      if (words.length < 2) return { nameMinWords: true };
+      // 2. Min 2 Words (Name + Surname). Solo cuentan las palabras de dos letras
+      // o más: así "MARIA J GOMEZ" pasa (la inicial no estorba) pero "J A" no.
+      const reales = words.filter(w => w.replace(/[^A-ZÑÁÉÍÓÚÜ]/g, '').length >= 2);
+      if (reales.length < 2) return { nameMinWords: true };
 
       // 3. Repeated Words (e.g. "NO NO", "TEST TEST")
       // Check if all words are identical
@@ -1697,6 +1952,44 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       const valid = REGEX_PHONE_CO.test(val);
       return valid ? null : { invalidPhone: true };
     };
+  }
+
+  /**
+   * Teléfono de una EMPRESA: puede ser celular o fijo, a diferencia del de una
+   * persona. Se comparan solo los dígitos, así que "601 234 5678" o
+   * "(601) 234-5678" valen igual que "6012345678".
+   *
+   * Acepta:
+   *  - celular:            3XXXXXXXXX          (10 dígitos)
+   *  - fijo nacional:      60X + 7 dígitos     (10 dígitos, desde 2022)
+   *  - fijo local viejo:   7 dígitos
+   */
+  private telefonoEmpresaValidator(): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      const val = control.value;
+      if (!val) return null;
+      const d = String(val).replace(/\D/g, '');
+      const ok =
+        REGEX_PHONE_CO.test(d) ||        // celular
+        /^60[1-8]\d{7}$/.test(d) ||      // fijo nacional
+        /^[2-8]\d{6}$/.test(d);          // fijo local (7 dígitos)
+      return ok ? null : { invalidPhoneEmpresa: true };
+    };
+  }
+
+  /** Deja solo dígitos mientras se escribe (teléfonos). */
+  normalizarTelefono(event: Event, controlName: string, form: FormGroup = this.formHojaDeVida2): void {
+    const input = event.target as HTMLInputElement;
+    const limpio = String(input.value ?? '').replace(/\D/g, '');
+    if (limpio === input.value) return;
+    input.value = limpio;
+    form.get(controlName)?.setValue(limpio);
+  }
+
+  /** Punto único de limpieza en vivo para el template (`sanitizar`). */
+  sanitizarCampo(modo: string, event: Event, controlName: string, form: FormGroup = this.formHojaDeVida2): void {
+    if (modo === 'usuarioCorreo') this.normalizarUsuarioCorreo(event, controlName, form);
+    else if (modo === 'telefono') this.normalizarTelefono(event, controlName, form);
   }
 
   private docValidator(): ValidatorFn {
@@ -1778,10 +2071,26 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   private aFecha(v: any): Date | null {
     if (!v) return null;
     if (v instanceof Date) return isNaN(v.getTime()) ? null : new Date(v.getFullYear(), v.getMonth(), v.getDate());
+    // Solo cadenas y números: un objeto suelto (`{}` de un borrador viejo)
+    // no es una fecha, y dejarlo pasar como valor "no vacío" desactivaba en
+    // silencio el candado de edad mínima.
+    if (typeof v !== 'string' && typeof v !== 'number') return null;
     const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v).trim());
     if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
     const d = new Date(v);
     return isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+
+  /**
+   * Un campo de fecha con contenido que no es una fecha. Sin esto, cualquier
+   * cosa distinta de vacío pasaba `Validators.required` y los validadores de
+   * fecha devolvían `null` (no había fecha que juzgar), así que el campo se
+   * daba por bueno y al backend viajaba una fecha vacía.
+   */
+  private fechaIlegible(control: AbstractControl): ValidationErrors | null {
+    const v = control.value;
+    if (v === '' || v === null || v === undefined) return null;
+    return this.aFecha(v) ? null : { invalidDate: true };
   }
 
   /** Fecha de hoy a medianoche local (para comparar sin arrastrar la hora). */
@@ -1808,10 +2117,18 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   /** Edad mínima aceptada para postularse. */
   static readonly EDAD_MINIMA = 17;
   static readonly EDAD_MAXIMA = 90;
+  /**
+   * Edad a la que se expide la cédula de ciudadanía en Colombia. NO es lo mismo
+   * que `EDAD_MINIMA` para postularse: antes se usaba la misma constante y una
+   * CC "expedida a los 17" se daba por buena.
+   */
+  static readonly EDAD_EXPEDICION_CC = 18;
 
   /** Fecha de nacimiento: no futura y con al menos `EDAD_MINIMA` años cumplidos. */
   private edadMinimaValidator(): ValidatorFn {
     return (control: AbstractControl): ValidationErrors | null => {
+      const ilegible = this.fechaIlegible(control);
+      if (ilegible) return ilegible;
       const nac = this.aFecha(control.value);
       if (!nac) return null;
       if (nac > this.hoyLocal) return { fechaFutura: true };
@@ -1823,25 +2140,133 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     };
   }
 
+  /** Misma fecha, `n` años después (para el corte de edad mínima). */
+  private sumarAnios(d: Date, n: number): Date {
+    return new Date(d.getFullYear() + n, d.getMonth(), d.getDate());
+  }
+
+  /**
+   * Problema de las dos fechas del documento, o null si están sanas.
+   * Es la ÚNICA fuente de verdad del bloqueo por edad: la usan el aviso
+   * inmediato, el candado de "Siguiente" y el de "Enviar formulario".
+   */
+  private problemaDeFechasIdentidad(): { clave: string; titulo: string; html: string } | null {
+    const v = this.formHojaDeVida2.getRawValue();
+    const nac = this.aFecha(v.fechaNacimiento);
+    const exp = this.aFecha(v.fechaExpedicionCC);
+    const min = FormsTestContratation.EDAD_MINIMA;
+
+    // Sin fecha de nacimiento no hay nada que juzgar todavía.
+    if (!nac) return null;
+
+    if (nac > this.hoyLocal) {
+      return {
+        clave: 'nacimiento-futuro',
+        titulo: 'Fecha de nacimiento inválida',
+        html: 'La fecha de nacimiento no puede estar en el futuro.',
+      };
+    }
+
+    const edad = this.edadCumplida(nac);
+    if (edad < min) {
+      return {
+        clave: `menor-${edad}`,
+        titulo: 'No cumple la edad mínima',
+        html:
+          `<p style="text-align:left;margin:0 0 10px;">Según la fecha de nacimiento registrada, ` +
+          `la persona tiene <b>${edad} ${edad === 1 ? 'año' : 'años'}</b>.</p>` +
+          `<p style="text-align:left;margin:0 0 10px;">Para postularse debe tener al menos ` +
+          `<b>${min} años cumplidos</b>, así que <b>no es posible enviar el formulario</b>.</p>` +
+          `<p style="text-align:left;margin:0;font-size:13px;color:#666;">Si la fecha está mal escrita, ` +
+          `corríjala en el paso 1 (Identificación).</p>`,
+      };
+    }
+
+    if (edad > FormsTestContratation.EDAD_MAXIMA) {
+      return {
+        clave: `edad-alta-${edad}`,
+        titulo: 'Revise la fecha de nacimiento',
+        html: `Según esa fecha la persona tendría <b>${edad} años</b>. Corrija la fecha en el paso 1.`,
+      };
+    }
+
+    if (!exp) return null;
+
+    if (exp < nac) {
+      return {
+        clave: 'expedicion-antes-de-nacer',
+        titulo: 'Fechas incoherentes',
+        html: 'La <b>fecha de expedición</b> del documento no puede ser anterior a la <b>fecha de nacimiento</b>.',
+      };
+    }
+
+    // La cédula de ciudadanía se expide a los 18: si la expedición cae antes,
+    // una de las dos fechas está mal (lo típico es el año de nacimiento).
+    // Solo aplica a CC; la tarjeta de identidad sí se expide a menores.
+    const expedicionCC = FormsTestContratation.EDAD_EXPEDICION_CC;
+    const esCedula = String(v.tipoDoc ?? '').trim().toUpperCase() === 'CC';
+    if (esCedula && exp < this.sumarAnios(nac, expedicionCC)) {
+      const edadAlExpedir = this.edadCumplida(nac, exp);
+      return {
+        clave: `expedicion-prematura-${edadAlExpedir}`,
+        titulo: 'Fechas incoherentes',
+        html:
+          `<p style="text-align:left;margin:0 0 10px;">Con esas fechas, la cédula se habría expedido ` +
+          `cuando la persona tenía <b>${edadAlExpedir} ${edadAlExpedir === 1 ? 'año' : 'años'}</b>, ` +
+          `y la cédula de ciudadanía no se expide antes de los <b>${expedicionCC}</b>.</p>` +
+          `<p style="text-align:left;margin:0;">Revise la <b>fecha de nacimiento</b> y la ` +
+          `<b>fecha de expedición</b> en el paso 1. Si todavía usa <b>tarjeta de identidad</b>, ` +
+          `cámbielo en "Tipo de documento".</p>`,
+      };
+    }
+
+    return null;
+  }
+
+  /** Aviso ya mostrado, para no repetir el mismo Swal mientras no cambie el dato. */
+  private ultimoAvisoFechas = '';
+
+  /**
+   * Avisa apenas las fechas del documento quedan mal (no espera al "Enviar"):
+   * el caso crítico es el menor de `EDAD_MINIMA`, que no puede continuar.
+   */
+  private vigilarFechasIdentidad(): void {
+    const f = this.formHojaDeVida2;
+    const nac = f.get('fechaNacimiento');
+    const exp = f.get('fechaExpedicionCC');
+    if (!nac || !exp) return;
+
+    merge(nac.valueChanges, exp.valueChanges)
+      .pipe(debounceTime(120), takeUntil(this.destroy$))
+      .subscribe(() => this.avisarProblemaDeFechas());
+  }
+
+  /** Muestra el aviso una sola vez por problema; se rearma al corregir. */
+  private avisarProblemaDeFechas(): void {
+    const problema = this.problemaDeFechasIdentidad();
+    const clave = problema?.clave ?? '';
+    if (clave === this.ultimoAvisoFechas) return;
+    this.ultimoAvisoFechas = clave;
+    if (!problema) return;
+
+    Swal.fire({
+      icon: 'error',
+      title: problema.titulo,
+      html: problema.html,
+      confirmButtonText: 'Entendido',
+      confirmButtonColor: '#111827',
+      width: 520,
+    });
+  }
+
   /** Fecha de expedición: no puede estar en el futuro. */
   private noFuturaValidator(): ValidatorFn {
     return (control: AbstractControl): ValidationErrors | null => {
+      const ilegible = this.fechaIlegible(control);
+      if (ilegible) return ilegible;
       const d = this.aFecha(control.value);
       if (!d) return null;
       return d > this.hoyLocal ? { fechaFutura: true } : null;
-    };
-  }
-
-  private dateReasonableValidator(minYear: number): ValidatorFn {
-    return (control: AbstractControl): ValidationErrors | null => {
-      const val = control.value;
-      if (!val) return null;
-      const d = new Date(val);
-      const year = d.getFullYear();
-      if (year < minYear || year > new Date().getFullYear()) {
-        return { invalidDate: true };
-      }
-      return null;
     };
   }
 
@@ -1883,19 +2308,25 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(async (valor) => {
         if (this.prefillEnCurso || this.prefillResuelto) return;
-        if (!this.toYmd(valor)) return;
+
+        // Una consulta por fecha distinta: si la persona se equivocó al digitar
+        // la expedición puede corregirla y se vuelve a intentar. Antes se daba
+        // por "resuelta" incluso con 404 y la precarga moría para toda la sesión.
+        const ymd = this.toYmd(valor);
+        if (!ymd || ymd === this.ultimaFechaPrefill) return;
 
         const tipo = f.get('tipoDoc')?.value;
         const numero = f.get('numeroCedula')?.value;
         if (!tipo || !numero) return;
 
+        this.ultimaFechaPrefill = ymd;
         this.prefillEnCurso = true;
         this.cargandoPrefill = true;
         try {
-          await this.precargarDesdeCandidato(tipo, numero, valor);
+          // Solo se marca como resuelta si de verdad trajo datos.
+          this.prefillResuelto = await this.precargarDesdeCandidato(tipo, numero, valor);
         } finally {
           this.prefillEnCurso = false;
-          this.prefillResuelto = true;
           this.cargandoPrefill = false;
           this.cdr.markForCheck();
         }
@@ -1907,10 +2338,12 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
    * Espeja el mapeo de `rellenarForm` de TesoroApp pero hacia los controles del web.
    * Solo trae datos propios de baja sensibilidad (el backend excluye PII de terceros).
    * Si no hay match (404) o falla la red, el formulario queda en blanco.
+   *
+   * @returns true solo si llegó un registro y se rellenaron los campos.
    */
-  private async precargarDesdeCandidato(tipoDoc: string, numero: string, fechaExpedicion: any): Promise<void> {
+  private async precargarDesdeCandidato(tipoDoc: string, numero: string, fechaExpedicion: any): Promise<boolean> {
     const fechaYmd = this.toYmd(fechaExpedicion);
-    if (!fechaYmd) return;
+    if (!fechaYmd) return false;
 
     let cand: any = null;
     try {
@@ -1918,9 +2351,8 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     } catch {
       cand = null; // 404 (sin datos / fecha no coincide) o error de red → form en blanco.
     }
-    if (!cand) return;
+    if (!cand) return false;
 
-    this.foundCandidate = cand;
     const f = this.formHojaDeVida2;
 
     const toDate = (v: any): Date | null => {
@@ -2006,15 +2438,22 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       timer: 3500,
       showConfirmButton: false,
     });
+    return true;
   }
 
-  /** Setea depto (dispara la cascada) y luego el municipio dependiente. */
+  /**
+   * Setea depto (dispara la cascada) y luego el municipio dependiente.
+   *
+   * Los nombres se llevan a la grafía de `colombia.json`: el backend los guarda
+   * en MAYÚSCULAS y el desplegable trabaja con "Cundinamarca", así que sin esto
+   * la lista de municipios quedaba vacía y la persona no podía elegir ciudad.
+   */
   private setDeptCity(deptKey: string, cityKey: string, dept: any, city: any): void {
     const f = this.formHojaDeVida2;
-    const d = String(dept || '').trim();
-    const c = String(city || '').trim();
+    const d = this.canonDepto(dept);
     if (!d) return;
     f.get(deptKey)?.setValue(d); // dispara setupLocationListener (puebla lista + habilita municipio)
+    const c = this.canonCiudad(d, city);
     if (c) f.get(cityKey)?.setValue(c);
   }
 
@@ -2105,14 +2544,14 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
             titulo: 'Cónyuge',
             controles: [
               'nombresConyuge', 'apellidosConyuge', 'viveConyuge', 'documentoIdentidadConyuge',
-              'ocupacionConyuge', 'telefonoConyuge', 'direccionConyuge',
+              'ocupacionConyuge', 'telefonoConyuge', 'direccionConyuge', 'barrioMunicipioConyugue',
             ],
           },
           {
             titulo: 'Padres',
             controles: [
-              'nombrePadre', 'elPadreVive', 'ocupacionPadre', 'direccionPadre', 'telefonoPadre',
-              'nombreMadre', 'madreVive', 'ocupacionMadre', 'direccionMadre', 'telefonoMadre',
+              'nombrePadre', 'elPadreVive', 'ocupacionPadre', 'direccionPadre', 'barrioPadre', 'telefonoPadre',
+              'nombreMadre', 'madreVive', 'ocupacionMadre', 'direccionMadre', 'barrioMadre', 'telefonoMadre',
             ],
           },
           {
@@ -2179,7 +2618,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       {
         titulo: 'Datos Finales y Adjuntos',
         secciones: [
-          { titulo: 'Información Adicional', controles: ['deseaGenerar', 'hojaDeVida'] },
+          { titulo: 'Información Adicional', controles: ['hojaDeVida'] },
         ],
       },
     ];
@@ -2197,7 +2636,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
    * Step 1: Detalles (rh, lateralidad, tallas, educación, contacto emergencia, etc.)
    * Step 2: Familia (conyuge, padres, referencias)
    * Step 3: Experiencia (experiencia, hijos, vivienda)
-   * Step 4: Final (docs, deseaGenerar)
+   * Step 4: Final (docs)
    */
   private getStepIndex(ctrl: string): number {
     const enMapa = this.STEP_KEYS.findIndex(keys => keys.includes(ctrl));
@@ -2214,7 +2653,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       ctrl.includes('cuidador') || ctrl.includes('laborado')) return 3;
 
     // Step 4: Final
-    if (ctrl.includes('deseaGenerar') || ctrl.includes('Vehiculo') || ctrl.includes('Licencia') ||
+    if (ctrl.includes('Vehiculo') || ctrl.includes('Licencia') ||
       ctrl.includes('estaTrabajando') || ctrl.includes('Actual') || ctrl.includes('Trabajo') ||
       ctrl.includes('Contrato') || ctrl.includes('Antes') || ctrl.includes('Hermanos') || ctrl.includes('hermanos') ||
       ctrl.includes('hojaDeVida')) return 4;
@@ -2260,8 +2699,11 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
    * paso desde el encabezado.
    */
   esPasoCompleto(step: number): boolean {
-    // Error de grupo (expedición anterior al nacimiento): se corrige en el paso 1.
-    if (step === 0 && this.formHojaDeVida2.errors?.['expeditionBeforeBirth']) return false;
+    // Errores de grupo de las fechas del documento: se corrigen en el paso 1.
+    if (step === 0 && (
+      this.formHojaDeVida2.errors?.['expeditionBeforeBirth'] ||
+      this.formHojaDeVida2.errors?.['expedicionAntesDeEdadMinima']
+    )) return false;
     return !this.primerInvalidoDelPaso(step);
   }
 
@@ -2296,6 +2738,11 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
    * campos y avisa qué falta. Devuelve true solo si todos están completos.
    */
   private revisarPasosHasta(hasta: number): boolean {
+    // Candado duro de las fechas del documento (edad mínima y coherencia
+    // nacimiento/expedición). Va antes del recorrido por pasos para que el
+    // motivo sea explícito y no quede escondido entre la lista de pendientes.
+    if (this.bloqueadoPorFechasIdentidad()) return false;
+
     for (let i = 0; i <= hasta; i++) {
       this.marcarPasoComoTocado(i);
       if (this.esPasoCompleto(i)) continue;
@@ -2303,6 +2750,30 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       this.avisarPasoIncompleto(i);
       return false;
     }
+    return true;
+  }
+
+  /**
+   * ¿Hay que frenar por las fechas del documento? Si sí, lleva al paso 1, pinta
+   * los campos y explica el motivo. Es el candado de "Siguiente" y de "Enviar
+   * formulario": un menor de `EDAD_MINIMA` no puede terminar el registro.
+   */
+  private bloqueadoPorFechasIdentidad(): boolean {
+    const problema = this.problemaDeFechasIdentidad();
+    if (!problema) return false;
+
+    this.marcarPasoComoTocado(0);
+    if (this.stepper && this.stepper.selectedIndex !== 0) this.stepper.selectedIndex = 0;
+    this.ultimoAvisoFechas = problema.clave; // el aviso se está dando acá
+
+    Swal.fire({
+      icon: 'error',
+      title: problema.titulo,
+      html: problema.html,
+      confirmButtonText: 'Entendido',
+      confirmButtonColor: '#111827',
+      width: 520,
+    }).then(() => this.enfocarPrimerCampoConError());
     return true;
   }
 
@@ -2390,7 +2861,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       `<div style="margin-bottom:10px;">` +
       `<div style="font-weight:700;color:#2563eb;font-size:13px;text-transform:uppercase;">${s.seccion}</div>` +
       `<ul style="margin:4px 0 0 18px;padding:0;">` +
-      s.campos.map(c => `<li><b>${c.campo}</b>: ${c.motivo.toLowerCase()}</li>`).join('') +
+      s.campos.map(c => `<li><b>${this.esc(c.campo)}</b>: ${this.esc(c.motivo.toLowerCase())}</li>`).join('') +
       `</ul></div>`
     ).join('');
 
@@ -2451,6 +2922,14 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   // 5. Actions (Submit & Upload)
   // ----------------------------------------------------
   async imprimirInformacion2(): Promise<void> {
+    // Un envío a la vez: sin esto, un doble clic (o un clic impaciente mientras
+    // se ve "Guardando...") dispara dos veces todo el flujo de registro.
+    if (this.enviando) return;
+
+    // Primero el candado de edad/fechas: aunque el resto del formulario esté
+    // completo, un menor de EDAD_MINIMA no puede enviarlo.
+    if (this.bloqueadoPorFechasIdentidad()) return;
+
     if (this.formHojaDeVida2.invalid) {
       this.formHojaDeVida2.markAllAsTouched();
       this.espejarErroresAutocompletado();
@@ -2500,7 +2979,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       if (check?.correo_repetido) {
         let msg = 'El correo ya existe en nuestro sistema.';
         if (check.duplicado_info) {
-          msg = `El correo ya está en uso por:<br><b>${check.duplicado_info.nombres} ${check.duplicado_info.apellidos}</b><br>Documento: <b>${check.duplicado_info.documento}</b>`;
+          msg = `El correo ya está en uso por:<br><b>${this.esc(check.duplicado_info.nombres)} ${this.esc(check.duplicado_info.apellidos)}</b><br>Documento: <b>${this.esc(check.duplicado_info.documento)}</b>`;
         }
         Swal.fire({
           icon: 'error',
@@ -2509,9 +2988,12 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
         });
         return;
       }
-    } catch {
-      Swal.fire('Error', 'No se pudo validar el correo.', 'error');
-      return;
+    } catch (e) {
+      // Esta consulta es una cortesía para avisar temprano. Si el endpoint está
+      // caído NO se puede dejar a la persona sin poder enviar: el upsert del
+      // backend rechaza el correo ajeno con EMAIL_BELONGS_TO_OTHER_CEDULA y ese
+      // caso ya lo trata `handleBackendError`.
+      console.warn('[correo] no se pudo validar previamente, se continúa', e);
     }
 
     // Build Payload
@@ -2519,6 +3001,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     const payload = this.buildPayload(raw);
 
     // Send
+    this.enviando = true;
     Swal.fire({ title: 'Guardando...', didOpen: () => Swal.showLoading() });
 
     this.registroProcesoContratacion.crearActualizarCandidato2(payload).subscribe({
@@ -2553,13 +3036,24 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           } catch(e) {
             filesOk = false;
           }
-          
+
+          // Registro completo: se borran los datos personales que quedaron en
+          // este equipo (suele ser un computador de oficina compartido) y se
+          // corta el autoguardado para que no vuelvan a escribirse.
+          this.borradorDeshabilitado = true;
+          this.limpiarBorrador();
+
           Swal.fire(filesOk ? '¡Éxito!' : 'Proceso Incompleto', filesOk ? 'Tu información general ha sido guardada exitosamente.' : 'La información guardó, pero hubo un problema subiendo tu Hoja de Vida. Intenta enviarla más tarde.', filesOk ? 'success' : 'warning');
         } catch (error) {
            this.handleBackendError(error, 'Fallo procesando la carga (Parte 2)');
+        } finally {
+          this.enviando = false;
+          this.cdr.markForCheck();
         }
       },
       error: (err: any) => {
+        this.enviando = false;
+        this.cdr.markForCheck();
         this.handleBackendError(err);
       }
     });
@@ -2728,11 +3222,12 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     if (problemas.length > 0) {
       htmlMensaje += `<p style="text-align:left;font-size:15px;margin:0 0 10px 0;">Por favor revisa lo siguiente y vuelve a intentar:</p>`;
       htmlMensaje += `<ul style="text-align:left;font-size:14px;color:#b71c1c;padding-left:22px;margin:0;line-height:1.5;">`;
+      // `mensaje` puede venir tal cual del backend: se escapa antes de inyectarlo.
       for (const { campo, mensaje } of problemas) {
         const frase = campo
           ? `${cap(campo)} ${mensaje}`
           : cap(mensaje);
-        htmlMensaje += `<li style="margin-bottom:6px;">${frase}</li>`;
+        htmlMensaje += `<li style="margin-bottom:6px;">${this.esc(frase)}</li>`;
       }
       htmlMensaje += `</ul>`;
     } else {
@@ -2754,10 +3249,10 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           || fallbackMessage;
         simpleMsg = traducirMensaje(msgCrudo);
       }
-      htmlMensaje = `<p style="text-align:left;font-size:15px;margin:0;">${simpleMsg}</p>`;
+      htmlMensaje = `<p style="text-align:left;font-size:15px;margin:0;">${this.esc(simpleMsg)}</p>`;
     }
 
-    htmlMensaje += `<p style="font-size:12px;color:#888;margin-top:14px;text-align:left;">Si el problema continúa, comuníquese con soporte${this.numeroCedula ? ` con su cédula: <b>${this.numeroCedula}</b>` : ''}.</p>`;
+    htmlMensaje += `<p style="font-size:12px;color:#888;margin-top:14px;text-align:left;">Si el problema continúa, comuníquese con soporte${this.numeroCedula ? ` con su cédula: <b>${this.esc(this.numeroCedula)}</b>` : ''}.</p>`;
 
     Swal.fire({
       icon: 'error',
@@ -2837,7 +3332,11 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       "entrevistas": [
         {
           "oficina": upper(g('oficina')),
-          "como_se_proyecta": (g('expectativasVidaChecks') || []).join(', ')
+          "como_se_proyecta": (g('expectativasVidaChecks') || []).join(', '),
+          // Se pregunta al inicio del paso 1 y es obligatoria, pero no viajaba
+          // en este guardado: quien abandonaba tras el paso 1 dejaba vacío el
+          // "¿cómo se enteró de la vacante?" (Entrevista.como_se_entero).
+          "como_se_entero": upper(g('fuenteVacante'))
         }
       ],
 
@@ -2867,8 +3366,15 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
             return;
           }
 
-          // Crear usuario en background (no bloquea al usuario)
-          this.createUserInBackground(raw);
+          // Crear usuario en background (no bloquea al usuario). Solo una vez
+          // por combinación cédula+correo: volver al paso 1 y pulsar "Siguiente"
+          // otra vez repetía el registro, el 400 por documento duplicado y toda
+          // la cadena de modales de credenciales.
+          const claveUsuario = `${String(g('numeroCedula')).trim()}|${(g('correo') || '').toUpperCase().trim()}`;
+          if (claveUsuario !== this.usuarioRegistradoPara) {
+            this.usuarioRegistradoPara = claveUsuario;
+            this.createUserInBackground(raw);
+          }
           Swal.fire({
             icon: 'success',
             title: 'Paso 1 guardado',
@@ -3063,9 +3569,13 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /** Muestra el modal del dueño del correo cuando YA tenemos la info del backend */
-  private showEmailOwnerWithInfo(correo: string, cedulaActual: string, info: any): void {
+  private showEmailOwnerWithInfo(correoCrudo: string, cedulaActualCruda: string, info: any): void {
+    // Nombre, documento y correo llegan del backend: se escapan antes de
+    // inyectarlos en el `html` del modal.
+    const correo = this.esc(correoCrudo);
+    const cedulaActual = this.esc(cedulaActualCruda);
     if (info) {
-      const nombreCompleto = `${info.nombres || ''} ${info.apellidos || ''}`.trim() || 'otra persona';
+      const nombreCompleto = this.esc(`${info.nombres || ''} ${info.apellidos || ''}`.trim() || 'otra persona');
       Swal.fire({
         icon: 'error',
         title: 'Ese correo pertenece a otra cédula',
@@ -3073,7 +3583,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
                <p style="text-align:left;">Está registrado a nombre de:</p>
                <p style="text-align:left;background:#f5f5f5;padding:12px;border-radius:6px;margin:10px 0;">
                  <b>${nombreCompleto}</b><br>
-                 Cédula: <b>${info.documento || 'no disponible'}</b>
+                 Cédula: <b>${this.esc(info.documento || 'no disponible')}</b>
                </p>
                <p style="text-align:left;"><b>No podemos continuar</b> con su registro usando ese correo.</p>
                <p style="text-align:left;">Por favor, <b>vuelva al Paso 1 y escriba un correo electrónico diferente</b> (por ejemplo, el suyo personal que nadie más use).</p>
@@ -3148,7 +3658,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     for (const [key, msgs] of Object.entries(errBody)) {
       if (key === 'detail' && typeof msgs === 'string' && !Object.keys(errBody).some(k => k !== 'detail')) {
         // si el único campo es 'detail', lo tratamos como mensaje simple
-        items += `<li style="margin-bottom:6px;">${cap(traducir(msgs, cedula))}</li>`;
+        items += `<li style="margin-bottom:6px;">${this.esc(cap(traducir(msgs, cedula)))}</li>`;
         continue;
       }
       if (key === 'detail') continue;
@@ -3156,7 +3666,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       const label = campos[key] || key.replace(/_/g, ' ');
       const arr = Array.isArray(msgs) ? msgs : [msgs];
       const traducciones_campo = arr.map(m => traducir(m, cedula)).join(' ');
-      items += `<li style="margin-bottom:6px;">${cap(label)} ${traducciones_campo}</li>`;
+      items += `<li style="margin-bottom:6px;">${this.esc(cap(label))} ${this.esc(traducciones_campo)}</li>`;
     }
 
     if (!items) {
@@ -3219,7 +3729,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     Swal.fire({
       icon: 'warning',
       title: 'No se pudo agregar el correo personal',
-      html: `<p style="text-align:left;">${msg}</p>
+      html: `<p style="text-align:left;">${this.esc(msg)}</p>
              <p style="text-align:left;">Su cuenta corporativa <b>no fue modificada</b>. Si necesita acceso operativo, comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
       confirmButtonText: 'Entendido',
       confirmButtonColor: '#111827',
@@ -3321,8 +3831,8 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
             title: 'Usted ya tiene una cuenta registrada',
             html: `<p style="text-align:left;">Ya existe una cuenta con la cédula <b>${cedula}</b>.</p>
                    <p style="text-align:left;">Sus datos del formulario <b>se guardaron correctamente</b>.</p>
-                   ${cred.rechazo ? `<p style="text-align:left;color:#b45309;">${cred.rechazo}</p>` : ''}
-                   <p style="text-align:left;">Si tiene problemas para ingresar, comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
+                   ${cred.rechazo ? `<p style="text-align:left;color:#b45309;">${this.esc(cred.rechazo)}</p>` : ''}
+                   <p style="text-align:left;">Si tiene problemas para ingresar, comuníquese con la oficina con su cédula: <b>${this.esc(cedula)}</b>.</p>`,
             confirmButtonText: 'Entendido',
             confirmButtonColor: '#111827',
             width: 520
@@ -3353,10 +3863,10 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       // cuenta corporativa queda intacta y la persona gana un correo personal
       // con su propia contraseña para el portal operativo.
       if (userToUpdate) {
-        const rolNombre = String(userToUpdate?.rol?.nombre ?? '').trim().toUpperCase();
+        const rolNombre = this.esc(String(userToUpdate?.rol?.nombre ?? '').trim().toUpperCase());
         if (rolNombre && rolNombre !== 'OPERARIO') {
           console.warn('[updateUser] cédula con rol', rolNombre, '— ofreciendo credencial adicional');
-          const correoCorporativo = String(userToUpdate?.correo_electronico || '').trim();
+          const correoCorporativo = this.esc(String(userToUpdate?.correo_electronico || '').trim());
           const result = await Swal.fire({
             icon: 'info',
             title: 'Esta cédula tiene una cuenta administrativa',
@@ -3402,8 +3912,13 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       // ¿El correo del formulario es DISTINTO al correo principal ya guardado?
       // Si difiere, NO lo sobrescribimos: lo anexamos como acceso adicional, así
       // la cédula acumula varios correos. Si coincide, refrescamos principal+clave.
+      // OJO: estos dos se usan para comparar y para ENVIAR al backend, así que
+      // se guardan crudos. El escape se aplica solo al pintarlos (`escExist` /
+      // `escNuevo`); escapar el valor real corrompería el correo enviado.
       const correoExistente = String(userToUpdate?.correo_electronico || '').trim().toUpperCase();
       const correoNuevo = String(correo || '').trim().toUpperCase();
+      const escExist = this.esc(correoExistente);
+      const escNuevo = this.esc(correoNuevo);
       const emailsDifieren = !!correoNuevo && !!correoExistente && correoNuevo !== correoExistente;
       if (!emailsDifieren) {
         patchPayload.correo_electronico = correo;
@@ -3422,7 +3937,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
             Swal.fire({
               icon: 'success',
               title: 'Correo de acceso agregado',
-              html: `<p style="text-align:left;">La cédula <b>${cedula}</b> ya tenía el correo <b>${correoExistente}</b>. Agregamos <b>${correoNuevo}</b> como acceso adicional.</p>
+              html: `<p style="text-align:left;">La cédula <b>${this.esc(cedula)}</b> ya tenía el correo <b>${escExist}</b>. Agregamos <b>${escNuevo}</b> como acceso adicional.</p>
                      <p style="text-align:left;">Puede ingresar con <b>cualquiera</b> de sus correos usando su número de cédula como contraseña.</p>`,
               confirmButtonText: 'Entendido',
               confirmButtonColor: '#111827',
@@ -3434,9 +3949,9 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
             Swal.fire({
               icon: 'warning',
               title: 'No se pudo agregar el correo adicional',
-              html: `<p style="text-align:left;">Actualizamos sus datos, pero no pudimos agregar <b>${correoNuevo}</b> como acceso.</p>
-                     ${cred.rechazo ? `<p style="text-align:left;color:#b45309;">${cred.rechazo}</p>` : ''}
-                     <p style="text-align:left;">Su correo <b>${correoExistente}</b> sigue funcionando. Si necesita ayuda, comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
+              html: `<p style="text-align:left;">Actualizamos sus datos, pero no pudimos agregar <b>${escNuevo}</b> como acceso.</p>
+                     ${cred.rechazo ? `<p style="text-align:left;color:#b45309;">${this.esc(cred.rechazo)}</p>` : ''}
+                     <p style="text-align:left;">Su correo <b>${escExist}</b> sigue funcionando. Si necesita ayuda, comuníquese con la oficina con su cédula: <b>${this.esc(cedula)}</b>.</p>`,
               confirmButtonText: 'Entendido',
               confirmButtonColor: '#111827',
               width: 540
@@ -3548,10 +4063,19 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
 
     if (!raw || String(savedCedula) !== String(cedula)) return false;
 
+    // Borrador viejo: se descarta y se borra del equipo en vez de resucitar
+    // datos personales de hace semanas.
+    const sello = Number(localStorage.getItem(STAMP_KEY));
+    if (Number.isFinite(sello) && sello > 0 &&
+      Date.now() - sello > FormsTestContratation.BORRADOR_TTL_MS) {
+      this.limpiarBorrador();
+      return false;
+    }
+
     try {
-      const data = JSON.parse(raw);
+      const data = this.revivirFechas(JSON.parse(raw));
       // Reconstruye los FormArray antes del patch para que existan los hijos.
-      if (data.hijos) this.actualizarHijos(data.hijos.length);
+      if (Array.isArray(data.hijos)) this.actualizarHijos(data.hijos.length);
       // patchValue con emitEvent por defecto re-dispara los toggles condicionales.
       this.formHojaDeVida2.patchValue(data);
 
@@ -3588,48 +4112,78 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       const expD = this.aFecha(v.fechaExpedicionCC);
       const expedicionInvalida = !!(nacD && expD && expD < nacD);
 
+      // La CC se expide a los 18: si la expedición cae antes, la fecha de
+      // nacimiento está mal (año tecleado de más es lo habitual). `tipoDoc` se
+      // lee del control y no de `g.value` porque el pre-registro lo deshabilita
+      // y los deshabilitados no salen ahí.
+      const esCedula = String(g.get('tipoDoc')?.value ?? '').trim().toUpperCase() === 'CC';
+      const expedicionPrematura = !!(
+        esCedula && nacD && expD && !expedicionInvalida &&
+        expD < this.sumarAnios(nacD, FormsTestContratation.EDAD_EXPEDICION_CC)
+      );
+
       // Se espeja en el control para que el campo se pinte en rojo y tenga su
       // propio mensaje; el error de grupo por sí solo no marca ningún campo.
       const ctrlExp = g.get('fechaExpedicionCC');
       if (ctrlExp) {
         const errs = { ...(ctrlExp.errors || {}) };
-        if (!!errs['expedicionAntesDeNacer'] !== expedicionInvalida) {
+        const cambia =
+          !!errs['expedicionAntesDeNacer'] !== expedicionInvalida ||
+          !!errs['expedicionAntesDeEdadMinima'] !== expedicionPrematura;
+        if (cambia) {
           if (expedicionInvalida) errs['expedicionAntesDeNacer'] = true;
           else delete errs['expedicionAntesDeNacer'];
+          if (expedicionPrematura) errs['expedicionAntesDeEdadMinima'] = true;
+          else delete errs['expedicionAntesDeEdadMinima'];
           ctrlExp.setErrors(Object.keys(errs).length ? errs : null, { emitEvent: false });
         }
       }
 
-      // Helper for duplicates
-      const checkDup = (n1: string, n2: string, c2: AbstractControl | null, errKey: string, isPhone = false) => {
-        if (!n1 || !n2 || !c2) return;
-        let v1 = n1.trim().toUpperCase().replace(/\s+/g, '');
-        let v2 = n2.trim().toUpperCase().replace(/\s+/g, '');
-
-        if (isPhone) { // digits only
-          v1 = v1.replace(/\D/g, '');
-          v2 = v2.replace(/\D/g, '');
-        }
-
-        if (v1 && v2 && v1 === v2) {
-          c2.setErrors({ ...c2.errors, [errKey]: true });
-        } else {
-          if (c2.errors && c2.errors[errKey]) {
-            const { [errKey]: removed, ...rest } = c2.errors;
-            c2.setErrors(Object.keys(rest).length ? rest : null);
-          }
-        }
+      // Marca/desmarca un error de duplicado en un control sin pisar los demás.
+      const marcar = (c: AbstractControl | null, errKey: string, hayError: boolean) => {
+        if (!c) return;
+        const tiene = !!c.errors?.[errKey];
+        if (tiene === hayError) return;
+        const errs: any = { ...(c.errors || {}) };
+        if (hayError) errs[errKey] = true; else delete errs[errKey];
+        c.setErrors(Object.keys(errs).length ? errs : null);
+      };
+      const clave = (s: any, esTelefono = false) => {
+        const t = String(s ?? '').trim().toUpperCase().replace(/\s+/g, '');
+        return esTelefono ? t.replace(/\D/g, '') : t;
       };
 
-      // Check Names
-      checkDup(v.nombreReferenciaPersonal1, v.nombreReferenciaPersonal2, g.get('nombreReferenciaPersonal2'), 'duplicateReferenceName');
-      checkDup(v.nombreReferenciaFamiliar1, v.nombreReferenciaFamiliar2, g.get('nombreReferenciaFamiliar2'), 'duplicateReferenceName');
+      // Las CUATRO referencias tienen que ser cuatro personas distintas. Antes
+      // solo se comparaba personal 1 vs 2 y familiar 1 vs 2, así que repetir la
+      // misma persona como referencia personal Y familiar pasaba sin más.
+      const refs = [
+        { nombre: 'nombreReferenciaPersonal1', telefono: 'telefonoReferencia1' },
+        { nombre: 'nombreReferenciaPersonal2', telefono: 'telefonoReferencia2' },
+        { nombre: 'nombreReferenciaFamiliar1', telefono: 'telefonoReferenciaFamiliar1' },
+        { nombre: 'nombreReferenciaFamiliar2', telefono: 'telefonoReferenciaFamiliar2' },
+      ];
 
-      // Check Phones
-      checkDup(v.telefonoReferencia1, v.telefonoReferencia2, g.get('telefonoReferencia2'), 'duplicateReferencePhone', true);
-      checkDup(v.telefonoReferenciaFamiliar1, v.telefonoReferenciaFamiliar2, g.get('telefonoReferenciaFamiliar2'), 'duplicateReferencePhone', true);
+      // Un teléfono de referencia tampoco puede ser el del propio candidato.
+      const propios = new Set([clave(v.numCelular, true), clave(v.numWha, true)].filter(Boolean));
 
-      return expedicionInvalida ? { expeditionBeforeBirth: true } : null;
+      for (let i = 0; i < refs.length; i++) {
+        const nom = clave(v[refs[i].nombre]);
+        const tel = clave(v[refs[i].telefono], true);
+
+        // Se compara solo contra las anteriores: el error se marca en la
+        // segunda aparición, que es la que el usuario debe corregir.
+        const nomRepetido = !!nom && refs.slice(0, i).some(r => clave(v[r.nombre]) === nom);
+        const telRepetido = !!tel && (
+          propios.has(tel) || refs.slice(0, i).some(r => clave(v[r.telefono], true) === tel)
+        );
+
+        marcar(g.get(refs[i].nombre), 'duplicateReferenceName', nomRepetido);
+        marcar(g.get(refs[i].telefono), 'duplicateReferencePhone', telRepetido);
+      }
+
+      if (expedicionInvalida) return { expeditionBeforeBirth: true };
+      if (expedicionPrematura) return { expedicionAntesDeEdadMinima: true };
+      return null;
     };
   }
 
@@ -3662,7 +4216,6 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       ciudad: 'Ciudad de Residencia',
       tiempoResidenciaZona: 'Cuanto tiempo lleva viviendo en la zona',
       conQuienViveChecks: '¿Con quién vive?',
-      password: 'Contraseña',
       escolaridad: 'Nivel de Escolaridad',
       expectativasVidaChecks: '¿Cómo se proyecta?',
       rh: 'Tipo de Sangre (RH)',
@@ -3683,14 +4236,17 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       viveConyuge: '¿Vive con el Cónyuge?',
       documentoIdentidadConyuge: 'Documento del Cónyuge',
       direccionConyuge: 'Dirección del Cónyuge',
+      barrioMunicipioConyugue: 'Barrio / Municipio del Cónyuge',
       telefonoConyuge: 'Teléfono del Cónyuge',
       nombrePadre: 'Nombre del Padre',
       elPadreVive: '¿El Padre Vive?',
       direccionPadre: 'Dirección del Padre',
+      barrioPadre: 'Barrio del Padre',
       telefonoPadre: 'Teléfono del Padre',
       nombreMadre: 'Nombre de la Madre',
       madreVive: '¿La Madre Vive?',
       direccionMadre: 'Dirección de la Madre',
+      barrioMadre: 'Barrio de la Madre',
       telefonoMadre: 'Teléfono de la Madre',
       nombreReferenciaPersonal1: 'Referencia Personal 1 (Nombre)',
       telefonoReferencia1: 'Referencia Personal 1 (Teléfono)',
@@ -3744,26 +4300,9 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       empresas_laborado: 'Otras Empresas',
       cuidadorHijos: '¿Quién cuida a los hijos?',
       hijos: 'Datos de los Hijos',
-      deseaGenerar: '¿Generar Hoja de Vida automática?',
       hojaDeVida: 'Hoja de Vida (PDF)',
     };
     return map[key] || key;
-  }
-
-  // Legacy PDF method (stubbed but functional)
-  async downloadPDF(bytes: Uint8Array, name: string) {
-    const blob = new Blob([bytes as any], { type: 'application/pdf' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = name; a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  // Hijos Generar Array (for template)
-  generarArrayHijos() {
-    // Not needed if using FormArray loops in HTML, but kept if HTML uses it
-    const num = this.formHojaDeVida2.get('numHijosDependientes')?.value || 0;
-    return Array(num).fill(0).map((_, i) => i);
   }
 
   // Public accessor for Hijos FormArray

@@ -20,8 +20,17 @@
             <ng-container
             *ngTemplateOutlet="textField; context: {control: 'numero_documento', label: 'Número Documento', formGroup: searchForm}"></ng-container>
           </div>
+          <!-- Mientras cargan los catálogos todos los desplegables del formulario
+               están vacíos: sin este aviso parecía que la página estaba rota. -->
+          @if (loadingCatalogos) {
+            <p style="text-align:center;font-size:13px;color:#6b7280;margin:0 0 8px;">
+              <mat-icon class="spin" style="vertical-align:middle;font-size:18px;height:18px;width:18px;">sync</mat-icon>
+              Cargando las opciones del formulario…
+            </p>
+          }
           <div class="actions" style="justify-content: center;">
-            <button mat-raised-button color="primary" type="submit" [disabled]="searchForm.invalid || isSearching">
+            <button mat-raised-button color="primary" type="submit"
+              [disabled]="searchForm.invalid || isSearching || loadingCatalogos">
               @if (!isSearching) {
                 <mat-icon>arrow_forward</mat-icon>
               }
@@ -29,7 +38,7 @@
                 <mat-icon class="spin">sync</mat-icon>
               }
               <!-- Ya no consulta al backend acá: solo abre el formulario. -->
-              {{ isSearching ? 'ABRIENDO...' : 'CONTINUAR' }}
+              {{ isSearching ? 'ABRIENDO...' : (loadingCatalogos ? 'CARGANDO...' : 'CONTINUAR') }}
             </button>
           </div>
         </form>
@@ -90,9 +99,17 @@
                   <div class="full-width sub-section">
                     <h4>Identificación</h4>
                   </div>
+                  <!-- La precarga sale al elegir la fecha de expedición y tarda:
+                       sin este aviso la pantalla parecía congelada. -->
+                  @if (cargandoPrefill) {
+                    <div class="full-width" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#1e40af;">
+                      <mat-icon class="spin" style="vertical-align:middle;font-size:18px;height:18px;width:18px;">sync</mat-icon>
+                      Buscando sus datos registrados…
+                    </div>
+                  }
                   <div class="grid-layout">
                     <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'oficina', label: 'Oficina', options: oficinas, disabled: oficinaBloqueada}"></ng-container>
+                    *ngTemplateOutlet="selectField; context: {control: 'oficina', label: 'Oficina', options: oficinas}"></ng-container>
                     <ng-container
                     *ngTemplateOutlet="selectField; context: {control: 'tipoDoc', label: 'Tipo de documento', options: tipoDocs, optionsKey: 'description', valueKey: 'abbreviation'}"></ng-container>
                     <ng-container
@@ -319,9 +336,11 @@
                           <ng-container
                           *ngTemplateOutlet="textField; context: {control: 'telefonoConyuge', label: 'Teléfono', type: 'tel'}"></ng-container>
                         </div>
-                        <div class="grid-col-1">
+                        <div class="grid-col-3">
                           <ng-container
                           *ngTemplateOutlet="textField; context: {control: 'direccionConyuge', label: 'Dirección (Ej: CR 35 B 25 53. Se normaliza)', isAddress: true}"></ng-container>
+                          <ng-container
+                          *ngTemplateOutlet="textField; context: {control: 'barrioMunicipioConyugue', label: 'Barrio / Municipio', hint: 'Opcional'}"></ng-container>
                         </div>
                       }
                     </div>
@@ -341,6 +360,8 @@
                     <ng-container
                     *ngTemplateOutlet="textField; context: {control: 'direccionPadre', label: 'Dirección (Ej: CR 35 B 25 53. Se normaliza)', isAddress: true}"></ng-container>
                     <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'barrioPadre', label: 'Barrio', hint: 'Opcional'}"></ng-container>
+                    <ng-container
                     *ngTemplateOutlet="textField; context: {control: 'telefonoPadre', label: 'Teléfono', type: 'tel'}"></ng-container>
                   }
                   <!-- Madre -->
@@ -353,6 +374,8 @@
                     *ngTemplateOutlet="selectField; context: {control: 'ocupacionMadre', label: 'Ocupación', options: Ocupacion}"></ng-container>
                     <ng-container
                     *ngTemplateOutlet="textField; context: {control: 'direccionMadre', label: 'Dirección (Ej: CR 35 B 25 53. Se normaliza)', isAddress: true}"></ng-container>
+                    <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'barrioMadre', label: 'Barrio', hint: 'Opcional'}"></ng-container>
                     <ng-container
                     *ngTemplateOutlet="textField; context: {control: 'telefonoMadre', label: 'Teléfono', type: 'tel'}"></ng-container>
                   }
@@ -432,7 +455,7 @@
                     <ng-container
                     *ngTemplateOutlet="textField; context: {control: 'nombreEmpresa1', label: 'Empresa'}"></ng-container>
                     <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'telefonosEmpresa1', label: 'Teléfonos', type: 'tel'}"></ng-container>
+                    *ngTemplateOutlet="textField; context: {control: 'telefonosEmpresa1', label: 'Teléfono', type: 'tel', sanitizar: 'telefono', hint: 'Celular o fijo. Ej: 3101234567 o 6012345678'}"></ng-container>
                     <ng-container
                     *ngTemplateOutlet="textField; context: {control: 'direccionEmpresa1', label: 'Dirección y Barrio', isAddress: true}"></ng-container>
                     <!-- barrioEmpresa1 REMOVED (Merged) -->
@@ -455,8 +478,10 @@
                   <div class="full-width sub-section">
                     <h4>Hijos</h4>
                   </div>
+                  <!-- min/max obligatorios: sin ellos la flecha de bajar del
+                       spinner llegaba a -1 y el formulario se congelaba. -->
                   <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'numHijosDependientes', label: 'No. Hijos Dependientes', type: 'number'}"></ng-container>
+                  *ngTemplateOutlet="textField; context: {control: 'numHijosDependientes', label: 'No. Hijos Dependientes', type: 'number', min: 0, max: 10, step: 1, hint: 'De 0 a 10'}"></ng-container>
                   @if (formHojaDeVida2.get('numHijosDependientes')?.value > 0) {
                     <ng-container
                     *ngTemplateOutlet="selectField; context: {control: 'cuidadorHijos', label: '¿Quién los cuida?', options: listaPersonasQueCuidan}"></ng-container>
@@ -587,18 +612,19 @@
                 }
                 <input #fileIn type="file" hidden accept=".pdf" (change)="subirArchivo($event, 'hojaDeVida')">
               </div>
+              <p class="hint-text" style="font-size:12px;color:#666;margin:6px 0 0;">
+                Solo PDF, máximo 50 MB. Si tiene fotos del documento, únalas en un PDF antes de subirlo.
+              </p>
             </div>
           </div>
-          <div class="full-width sub-section">
-            <h4>Información Adicional</h4>
-          </div>
-          <div class="grid-layout">
-            <ng-container
-            *ngTemplateOutlet="selectField; context: {control: 'deseaGenerar', label: '¿Generar HV automática?', options: [{v:true, l:'Sí'}, {v:false, l:'No'}], optionsKey: 'l', valueKey: 'v'}"></ng-container>
-          </div>
+          <!-- La pregunta "¿Generar HV automática?" se eliminó: no existía en el
+               backend (nunca viajaba en el payload) y al responder "No" borraba
+               en silencio el PDF que la persona acababa de adjuntar. -->
           <div class="actions">
             <button mat-button type="button" (click)="pasoAnterior()">Anterior</button>
-            <button mat-raised-button color="primary" type="submit" class="btn-save">ENVIAR FORMULARIO</button>
+            <button mat-raised-button color="primary" type="submit" class="btn-save" [disabled]="enviando">
+              {{ enviando ? 'ENVIANDO…' : 'ENVIAR FORMULARIO' }}
+            </button>
           </div>
         </ng-template>
       </mat-step>
@@ -611,17 +637,20 @@
 
 <!-- TEMPLATES -->
 <ng-template #textField let-control="control" let-label="label" let-type="type" let-formGroup="formGroup"
-  let-isAddress="isAddress" let-hint="hint" let-placeholder="placeholder" let-sanitizar="sanitizar">
+  let-isAddress="isAddress" let-hint="hint" let-placeholder="placeholder" let-sanitizar="sanitizar"
+  let-min="min" let-max="max" let-step="step">
   <mat-form-field appearance="outline" class="w-100 check-field"
     [class.field-ok]="isFieldOk(control, formGroup)"
     [class.field-bad]="shouldShowError(control, formGroup)">
     <mat-label>{{label}}</mat-label>
     <!-- `sanitizar` limpia el valor mientras se escribe (hoy solo el usuario
-         del correo: le quita tildes y espacios en vivo). -->
+         del correo: le quita tildes y espacios en vivo).
+         `min`/`max`/`step` acotan los campos numéricos desde el propio input. -->
     <input matInput [formControl]="getControl(control, formGroup)"
       [type]="type === 'password' ? (hidePassword ? 'password' : 'text') : (type || 'text')"
       [placeholder]="isAddress ? 'CL 12 33 24' : (placeholder || '')"
-      (input)="sanitizar === 'usuarioCorreo' ? normalizarUsuarioCorreo($event, control, formGroup) : null"
+      [attr.min]="min ?? null" [attr.max]="max ?? null" [attr.step]="step ?? null"
+      (input)="sanitizar ? sanitizarCampo(sanitizar, $event, control, formGroup) : null"
       (blur)="isAddress ? normalizeAddressControl(control, formGroup) : null">
       @if (type === 'password') {
         <button mat-icon-button matSuffix (click)="hidePassword = !hidePassword" type="button"
@@ -630,7 +659,7 @@
         </button>
       }
       @if (isAddress) {
-        <mat-hint>Ej: CL 12 33 24 / CR 35 B 25 53. Se normaliza.</mat-hint>
+        <mat-hint>Urbana: CL 12 33 24 · Rural: KM 5 VIA FUNZA o VEREDA EL ROSAL FINCA LA ESPERANZA</mat-hint>
       }
       @if (hint) {
         <mat-hint>{{hint}}</mat-hint>
@@ -641,8 +670,10 @@
     </mat-form-field>
   </ng-template>
 
+  <!-- `disabled` no se declara: los campos que se bloquean (p. ej. Oficina con
+       ?oficina=) lo hacen deshabilitando su FormControl, no por contexto. -->
   <ng-template #selectField let-control="control" let-label="label" let-options="options" let-optionsKey="optionsKey"
-    let-valueKey="valueKey" let-multiple="multiple" let-disabled="disabled" let-formGroup="formGroup"
+    let-valueKey="valueKey" let-multiple="multiple" let-formGroup="formGroup"
     let-searchControl="searchControl">
     <mat-form-field appearance="outline" class="w-100 check-field"
       [class.field-ok]="isFieldOk(control, formGroup)"
