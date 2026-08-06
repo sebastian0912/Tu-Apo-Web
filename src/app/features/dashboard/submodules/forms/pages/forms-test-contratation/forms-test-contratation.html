@@ -9,7 +9,19 @@
     @if (!showForm) {
       <div class="search-container full-width sub-section">
         <h3 style="text-align:center; margin-bottom: 8px;">Validación Previa</h3>
-        <p style="text-align:center; font-size:13px; color:#666; margin-bottom:20px;">Ingrese su tipo y número de documento para iniciar el formulario. Solo números, sin puntos ni espacios.</p>
+        <p style="text-align:center; font-size:13px; color:#666; margin-bottom:16px;">Ingrese su tipo y número de documento para iniciar el formulario.</p>
+
+        <!-- Este par (tipo, número) es la llave de todo el proceso: con él se
+             consulta y se registra a la persona. Un error acá no se nota hasta
+             que ya no puede ingresar, así que se advierte antes, no después. -->
+        <div class="doc-warning">
+          <mat-icon>error_outline</mat-icon>
+          <div>
+            <strong>Este dato debe quedar bien.</strong>
+            Con el tipo y el número de documento que escriba acá se <strong>consultará y registrará</strong> toda su
+            información. Escríbalo tal como aparece en su documento: solo números, sin puntos ni espacios.
+          </div>
+        </div>
         <form [formGroup]="searchForm" (ngSubmit)="onSearch()">
           <!-- La fecha de expedición NO va acá: se pide dentro del formulario, en
                "Identificación". Al digitarla allí se dispara la precarga (es el
@@ -18,7 +30,7 @@
             <ng-container
             *ngTemplateOutlet="selectField; context: {control: 'tipo_doc', label: 'Tipo Documento', options: tipoDocs, optionsKey: 'description', valueKey: 'abbreviation', formGroup: searchForm}"></ng-container>
             <ng-container
-            *ngTemplateOutlet="textField; context: {control: 'numero_documento', label: 'Número Documento', formGroup: searchForm}"></ng-container>
+            *ngTemplateOutlet="textField; context: {control: 'numero_documento', label: 'Número Documento', formGroup: searchForm, sanitizar: 'documento', hint: hintDocumento()}"></ng-container>
           </div>
           <!-- Mientras cargan los catálogos todos los desplegables del formulario
                están vacíos: sin este aviso parecía que la página estaba rota. -->

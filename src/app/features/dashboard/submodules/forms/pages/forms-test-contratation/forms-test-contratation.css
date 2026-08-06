@@ -583,3 +583,34 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 :host ::ng-deep .check-field.mat-focused .mdc-notched-outline__trailing {
   border-color: var(--primary) !important;
 }
+/* Aviso del paso de Validación Previa. El par (tipo, número) es la llave con la
+   que se consulta y registra a la persona: si entra mal, el error no se nota
+   hasta que ya no puede ingresar. Por eso pesa visualmente más que un hint. */
+.doc-warning {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-left: 4px solid #f59e0b;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: 0 0 20px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #78350f;
+  text-align: left;
+}
+
+.doc-warning .mat-icon {
+  flex: 0 0 auto;
+  color: #d97706;
+  font-size: 20px;
+  height: 20px;
+  width: 20px;
+  margin-top: 1px;
+}
+
+.doc-warning strong {
+  color: #92400e;
+}

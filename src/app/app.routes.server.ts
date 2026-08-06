@@ -33,6 +33,15 @@ export const serverRoutes: ServerRoute[] = [
     path: 'dashboard/formulario/foto/:empresa',
     renderMode: RenderMode.Client
   },
+  // Usa cámara y canvas: no tiene nada que prerenderizar en el servidor.
+  {
+    path: 'formulario/escaner-cedula',
+    renderMode: RenderMode.Client
+  },
+  {
+    path: 'dashboard/formulario/escaner-cedula',
+    renderMode: RenderMode.Client
+  },
   {
     path: '**',
     renderMode: RenderMode.Client

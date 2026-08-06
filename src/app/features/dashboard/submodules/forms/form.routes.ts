@@ -7,6 +7,7 @@ import { FormVacancies } from './pages/form-vacancies/form-vacancies';
 import { FormsTestContratation } from './pages/forms-test-contratation/forms-test-contratation';
 import { Firma } from './pages/firma/firma';
 import { Foto } from './pages/foto/foto';
+import { EscanerCedula } from './pages/escaner-cedula/escaner-cedula';
 
 export const routes: Routes = [
   { path: 'formulario-seguridad-salud-trabajo', component: FormOccupationalHealthAndSafetyTest },
@@ -21,5 +22,6 @@ export const routes: Routes = [
   { path: 'firma', component: Firma },
   { path: 'firma/:empresa', component: Firma },
   { path: 'foto', component: Foto },
-  { path: 'foto/:empresa', component: Foto }
+  { path: 'foto/:empresa', component: Foto },
+  { path: 'escaner-cedula', component: EscanerCedula }
 ];

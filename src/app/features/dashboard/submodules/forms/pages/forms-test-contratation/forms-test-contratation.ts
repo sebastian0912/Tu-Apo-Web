@@ -108,6 +108,52 @@ const OFICINAS = [
   'ZIPAQUIRÁ',
 ];
 
+/**
+ * Reglas de número de documento POR TIPO. Este par (tipo, número) es la llave
+ * con la que se consulta y se registra a la persona en todo el sistema: si entra
+ * mal acá, se crea un registro paralelo y no hay forma de que la persona se
+ * encuentre a sí misma después.
+ *
+ * Los tipos son los del catálogo canónico del backend
+ * (`gestion_catalogos/tipos_doc.py` → CANONICOS + TOLERADOS). `CTRA` es la
+ * contraseña: el comprobante de una cédula en trámite, así que lleva el MISMO
+ * número que la cédula y comparte regla con `CC`.
+ *
+ * Los rangos son deliberadamente amplios: bloquear a alguien con un documento
+ * real es peor que dejar pasar un dígito de más. Solo se rechaza lo que no puede
+ * existir.
+ */
+const REGLAS_DOC: Record<string, { min: number; max: number; nombre: string; ejemplo: string; nuip?: boolean }> = {
+  // Cédula de ciudadanía. Dos generaciones conviven:
+  //  - Antiguas: la numeración arrancó en 1 (1952) y las de mujeres desde
+  //    20'000.001 (1956), así que llegan hasta 8 dígitos.
+  //  - NUIP: desde 2003-2004 la Registraduría numera consecutivo DESDE
+  //    1.000.000.000, sin distinguir sexo. Por eso toda cédula de 10 dígitos
+  //    empieza por 1: el rango asignado hasta hoy no ha salido de 1.2xx millones.
+  CC: { min: 6, max: 10, nombre: 'Cédula de Ciudadanía', ejemplo: '1005851505', nuip: true },
+  // Contraseña = cédula en trámite: mismo número que la CC.
+  CTRA: { min: 6, max: 10, nombre: 'Contraseña', ejemplo: '1005851505', nuip: true },
+  // Cédula de extranjería: Migración Colombia la numera en paralelo a las
+  // cédulas y el largo es variable (se ven desde 5-6 dígitos hasta 10).
+  CE: { min: 5, max: 10, nombre: 'Cédula de Extranjería', ejemplo: '428531' },
+  // Permiso por Protección Temporal (Migración Colombia). PET/PEP son sus
+  // antecesores: el backend todavía aterriza en 'PET' (TIPO_PERMISO_CANONICO en
+  // gestion_catalogos/tipos_doc.py) hasta que se migren las filas viejas, así
+  // que las tres claves comparten regla.
+  // OJO: a diferencia de CC y CE, no hay norma pública que fije el largo del
+  // número de PPT; este rango sale de los ~4.900 permisos ya registrados (el
+  // 96% son de 7 dígitos). Ante la duda se dejó ancho: bloquear a un migrante
+  // con un permiso legítimo es peor que aceptarle un dígito de más.
+  PPT: { min: 6, max: 11, nombre: 'Permiso de Permanencia Temporal', ejemplo: '7654321' },
+  PET: { min: 6, max: 11, nombre: 'Permiso de Permanencia Temporal', ejemplo: '7654321' },
+  PEP: { min: 6, max: 11, nombre: 'Permiso de Permanencia Temporal', ejemplo: '7654321' },
+  // Tarjeta de identidad: tolerada por el backend, no se ofrece en el desplegable.
+  TI: { min: 10, max: 11, nombre: 'Tarjeta de Identidad', ejemplo: '1012345678' },
+};
+
+/** Rango a usar cuando el tipo no está en la tabla (catálogo con un valor nuevo). */
+const REGLA_DOC_POR_DEFECTO = { min: 5, max: 15, nombre: 'Documento', ejemplo: '1005851505' };
+
 @Injectable()
 export class CustomDateAdapter extends NativeDateAdapter {
   override format(date: Date, displayFormat: Object): string {
@@ -370,9 +416,16 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     // La fecha de expedición NO se pide acá: vive en el paso "Identificación"
     // del formulario y desde allí dispara la precarga (segundo factor del
     // endpoint prefill-by-document). Ver `initPrefillPorFechaExpedicion()`.
+    // El largo ya NO se fija acá: lo decide `numeroSegunTipoValidator` según el
+    // tipo elegido (una CE de 5 dígitos es válida y una CC de 5 no lo es).
     this.searchForm = this.fb.group({
       tipo_doc: ['CC', Validators.required],
-      numero_documento: ['', [Validators.required, Validators.pattern(REGEX_NUMERIC), Validators.minLength(6), Validators.maxLength(15), this.notPhoneNumberValidator()]],
+      numero_documento: ['', [
+        Validators.required,
+        Validators.pattern(REGEX_NUMERIC),
+        this.notPhoneNumberValidator(),
+        this.numeroSegunTipoValidator('tipo_doc'),
+      ]],
     });
 
     // 2. Init Main Form
@@ -388,6 +441,8 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     this.initAutocompleteMirror();
     this.initPrefillPorFechaExpedicion();
     this.vigilarFechasIdentidad();
+    this.revalidarNumeroAlCambiarTipo(this.searchForm, 'tipo_doc', 'numero_documento');
+    this.revalidarNumeroAlCambiarTipo(this.formHojaDeVida2, 'tipoDoc', 'numeroCedula');
     this.initAutoSave();
 
     // Query Params
@@ -491,7 +546,9 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     const address = [req, Validators.minLength(5), this.addressCOValidator()]; // strict address
     const email = [req, Validators.email, Validators.pattern(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/)];
     const phone = [req, this.phoneCOValidator()]; // 3xxxxxxxxx
-    const doc = [req, this.docValidator()]; // Numeric only
+    // Mismo criterio que el paso de Validación Previa: el número se juzga contra
+    // el tipo. Aplica al borrador restaurado, que entra por el form principal.
+    const doc = [req, this.docValidator(), this.numeroSegunTipoValidator('tipoDoc')];
 
     // Email Split Validators
     const emailUserVal = [req, this.usuarioCorreoValidator()]; // sin tildes, sin espacios, sin @
@@ -1685,6 +1742,20 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     if (errors['invalidDoc']) return 'Solo números'; // Custom
     if (errors['looksLikePhone']) return 'Parece un número de celular, ingrese un documento válido.';
 
+    // Número de documento contra el tipo elegido
+    if (errors['faltaTipo']) return 'Primero elija el tipo de documento';
+    if (errors['soloNumeros']) return 'Solo números: sin puntos, comas, espacios ni letras';
+    if (errors['ceroInicial']) return 'No empiece por cero: escriba el número tal como aparece en el documento';
+    if (errors['docNoPlausible']) return 'Ese número no es válido. Escriba el número real de su documento';
+    if (errors['largoPorTipo']) {
+      const e = errors['largoPorTipo'];
+      const rango = e.min === e.max ? `${e.min} dígitos` : `entre ${e.min} y ${e.max} dígitos`;
+      return `Escribió ${e.actual} dígito${e.actual === 1 ? '' : 's'}. Una ${e.nombre} tiene ${rango} (ej: ${e.ejemplo}). Verifique el tipo de documento y el número`;
+    }
+    if (errors['nuipInvalido']) {
+      return `Una ${errors['nuipInvalido'].nombre} de 10 dígitos siempre empieza por 1. Revise el número o cambie el tipo de documento`;
+    }
+
     // Usuario del correo
     if (errors['espacioEnUsuario']) return 'No puede llevar espacios';
     if (errors['tildeEnUsuario']) return 'Sin tildes ni ñ (escriba "sebastian", no "sebastián")';
@@ -1990,6 +2061,28 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   sanitizarCampo(modo: string, event: Event, controlName: string, form: FormGroup = this.formHojaDeVida2): void {
     if (modo === 'usuarioCorreo') this.normalizarUsuarioCorreo(event, controlName, form);
     else if (modo === 'telefono') this.normalizarTelefono(event, controlName, form);
+    else if (modo === 'documento') this.normalizarDocumento(event, controlName, form);
+  }
+
+  /**
+   * Deja solo dígitos mientras se escribe. La cédula se dicta y se copia con
+   * puntos ("1.005.851.505") todo el tiempo; rechazarlo con un error rojo es
+   * hacerle perder el tiempo a la persona por un separador de miles.
+   */
+  private normalizarDocumento(event: Event, controlName: string, form: FormGroup): void {
+    const input = event.target as HTMLInputElement;
+    const limpio = String(input.value ?? '').replace(/\D+/g, '');
+    if (limpio === input.value) return;
+
+    // Conservar la posición del cursor: reescribir el value lo manda al final y
+    // corregir un dígito del medio se vuelve imposible.
+    const posicion = input.selectionStart ?? limpio.length;
+    const removidosAntes = String(input.value ?? '').slice(0, posicion).replace(/\d/g, '').length;
+
+    input.value = limpio;
+    form.get(controlName)?.setValue(limpio, { emitEvent: true });
+    const nueva = Math.max(0, posicion - removidosAntes);
+    input.setSelectionRange(nueva, nueva);
   }
 
   private docValidator(): ValidatorFn {
@@ -2051,6 +2144,67 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       if (/^3\d{9}$/.test(val)) return { looksLikePhone: true };
       return null;
     };
+  }
+
+  /** Regla vigente para el tipo elegido (o la genérica si el tipo es desconocido). */
+  private reglaDoc(tipo: any) {
+    return REGLAS_DOC[String(tipo || '').toUpperCase().trim()] ?? REGLA_DOC_POR_DEFECTO;
+  }
+
+  /**
+   * Valida el número CONTRA el tipo elegido, leyendo el tipo del control hermano.
+   *
+   * Va como validador del control del número (no del grupo) a propósito: un
+   * validador de grupo tendría que escribir el error con `setErrors` sobre el
+   * hijo, y eso revalida los ancestros y vuelve a disparar el mismo validador.
+   * Lo que sí hace falta es re-evaluar cuando cambia el tipo — de eso se encarga
+   * `revalidarNumeroAlCambiarTipo()`.
+   *
+   * Rechaza únicamente lo imposible; lo dudoso se advierte en la confirmación.
+   */
+  private numeroSegunTipoValidator(campoTipo: string): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      const num = String(control.value ?? '').trim();
+      if (!num) return null;
+
+      const tipo = String(control.parent?.get(campoTipo)?.value || '').toUpperCase().trim();
+      if (!tipo) return { faltaTipo: true };
+      if (!/^\d+$/.test(num)) return { soloNumeros: true };
+      if (/^0/.test(num)) return { ceroInicial: true };
+
+      // Basura evidente: todos los dígitos iguales, o una secuencia corrida de 6+
+      // dígitos. "1010101010" NO cae acá a propósito: es un patrón, no una serie.
+      const serie = num.length >= 6 && ('01234567890'.includes(num) || '09876543210'.includes(num));
+      if (/^(\d)\1+$/.test(num) || serie) return { docNoPlausible: true };
+
+      const regla = this.reglaDoc(tipo);
+      if (num.length < regla.min || num.length > regla.max) {
+        return { largoPorTipo: { tipo, ...regla, actual: num.length } };
+      }
+
+      // NUIP: toda cédula de 10 dígitos expedida en Colombia empieza por 1.
+      // Un 10 dígitos que arranque distinto es el número de otro documento.
+      if ((regla as any).nuip && num.length === 10 && !num.startsWith('1')) {
+        return { nuipInvalido: { tipo, nombre: regla.nombre } };
+      }
+
+      return null;
+    };
+  }
+
+  /**
+   * Cambiar el tipo tiene que volver a juzgar el número ya escrito. Sin esto,
+   * escribir una cédula de 10 y luego cambiar a CE dejaba el número validado con
+   * la regla anterior.
+   */
+  private revalidarNumeroAlCambiarTipo(form: FormGroup, campoTipo: string, campoNumero: string): void {
+    form.get(campoTipo)?.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        const n = form.get(campoNumero);
+        n?.updateValueAndValidity({ emitEvent: false });
+        this.cdr.markForCheck();
+      });
   }
 
   /**
@@ -2280,6 +2434,13 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const { tipo_doc, numero_documento } = this.searchForm.getRawValue();
+
+    // Última barrera antes de abrir el formulario. El par (tipo, número) es la
+    // llave con la que se consulta y se registra todo: si está mal, la persona
+    // termina con un registro paralelo que nadie vuelve a encontrar. Se le
+    // muestra tal cual quedó, en grande, para que lo lea de verdad.
+    if (!(await this.confirmarDocumento(tipo_doc, numero_documento))) return;
+
     this.isSearching = true;
     try {
       this.startForm(tipo_doc, numero_documento);
@@ -2292,6 +2453,74 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       this.isSearching = false;
       this.cdr.markForCheck();
     }
+  }
+
+  /**
+   * Confirmación del par (tipo, número) antes de abrir el formulario.
+   *
+   * Además de repetir el dato, avisa de los casos dudosos que el validador NO
+   * bloquea (una CC corta o una CE larga son posibles pero raras): así se evita
+   * frenar a quien sí tiene ese documento, sin dejar pasar el error en silencio.
+   */
+  private async confirmarDocumento(tipo: string, numero: string): Promise<boolean> {
+    const t = String(tipo || '').toUpperCase().trim();
+    const n = String(numero || '').trim();
+    const regla = this.reglaDoc(t);
+    const etiqueta = this.esc(this.nombreTipoDoc(t) || regla.nombre);
+
+    // Avisos blandos: no impiden continuar, solo obligan a mirar.
+    const avisos: string[] = [];
+    if ((t === 'CC' || t === 'CTRA') && n.length <= 7) {
+      avisos.push('Una cédula de 7 dígitos o menos suele ser de una persona mayor. Si usted es joven, revise que no le falten números.');
+    }
+    // La numeración de cédulas salta de 8 dígitos (las antiguas) a 10 (el NUIP,
+    // que arranca en 1.000.000.000): nunca se asignaron cédulas de 9 dígitos.
+    // Casi siempre es un NUIP al que se le cayó un número al teclear. No se
+    // bloquea porque hay filas históricas así y no hay norma que lo prohíba.
+    if ((t === 'CC' || t === 'CTRA') && n.length === 9) {
+      avisos.push('No existen cédulas de <b>9 dígitos</b>: la numeración pasa de 8 a 10. Es muy probable que le falte un número.');
+    }
+    if (t !== 'CC' && t !== 'CTRA' && n.length === 10 && n.startsWith('1')) {
+      avisos.push(`Ese número tiene forma de <b>cédula de ciudadanía</b>, pero eligió <b>${etiqueta}</b>. Verifique el tipo.`);
+    }
+
+    const res = await Swal.fire({
+      icon: 'question',
+      title: 'Confirme su documento',
+      html: `
+        <p style="text-align:left;margin:0 0 10px;">Con estos datos se <b>consultará y registrará</b> toda su información. Revíselos antes de continuar.</p>
+        <div style="background:#f3f4f6;border-radius:10px;padding:14px;margin:12px 0;text-align:center;">
+          <div style="font-size:13px;color:#6b7280;letter-spacing:.04em;text-transform:uppercase;">${etiqueta}</div>
+          <div style="font-size:28px;font-weight:700;letter-spacing:.06em;color:#111827;margin-top:4px;">${this.esc(n)}</div>
+        </div>
+        ${avisos.map(a => `<p style="text-align:left;background:#fffbeb;border-left:3px solid #f59e0b;padding:8px 10px;margin:8px 0;font-size:13px;color:#92400e;">${a}</p>`).join('')}
+        <p style="text-align:left;font-size:12px;color:#6b7280;margin:10px 0 0;">Si se equivoca, sus datos quedarán guardados bajo otro documento y no podrá ingresar después.</p>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Sí, es correcto',
+      cancelButtonText: 'Corregir',
+      reverseButtons: true,
+      confirmButtonColor: '#111827',
+      width: 520,
+    });
+    return !!res.isConfirmed;
+  }
+
+  /** Ayuda bajo el campo: qué se espera para el tipo que está elegido ahora. */
+  hintDocumento(): string {
+    const tipo = String(this.searchForm.get('tipo_doc')?.value || '').toUpperCase().trim();
+    if (!tipo) return 'Elija primero el tipo de documento';
+    const r = this.reglaDoc(tipo);
+    const rango = r.min === r.max ? `${r.min} dígitos` : `entre ${r.min} y ${r.max} dígitos`;
+    return `${this.nombreTipoDoc(tipo) || r.nombre}: ${rango} (ej: ${r.ejemplo})`;
+  }
+
+  /** Nombre visible del tipo de documento según el catálogo cargado. */
+  private nombreTipoDoc(abbr: string): string {
+    const hit = (this.tipoDocs || []).find(
+      (d: any) => String(d?.abbreviation || '').toUpperCase().trim() === String(abbr || '').toUpperCase().trim()
+    );
+    return String(hit?.description || '').trim();
   }
 
   /**
@@ -3375,12 +3604,19 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
             this.usuarioRegistradoPara = claveUsuario;
             this.createUserInBackground(raw);
           }
+          // Es el único momento en que se le puede entregar el usuario: acá se
+          // crea la cuenta. Sin temporizador — tiene que poder anotarlo.
+          const usuarioAcceso = this.usuarioDeAcceso(g('tipoDoc'), g('numeroCedula'));
+          const cedulaLimpia = String(g('numeroCedula')).replace(/\D/g, '');
           Swal.fire({
             icon: 'success',
             title: 'Paso 1 guardado',
-            text: 'Sus datos básicos se guardaron correctamente.',
-            timer: 2000,
-            showConfirmButton: false
+            html: `<p style="text-align:left;margin:0;">Sus datos básicos se guardaron y ya tiene cuenta para ingresar al portal:</p>
+                   ${this.cajaCredenciales(usuarioAcceso, cedulaLimpia, (g('correo') || '').toLowerCase())}
+                   <p style="text-align:left;font-size:12px;color:#6b7280;margin:0;">Anótelos: los va a necesitar para consultar sus documentos y desprendibles.</p>`,
+            confirmButtonText: 'Anotado, continuar',
+            confirmButtonColor: '#111827',
+            width: 480,
           });
           this.stepper.next();
         },
@@ -3389,6 +3625,54 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           this.handleBackendError(err, 'No se pudo guardar el paso 1. Revise los datos e intente de nuevo.');
         }
       });
+  }
+
+  /**
+   * Nombre de usuario con el que la persona inicia sesión: una letra según el
+   * tipo de documento + la cédula. Espeja `usuario_de_acceso()` de
+   * `gestion_catalogos/tipos_doc.py`; si cambia allá, cambia acá.
+   *
+   * El prefijo NO se guarda: `numero_de_documento` viaja limpio y el backend
+   * traduce la letra al iniciar sesión. Existe para separar a dos personas
+   * distintas que comparten número con tipo diferente.
+   */
+  usuarioDeAcceso(tipoDoc: any, numero: any): string {
+    const digitos = String(numero ?? '').replace(/\D/g, '');
+    if (!digitos) return '';
+
+    // Mismo saneo que `_a_letras()` en Python: quitar tildes y la eñe ANTES de
+    // dejar solo A-Z. Sin el paso de tildes, "Contraseña" queda "CONTRASEA" y
+    // caería en la 'P' cuando le corresponde la 'C'.
+    const t = String(tipoDoc || '')
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .toUpperCase().replace(/[^A-Z]/g, '');
+
+    // Dos letras: 'C' cédula de ciudadanía (y CTRA, que es esa misma cédula en
+    // trámite, o sea la misma persona) y 'P' todo documento de extranjero.
+    // Espeja `_PREFIJO_POR_TIPO` de gestion_catalogos/tipos_doc.py.
+    // Un tipo irreconocible cae en 'C', que es el 97% de las cuentas.
+    const ES_CEDULA = new Set([
+      'CC', 'CCC', 'CDC', 'CEDULA', 'CEDULACIUDADANIA', 'CEDULADECIUDADANIA',
+      'CTRA', 'CONT', 'CTR', 'CONTRASENA',
+    ]);
+    const ES_EXTRANJERO = new Set([
+      'CE', 'CEX', 'CEDULAEXTRANJERIA', 'CEDULADEEXTRANJERIA',
+      'PPT', 'PET', 'PEP', 'PTT', 'PPTT', 'PP', 'PERMISO',
+      'TI',
+    ]);
+    return `${ES_EXTRANJERO.has(t) && !ES_CEDULA.has(t) ? 'P' : 'C'}${digitos}`;
+  }
+
+  /** Bloque HTML de credenciales, igual en todos los avisos al usuario. */
+  private cajaCredenciales(usuario: string, cedula: string, correo?: string): string {
+    return `
+      <div style="background:#f3f4f6;border-radius:10px;padding:12px 14px;margin:10px 0;text-align:left;">
+        <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;">Usuario</div>
+        <div style="font-size:22px;font-weight:700;color:#111827;letter-spacing:.04em;">${this.esc(usuario)}</div>
+        <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;margin-top:8px;">Contraseña</div>
+        <div style="font-size:16px;font-weight:600;color:#111827;">${this.esc(cedula)} <span style="font-weight:400;color:#6b7280;">(su número de documento)</span></div>
+        ${correo ? `<div style="font-size:12px;color:#6b7280;margin-top:8px;">También puede entrar con su correo <b>${this.esc(correo)}</b>.</div>` : ''}
+      </div>`;
   }
 
   /**
@@ -3802,12 +4086,8 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           Swal.fire({
             icon: 'success',
             title: 'Correo de acceso agregado',
-            html: `<p style="text-align:left;">Ya existía una cuenta con la cédula <b>${cedula}</b>. Agregamos este correo como acceso adicional.</p>
-                   <p style="text-align:left;">Ahora puede ingresar con:</p>
-                   <p style="text-align:left;background:#f5f5f5;padding:10px;border-radius:6px;margin:10px 0;">
-                     <b>Correo:</b> ${correo}<br>
-                     <b>Contraseña:</b> su número de cédula
-                   </p>
+            html: `<p style="text-align:left;">Ya existía una cuenta con la cédula <b>${this.esc(cedula)}</b>. Agregamos este correo como acceso adicional.</p>
+                   ${this.cajaCredenciales(this.usuarioDeAcceso(raw?.tipoDoc, cedula), String(cedula).replace(/\D/g, ''), correo)}
                    <p style="font-size:12px;color:#666;text-align:left;">Sus otros correos registrados siguen funcionando igual.</p>`,
             confirmButtonText: 'Entendido',
             confirmButtonColor: '#111827',
@@ -3961,13 +4241,9 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           Swal.fire({
             icon: 'success',
             title: 'Su cuenta fue actualizada',
-            html: `<p style="text-align:left;">Ya teníamos registrada la cédula <b>${cedula}</b>.</p>
+            html: `<p style="text-align:left;">Ya teníamos registrada la cédula <b>${this.esc(cedula)}</b>.</p>
                    <p style="text-align:left;">Actualizamos sus datos de acceso con la información más reciente.</p>
-                   <p style="text-align:left;">Puede ingresar con:</p>
-                   <p style="text-align:left;background:#f5f5f5;padding:10px;border-radius:6px;margin:10px 0;">
-                     <b>Correo:</b> ${correo}<br>
-                     <b>Contraseña:</b> su número de cédula
-                   </p>`,
+                   ${this.cajaCredenciales(this.usuarioDeAcceso(raw?.tipoDoc, cedula), String(cedula).replace(/\D/g, ''), correo)}`,
             confirmButtonText: 'Entendido',
             confirmButtonColor: '#111827',
             width: 520,

@@ -16,7 +16,10 @@ function emailOrDocValidator(control: AbstractControl): ValidationErrors | null 
   const v: string = (control.value ?? '').toString().trim();
   if (!v) return { required: true };
   const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-  const isDoc = /^\d{4,30}$/.test(v); // ajusta rango si lo necesitas
+  // Acepta el usuario con prefijo de tipo de documento ('C1005851505' cédula,
+  // 'P1005851505' extranjería/permiso) y también la cédula pelada de siempre.
+  // El backend traduce el prefijo; el número se guarda limpio.
+  const isDoc = /^[A-Za-z]?\d{4,30}$/.test(v);
   return isEmail || isDoc ? null : { emailOrDoc: true };
 }
 
