@@ -1,10 +1,11 @@
-import { 
+import {
   Component,
   OnInit,
   OnDestroy,
   ViewChild,
   ElementRef,
-  ChangeDetectionStrategy
+  ChangeDetectionStrategy,
+  ChangeDetectorRef
 } from '@angular/core';
 import {
   ReactiveFormsModule,
@@ -76,7 +77,8 @@ export class Foto implements OnInit, OnDestroy {
     private candidateS: CandidatoNewS,
     private route: ActivatedRoute,
     private titleService: Title,
-    private metaService: Meta
+    private metaService: Meta,
+    private cdr: ChangeDetectorRef
   ) {
     this.form = this.fb.group({
       numeroCedula: [
@@ -146,6 +148,7 @@ export class Foto implements OnInit, OnDestroy {
     this.capturedPhotoBase64 = null;
     this.fotoSaved = false;
     this.stopCamera(); // Stop camera if active on new search
+    this.cdr.markForCheck();
 
     Swal.fire({
       icon: 'info',
@@ -182,11 +185,13 @@ export class Foto implements OnInit, OnDestroy {
         } else {
           Swal.fire('Cédula encontrada', 'No se pudieron leer nombres.', 'info');
         }
+        this.cdr.markForCheck();
       },
       error: (err) => {
         Swal.close();
         this.searching = false;
         this.nombreCompleto = null;
+        this.cdr.markForCheck();
 
         const msg: string =
           err?.error?.message ||
@@ -222,6 +227,7 @@ export class Foto implements OnInit, OnDestroy {
       });
 
       this.isCameraActive = true;
+      this.cdr.markForCheck();
 
       // Small delay to ensure the video element is rendered
       setTimeout(() => {
@@ -236,6 +242,7 @@ export class Foto implements OnInit, OnDestroy {
       console.error('Error accessing camera:', err);
       this.isCameraActive = false;
       this.cameraError = 'No se pudo acceder a la cámara. Por favor, revisa los permisos.';
+      this.cdr.markForCheck();
       Swal.fire('Error de Cámara', this.cameraError, 'error');
     }
   }
@@ -246,6 +253,7 @@ export class Foto implements OnInit, OnDestroy {
       this.mediaStream = null;
     }
     this.isCameraActive = false;
+    this.cdr.markForCheck();
   }
 
   capturePhoto(): void {
@@ -323,6 +331,7 @@ export class Foto implements OnInit, OnDestroy {
     const file = this.dataUrlToFile(this.capturedPhotoBase64, fileName);
 
     this.saving = true;
+    this.cdr.markForCheck();
     Swal.fire({
       icon: 'info',
       title: 'Guardando…',
@@ -340,10 +349,12 @@ export class Foto implements OnInit, OnDestroy {
       Swal.close();
       this.saving = false;
       this.fotoSaved = true;
+      this.cdr.markForCheck();
       Swal.fire('¡Listo!', 'La foto se guardó correctamente como documento tipo 89.', 'success');
     } catch (err: any) {
       Swal.close();
       this.saving = false;
+      this.cdr.markForCheck();
       const msg: string =
         err?.error?.detail ||
         err?.error?.message ||
