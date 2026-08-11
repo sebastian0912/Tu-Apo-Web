@@ -453,42 +453,55 @@ export class EscanerCedula implements OnDestroy {
   // ───────────────────────── PDF ─────────────────────────
 
   /**
-   * Arma el PDF: una cara por página, tamaño carta (el formato de archivo en
-   * Colombia), centrada y con el número de cédula al pie para poder identificar
-   * la hoja si se imprime.
+   * Arma el PDF: UNA sola página carta (el formato de archivo en Colombia) con
+   * las dos caras apiladas — frontal arriba, posterior abajo — y el número de
+   * cédula al pie para poder identificar la hoja si se imprime.
    */
   private construirPdf(): jsPDF {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
     const pw = doc.internal.pageSize.getWidth();
     const ph = doc.internal.pageSize.getHeight();
-    const margen = 18;
+    const margen = 14;
+    const altoTitulo = 6;  // rótulo encima de cada cara
+    const gap = 8;         // aire entre las dos caras
+    const pie = 10;        // franja reservada al pie con la cédula
 
-    CARAS.forEach((cara, i) => {
-      if (i > 0) doc.addPage();
+    // El ancho manda; si las dos caras no caben a lo alto, se reducen juntas
+    // conservando la proporción de la cédula.
+    let w = pw - margen * 2;
+    let h = w / RATIO_CEDULA;
+    const altoUtil = ph - margen * 2 - pie;
+    const altoNecesario = () => (altoTitulo + h) * 2 + gap;
+    if (altoNecesario() > altoUtil) {
+      h = (altoUtil - altoTitulo * 2 - gap) / 2;
+      w = h * RATIO_CEDULA;
+    }
+    const x = (pw - w) / 2;
+
+    // Centrado vertical del bloque completo dentro del área útil.
+    let y = margen + (altoUtil - altoNecesario()) / 2;
+
+    CARAS.forEach((cara) => {
       const data = this.capturas[cara.id];
       if (!data) return;
 
-      const anchoMax = pw - margen * 2;
-      const w = anchoMax;
-      const h = w / RATIO_CEDULA;
-      const x = margen;
-      const y = (ph - h) / 2 - 6;
-
       doc.setFontSize(10);
       doc.setTextColor(110);
-      doc.text(cara.titulo.toUpperCase(), pw / 2, y - 7, { align: 'center' });
+      doc.text(cara.titulo.toUpperCase(), pw / 2, y + 4, { align: 'center' });
 
+      const yImg = y + altoTitulo;
       // FAST comprime; el JPEG ya viene comprimido y recomprimir degrada el texto.
-      doc.addImage(data, 'JPEG', x, y, w, h, undefined, 'NONE');
+      doc.addImage(data, 'JPEG', x, yImg, w, h, undefined, 'NONE');
 
       doc.setDrawColor(210);
-      doc.rect(x, y, w, h);
+      doc.rect(x, yImg, w, h);
 
-      doc.setFontSize(9);
-      doc.setTextColor(140);
-      doc.text(`Cédula ${this.cedula}`, pw / 2, ph - margen, { align: 'center' });
-      doc.text(`${i + 1} de ${CARAS.length}`, pw - margen, ph - margen, { align: 'right' });
+      y = yImg + h + gap;
     });
+
+    doc.setFontSize(9);
+    doc.setTextColor(140);
+    doc.text(`Cédula ${this.cedula}`, pw / 2, ph - margen, { align: 'center' });
 
     return doc;
   }
@@ -514,7 +527,7 @@ export class EscanerCedula implements OnDestroy {
     const confirm = await Swal.fire({
       icon: 'question',
       title: 'Guardar la cédula',
-      html: `<p style="text-align:left;margin:0 0 10px;">Se guardará un PDF de 2 páginas en el expediente de:</p>
+      html: `<p style="text-align:left;margin:0 0 10px;">Se guardará un PDF de 1 página (las dos caras) en el expediente de:</p>
              <div style="background:#f3f4f6;border-radius:10px;padding:12px;text-align:center;">
                <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;">Cédula</div>
                <div style="font-size:24px;font-weight:700;color:#111827;">${this.cedula}</div>
