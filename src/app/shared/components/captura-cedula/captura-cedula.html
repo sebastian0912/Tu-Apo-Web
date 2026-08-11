@@ -1,0 +1,208 @@
+<div class="cap-cedula">
+  @if (!puedeCapturar) {
+    <p class="aviso-bloqueo">
+      <mat-icon>lock</mat-icon>
+      Escriba primero el número de documento.
+    </p>
+  }
+
+  <div class="caras">
+    @for (cara of caras; track cara.id) {
+      <div class="cara" [class.lista]="tieneCaptura(cara.id)">
+        <div class="cara-encabezado">
+          <div>
+            <strong>{{ cara.titulo }}</strong>
+            <small>{{ cara.ayuda }}</small>
+          </div>
+          @if (tieneCaptura(cara.id)) {
+            <mat-icon class="ok">check_circle</mat-icon>
+          }
+        </div>
+
+        <div class="marco" [style.aspect-ratio]="ratioCedula">
+          @if (tieneCaptura(cara.id)) {
+            <img [src]="capturas[cara.id]" [alt]="cara.titulo" />
+          } @else {
+            <!-- EJEMPLO gráfico de la cara: la persona ve exactamente qué lado
+                 del documento va en esta foto antes de tomarla. -->
+            <div class="ejemplo">
+              @if (cara.id === 'frente') {
+                <svg viewBox="0 0 428 270" role="img" aria-label="Ejemplo de la cara frontal de la cédula" preserveAspectRatio="xMidYMid meet">
+                  <rect x="4" y="4" width="420" height="262" rx="18" fill="#fdf8ea" stroke="#d9cfae" stroke-width="2"/>
+                  <text x="214" y="34" text-anchor="middle" font-size="17" font-weight="700" fill="#7a6d45" letter-spacing="1">REPÚBLICA DE COLOMBIA</text>
+                  <text x="214" y="52" text-anchor="middle" font-size="11" fill="#a39873" letter-spacing="2">IDENTIFICACIÓN PERSONAL</text>
+                  <text x="214" y="68" text-anchor="middle" font-size="12" font-weight="600" fill="#8d8054" letter-spacing="1">CÉDULA DE CIUDADANÍA</text>
+                  <!-- Foto -->
+                  <rect x="26" y="86" width="108" height="140" rx="6" fill="#e8e2cd" stroke="#cfc5a2"/>
+                  <circle cx="80" cy="136" r="26" fill="#b3a87f"/>
+                  <path d="M 42 226 Q 80 168 118 226 Z" fill="#b3a87f"/>
+                  <!-- Número y nombres -->
+                  <text x="152" y="106" font-size="11" fill="#a39873">NÚMERO</text>
+                  <text x="152" y="130" font-size="22" font-weight="700" fill="#5f5433">1.005.851.505</text>
+                  <rect x="152" y="146" width="180" height="10" rx="5" fill="#d8cfae"/>
+                  <text x="152" y="172" font-size="10" fill="#a39873">APELLIDOS</text>
+                  <rect x="152" y="180" width="150" height="10" rx="5" fill="#d8cfae"/>
+                  <text x="152" y="206" font-size="10" fill="#a39873">NOMBRES</text>
+                  <!-- Firma -->
+                  <path d="M 160 240 q 18 -16 34 -2 q 14 12 30 -6 q 12 -12 26 0" fill="none" stroke="#8d8054" stroke-width="2" stroke-linecap="round"/>
+                  <text x="214" y="150" text-anchor="middle" font-size="44" font-weight="800" fill="rgba(120,106,60,0.16)" transform="rotate(-18 214 140)">EJEMPLO</text>
+                </svg>
+              } @else {
+                <svg viewBox="0 0 428 270" role="img" aria-label="Ejemplo de la cara posterior de la cédula" preserveAspectRatio="xMidYMid meet">
+                  <rect x="4" y="4" width="420" height="262" rx="18" fill="#fdf8ea" stroke="#d9cfae" stroke-width="2"/>
+                  <!-- Huella -->
+                  <rect x="26" y="26" width="96" height="118" rx="8" fill="#efe9d4" stroke="#cfc5a2"/>
+                  <g fill="none" stroke="#8d8054" stroke-width="2.4" stroke-linecap="round">
+                    <ellipse cx="74" cy="85" rx="10" ry="16"/>
+                    <ellipse cx="74" cy="85" rx="19" ry="27"/>
+                    <ellipse cx="74" cy="85" rx="28" ry="38"/>
+                    <path d="M 46 120 q 28 18 56 0"/>
+                  </g>
+                  <text x="74" y="160" text-anchor="middle" font-size="10" fill="#a39873">ÍNDICE DERECHO</text>
+                  <!-- Datos -->
+                  <text x="146" y="44" font-size="10" fill="#a39873">FECHA DE NACIMIENTO</text>
+                  <rect x="146" y="52" width="130" height="10" rx="5" fill="#d8cfae"/>
+                  <text x="146" y="82" font-size="10" fill="#a39873">LUGAR DE NACIMIENTO</text>
+                  <rect x="146" y="90" width="170" height="10" rx="5" fill="#d8cfae"/>
+                  <text x="146" y="120" font-size="10" fill="#a39873">ESTATURA</text>
+                  <rect x="146" y="128" width="60" height="10" rx="5" fill="#d8cfae"/>
+                  <text x="240" y="120" font-size="10" fill="#a39873">G.S. RH</text>
+                  <rect x="240" y="128" width="46" height="10" rx="5" fill="#d8cfae"/>
+                  <!-- Código de barras -->
+                  <g fill="#5f5433">
+                    <rect x="30" y="196" width="5" height="48"/><rect x="40" y="196" width="2" height="48"/>
+                    <rect x="47" y="196" width="7" height="48"/><rect x="59" y="196" width="3" height="48"/>
+                    <rect x="67" y="196" width="5" height="48"/><rect x="78" y="196" width="2" height="48"/>
+                    <rect x="85" y="196" width="8" height="48"/><rect x="98" y="196" width="3" height="48"/>
+                    <rect x="106" y="196" width="5" height="48"/><rect x="117" y="196" width="7" height="48"/>
+                    <rect x="129" y="196" width="2" height="48"/><rect x="136" y="196" width="5" height="48"/>
+                    <rect x="147" y="196" width="3" height="48"/><rect x="155" y="196" width="8" height="48"/>
+                    <rect x="168" y="196" width="2" height="48"/><rect x="175" y="196" width="5" height="48"/>
+                    <rect x="186" y="196" width="7" height="48"/><rect x="198" y="196" width="3" height="48"/>
+                    <rect x="206" y="196" width="5" height="48"/><rect x="217" y="196" width="2" height="48"/>
+                    <rect x="224" y="196" width="8" height="48"/><rect x="237" y="196" width="3" height="48"/>
+                    <rect x="245" y="196" width="5" height="48"/><rect x="256" y="196" width="7" height="48"/>
+                    <rect x="268" y="196" width="2" height="48"/><rect x="275" y="196" width="5" height="48"/>
+                    <rect x="286" y="196" width="3" height="48"/><rect x="294" y="196" width="8" height="48"/>
+                    <rect x="307" y="196" width="2" height="48"/><rect x="314" y="196" width="5" height="48"/>
+                    <rect x="325" y="196" width="7" height="48"/><rect x="337" y="196" width="3" height="48"/>
+                    <rect x="345" y="196" width="5" height="48"/><rect x="356" y="196" width="2" height="48"/>
+                    <rect x="363" y="196" width="8" height="48"/><rect x="376" y="196" width="3" height="48"/>
+                    <rect x="384" y="196" width="5" height="48"/><rect x="395" y="196" width="2" height="48"/>
+                  </g>
+                  <text x="214" y="150" text-anchor="middle" font-size="44" font-weight="800" fill="rgba(120,106,60,0.16)" transform="rotate(-18 214 140)">EJEMPLO</text>
+                </svg>
+              }
+              <span class="ejemplo-etiqueta">Así debe verse — tome la suya igual</span>
+            </div>
+          }
+        </div>
+
+        <div class="cara-acciones">
+          @if (tieneCaptura(cara.id)) {
+            <button mat-stroked-button type="button" (click)="repetir(cara.id)">
+              <mat-icon>refresh</mat-icon> Repetir
+            </button>
+          } @else {
+            <button mat-flat-button type="button" class="btn-negro"
+              [disabled]="!puedeCapturar || procesando" (click)="capturarCara(cara.id)">
+              <mat-icon>photo_camera</mat-icon> Tomar foto
+            </button>
+            <button mat-stroked-button type="button"
+              [disabled]="!puedeCapturar || procesando" (click)="pedirArchivo(cara.id)">
+              <mat-icon>upload</mat-icon> Subir foto
+            </button>
+          }
+        </div>
+      </div>
+    }
+  </div>
+
+  <label class="realce">
+    <input type="checkbox" [checked]="mejorar" (change)="mejorar = !mejorar" />
+    <span>
+      <strong>Mejorar como escáner</strong>
+      Aclara el fondo, oscurece el texto y define los bordes.
+    </span>
+  </label>
+
+  <div class="acciones-final">
+    <button mat-flat-button type="button" class="btn-negro grande"
+      [disabled]="!completo || generando" (click)="guardar()">
+      @if (generando) {
+        <mat-icon class="girando">progress_activity</mat-icon>
+      } @else {
+        <mat-icon>cloud_upload</mat-icon>
+      }
+      {{ generando ? 'Guardando...' : (guardadoOk ? 'Guardar de nuevo' : 'Guardar en el expediente') }}
+    </button>
+    <button mat-stroked-button type="button" [disabled]="!completo || generando" (click)="descargarPdf()">
+      <mat-icon>download</mat-icon> Descargar PDF
+    </button>
+    @if (completo) {
+      <button mat-button type="button" class="btn-limpiar" [disabled]="generando" (click)="limpiar()">
+        Empezar de nuevo
+      </button>
+    }
+  </div>
+
+  @if (guardadoOk) {
+    <p class="guardado-ok">
+      <mat-icon>check_circle</mat-icon>
+      La cédula quedó guardada en el expediente ({{ cedulaLimpia }}), en una hoja al 150%.
+    </p>
+  }
+</div>
+
+<!-- Visor de cámara a pantalla completa. Vive fuera del flujo para que el
+     scroll de la página no lo arrastre mientras se encuadra el documento. -->
+@if (visorAbierto) {
+  <div class="visor" role="dialog" aria-modal="true">
+    <div class="visor-barra">
+      <button mat-icon-button type="button" (click)="cancelarCaptura()" aria-label="Cerrar">
+        <mat-icon>close</mat-icon>
+      </button>
+      <span>{{ caraActiva === 'frente' ? 'Cara frontal' : 'Cara posterior' }}</span>
+      <span class="espaciador"></span>
+    </div>
+
+    <div class="visor-video">
+      <!-- El marco toma la proporción REAL del fotograma. Sin esto el vídeo se
+           dibuja con `contain`, queda con franjas negras, y el 82% de la guía
+           (82% del contenedor) no es el 82% del fotograma que recorta la
+           captura: la persona encuadraría una cosa y se guardaría otra. -->
+      <div class="marco-video" [style.aspect-ratio]="videoRatio">
+        <video #video playsinline muted autoplay
+          (loadedmetadata)="onVideoListo()"></video>
+
+        <!-- Misma proporción y mismo 82% que usa `tomarFoto()`. -->
+        <div class="guia" [style.aspect-ratio]="ratioCedula">
+          <span class="esquina ei"></span><span class="esquina ed"></span>
+          <span class="esquina ii"></span><span class="esquina id"></span>
+        </div>
+      </div>
+
+      @if (!camaraLista) {
+        <div class="cargando-camara">
+          <mat-icon class="girando">progress_activity</mat-icon>
+          Abriendo la cámara...
+        </div>
+      }
+    </div>
+
+    <div class="visor-pie">
+      <p>Encuadre la cédula dentro del recuadro y llénelo por completo.</p>
+      <button mat-fab extended type="button" class="disparador"
+        [disabled]="!camaraLista || procesando" (click)="tomarFoto()">
+        @if (procesando) {
+          <mat-icon class="girando">progress_activity</mat-icon>
+        } @else {
+          <mat-icon>camera</mat-icon>
+        }
+        {{ procesando ? 'Procesando...' : 'Capturar' }}
+      </button>
+    </div>
+  </div>
+}
+
+<input #archivo type="file" accept="image/*" capture="environment" hidden (change)="onArchivo($event)" />

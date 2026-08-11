@@ -24,6 +24,9 @@ import { ParametrizacionS } from '../../services/parametrizacion/parametrizacion
 import { RegistroProcesoContratacion } from '../../services/registro-proceso-contratacion/registro-proceso-contratacion';
 import { CandidateS } from '../../../../../../shared/services/candidate-s/candidate-s';
 import { DocumentManagementS } from '../../../../../../shared/services/document-management-s/document-management-s';
+import { CandidatoNewS } from '../../../../../../shared/services/candidato-new/candidato-new-s';
+import { CapturaCedula } from '../../../../../../shared/components/captura-cedula/captura-cedula';
+import { CapturaFoto } from '../../../../../../shared/components/captura-foto/captura-foto';
 import { PoliciesModal } from '../../components/policies-modal/policies-modal';
 
 // Claves con prefijo propio. Antes la guardia del borrador vivía en
@@ -128,8 +131,9 @@ const REGLAS_DOC: Record<string, { min: number; max: number; nombre: string; eje
   //  - Antiguas: la numeración arrancó en 1 (1952) y las de mujeres desde
   //    20'000.001 (1956), así que llegan hasta 8 dígitos.
   //  - NUIP: desde 2003-2004 la Registraduría numera consecutivo DESDE
-  //    1.000.000.000, sin distinguir sexo. Por eso toda cédula de 10 dígitos
-  //    empieza por 1: el rango asignado hasta hoy no ha salido de 1.2xx millones.
+  //    1.000.000.000, sin distinguir sexo. Desde ~2023 también expide la serie
+  //    2.000.000.000 (cédulas reales, p.ej. 2.000.013.887 exp. feb-2023).
+  //    Por eso una cédula de 10 dígitos empieza por 1 o por 2.
   CC: { min: 6, max: 10, nombre: 'Cédula de Ciudadanía', ejemplo: '1005851505', nuip: true },
   // Contraseña = cédula en trámite: mismo número que la CC.
   CTRA: { min: 6, max: 10, nombre: 'Contraseña', ejemplo: '1005851505', nuip: true },
@@ -173,7 +177,8 @@ export class CustomDateAdapter extends NativeDateAdapter {
     CommonModule, ReactiveFormsModule, RouterModule,
     MatStepperModule, MatInputModule, MatButtonModule, MatSelectModule, MatAutocompleteModule,
     MatDatepickerModule, MatNativeDateModule, MatIconModule, MatCheckboxModule,
-    MatRadioModule, MatDialogModule, MatMenuModule
+    MatRadioModule, MatDialogModule, MatMenuModule,
+    CapturaCedula, CapturaFoto
   ],
   templateUrl: './forms-test-contratation.html',
   styleUrl: './forms-test-contratation.css',
@@ -408,6 +413,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     private registroProcesoContratacion: RegistroProcesoContratacion,
     private gestionDocumentosService: DocumentManagementS,
     private candidateS: CandidateS,
+    private candidatoNewS: CandidatoNewS,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {
     this.isBrowser = isPlatformBrowser(this.platformId);
@@ -1506,6 +1512,41 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     return Promise.all(promises).then(() => true).catch(() => false);
   }
 
+  // ----------------------------------------------------
+  // Cédula escaneada + foto del candidato (paso 1)
+  // ----------------------------------------------------
+
+  /** Foto capturada en el paso 1, pendiente de subir. Se sube al FINAL del
+   *  registro porque el endpoint de biometría exige que el candidato exista. */
+  fotoCapturada: File | null = null;
+
+  onFotoLista(archivo: File | null): void {
+    this.fotoCapturada = archivo;
+    this.cdr.markForCheck();
+  }
+
+  /** Cédula que reciben los componentes de captura del paso 1. Solo se entrega
+   *  cuando el número es plausible: un documento archivado bajo una cédula
+   *  equivocada es un documento perdido. */
+  get cedulaParaCaptura(): string {
+    const v = String(this.formHojaDeVida2?.get('numeroCedula')?.value || '').trim();
+    return /^[1-9]\d{4,10}$/.test(v) ? v : '';
+  }
+
+  /** Sube la foto a biometría (FOTO=89). Se llama tras el upsert del candidato;
+   *  si falla no tumba el registro: la foto se puede volver a tomar después. */
+  private async subirFotoCapturada(): Promise<boolean> {
+    if (!(this.fotoCapturada instanceof File)) return true;
+    try {
+      await firstValueFrom(this.candidatoNewS.uploadFoto(this.numeroCedula, this.fotoCapturada));
+      this.fotoCapturada = null;
+      return true;
+    } catch (e) {
+      console.error('[foto] no se pudo subir la foto del candidato', e);
+      return false;
+    }
+  }
+
   updateStepperStats() {
     if (!this.stepper) return;
     this.stepperTotal = this.stepper.steps.length;
@@ -1753,7 +1794,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       return `Escribió ${e.actual} dígito${e.actual === 1 ? '' : 's'}. Una ${e.nombre} tiene ${rango} (ej: ${e.ejemplo}). Verifique el tipo de documento y el número`;
     }
     if (errors['nuipInvalido']) {
-      return `Una ${errors['nuipInvalido'].nombre} de 10 dígitos siempre empieza por 1. Revise el número o cambie el tipo de documento`;
+      return `Una ${errors['nuipInvalido'].nombre} de 10 dígitos siempre empieza por 1 o por 2. Revise el número o cambie el tipo de documento`;
     }
 
     // Usuario del correo
@@ -2182,9 +2223,9 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
         return { largoPorTipo: { tipo, ...regla, actual: num.length } };
       }
 
-      // NUIP: toda cédula de 10 dígitos expedida en Colombia empieza por 1.
-      // Un 10 dígitos que arranque distinto es el número de otro documento.
-      if ((regla as any).nuip && num.length === 10 && !num.startsWith('1')) {
+      // NUIP: las cédulas de 10 dígitos van en las series 1.xxx (2003+) y
+      // 2.xxx (2023+). Un 10 dígitos que arranque distinto es otro documento.
+      if ((regla as any).nuip && num.length === 10 && !/^[12]/.test(num)) {
         return { nuipInvalido: { tipo, nombre: regla.nombre } };
       }
 
@@ -3265,6 +3306,11 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           } catch(e) {
             filesOk = false;
           }
+
+          // La foto del paso 1 se sube AQUÍ (y no al capturarla) porque el
+          // endpoint de biometría necesita que el candidato ya exista. No es
+          // bloqueante: si falla, el registro queda completo igual.
+          await this.subirFotoCapturada();
 
           // Registro completo: se borran los datos personales que quedaron en
           // este equipo (suele ser un computador de oficina compartido) y se

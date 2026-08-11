@@ -235,6 +235,32 @@
                   <ng-container
                   *ngTemplateOutlet="selectField; context: {control: 'expectativasVidaChecks', label: '¿Cómo se proyecta?', options: expectativasVida, multiple: true}"></ng-container>
                 </div>
+                <!-- G) Cédula escaneada + foto. Guiado con ejemplos gráficos.
+                     La cédula se guarda de una vez en el expediente (documental
+                     va por owner_id); la foto queda en memoria y se sube al
+                     FINALIZAR el registro, porque biometría exige que el
+                     candidato ya exista. Nada de esto bloquea el "Siguiente". -->
+                <div class="full-width sub-section">
+                  <h4>Cédula Escaneada y Foto</h4>
+                  <p style="font-size:12px;color:#666;margin-top:4px;">
+                    Adelante estos dos requisitos desde ya y su contratación será más rápida.
+                    Guíese por los <strong>ejemplos</strong>: la cédula queda en una hoja al 150%
+                    (la misma copia que se entrega en papelería) y la foto es tipo documento.
+                  </p>
+                </div>
+                <div class="full-width captura-bloque">
+                  <h5 class="captura-titulo"><mat-icon>badge</mat-icon> Su cédula, por las dos caras</h5>
+                  <app-captura-cedula [cedula]="cedulaParaCaptura"></app-captura-cedula>
+                </div>
+                <div class="full-width captura-bloque">
+                  <h5 class="captura-titulo"><mat-icon>account_box</mat-icon> Su foto
+                    @if (fotoCapturada) {
+                      <span class="captura-lista"><mat-icon>check_circle</mat-icon> Lista — se enviará al finalizar</span>
+                    }
+                  </h5>
+                  <app-captura-foto [cedula]="cedulaParaCaptura" [habilitado]="!!cedulaParaCaptura"
+                    (archivoListo)="onFotoLista($event)"></app-captura-foto>
+                </div>
                 <div class="actions">
                   <button mat-raised-button color="primary" type="button" class="btn-next"
                   (click)="saveStep1InBackgroundAndNext()">Siguiente</button>

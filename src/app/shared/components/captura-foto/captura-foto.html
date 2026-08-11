@@ -1,0 +1,98 @@
+<div class="cap-foto">
+  <div class="cuerpo">
+    <div class="marco" [style.aspect-ratio]="ratioFoto">
+      @if (tieneFoto) {
+        <img [src]="preview" alt="Foto capturada" />
+      } @else {
+        <!-- EJEMPLO gráfico: cómo debe verse una foto tipo documento. -->
+        <div class="ejemplo">
+          <svg viewBox="0 0 300 400" role="img" aria-label="Ejemplo de foto tipo documento" preserveAspectRatio="xMidYMid meet">
+            <rect x="4" y="4" width="292" height="392" rx="12" fill="#eef2f7" stroke="#d3dbe6" stroke-width="2"/>
+            <!-- Persona centrada, de frente, plano hombros -->
+            <circle cx="150" cy="150" r="62" fill="#9db0c7"/>
+            <path d="M 54 396 Q 150 268 246 396 Z" fill="#9db0c7"/>
+            <!-- Guía de encuadre -->
+            <ellipse cx="150" cy="185" rx="98" ry="150" fill="none" stroke="#64748b" stroke-width="2.5" stroke-dasharray="7 7"/>
+            <text x="150" y="205" text-anchor="middle" font-size="40" font-weight="800" fill="rgba(71,85,105,0.16)" transform="rotate(-18 150 200)">EJEMPLO</text>
+          </svg>
+          <span class="ejemplo-etiqueta">Así debe verse su foto</span>
+        </div>
+      }
+    </div>
+
+    <div class="lado">
+      <ul class="requisitos">
+        <li><mat-icon>check</mat-icon> De frente, solo y del pecho hacia arriba</li>
+        <li><mat-icon>check</mat-icon> Fondo claro y parejo (una pared sirve)</li>
+        <li><mat-icon>check</mat-icon> Buena luz, sin sombras en la cara</li>
+        <li><mat-icon>close</mat-icon> Sin gorra, gafas oscuras ni filtros</li>
+      </ul>
+
+      <div class="acciones">
+        @if (tieneFoto) {
+          <button mat-stroked-button type="button" (click)="repetir()">
+            <mat-icon>refresh</mat-icon> Repetir
+          </button>
+        } @else {
+          <button mat-flat-button type="button" class="btn-negro"
+            [disabled]="!habilitado || procesando" (click)="abrirCamara()">
+            <mat-icon>photo_camera</mat-icon> Tomarme la foto
+          </button>
+          <button mat-stroked-button type="button"
+            [disabled]="!habilitado || procesando" (click)="pedirArchivo()">
+            <mat-icon>upload</mat-icon> Subir foto
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Visor de cámara a pantalla completa -->
+@if (visorAbierto) {
+  <div class="visor" role="dialog" aria-modal="true">
+    <div class="visor-barra">
+      <button mat-icon-button type="button" (click)="cancelarCaptura()" aria-label="Cerrar">
+        <mat-icon>close</mat-icon>
+      </button>
+      <span>Su foto</span>
+      <span class="espaciador"></span>
+    </div>
+
+    <div class="visor-video">
+      <div class="marco-video" [style.aspect-ratio]="videoRatio">
+        <!-- La vista en vivo se espeja (como un espejo real); la foto que se
+             guarda va SIN espejo, como toda foto de documento. -->
+        <video #video playsinline muted autoplay [class.espejo]="espejo"
+          (loadedmetadata)="onVideoListo()"></video>
+
+        <!-- Guía 3:4 con óvalo: lo que queda dentro es lo que se recorta. -->
+        <div class="guia" [style.aspect-ratio]="ratioFoto">
+          <div class="ovalo"></div>
+        </div>
+      </div>
+
+      @if (!camaraLista) {
+        <div class="cargando-camara">
+          <mat-icon class="girando">progress_activity</mat-icon>
+          Abriendo la cámara...
+        </div>
+      }
+    </div>
+
+    <div class="visor-pie">
+      <p>Centre la cara dentro del óvalo, mire a la cámara y no sonría exagerado.</p>
+      <button mat-fab extended type="button" class="disparador"
+        [disabled]="!camaraLista || procesando" (click)="tomarFoto()">
+        @if (procesando) {
+          <mat-icon class="girando">progress_activity</mat-icon>
+        } @else {
+          <mat-icon>camera</mat-icon>
+        }
+        {{ procesando ? 'Procesando...' : 'Capturar' }}
+      </button>
+    </div>
+  </div>
+}
+
+<input #archivo type="file" accept="image/*" capture="user" hidden (change)="onArchivo($event)" />
