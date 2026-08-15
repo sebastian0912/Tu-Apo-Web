@@ -2,6 +2,11 @@ import { RenderMode, ServerRoute } from '@angular/ssr';
 
 export const serverRoutes: ServerRoute[] = [
   {
+    // Formulario público: hace fetch al gateway y usa cámara; render en cliente.
+    path: 'f/:token',
+    renderMode: RenderMode.Client
+  },
+  {
     path: 'formulario/firma',
     renderMode: RenderMode.Client
   },
