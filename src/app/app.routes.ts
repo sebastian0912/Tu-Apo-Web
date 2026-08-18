@@ -20,4 +20,9 @@ export const routes: Routes = [
     path: 'f/:token',
     loadComponent: () => import('./features/public-form/public-form.component').then(m => m.PublicFormComponent)
   },
+  {
+    // Formulario DINÁMICO público por link compartible. Consume api.tuapo.co/api/dynamic-forms/public/*.
+    path: 'fd/:token',
+    loadComponent: () => import('./features/public-dynamic-form/public-dynamic-form.component').then(m => m.PublicDynamicFormComponent)
+  },
 ];
