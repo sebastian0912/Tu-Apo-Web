@@ -240,11 +240,13 @@ export class ParametrizacionS {
 
     const a = this.toBoolParam(activo);
 
-    // POST recomendado (no te limita por tamaño de URL)
-    const body: any = { tablas: codes };
-    if (a !== undefined) body.activo = (a === 'true' || a === '1');
+    // GET: el backend Java (MetaController) solo mapea GET en /valores/bulk.
+    // Son ~22 códigos, la URL queda corta. `activo` se ignora en el servidor
+    // (el llamador ya filtra por i.activo en el cliente).
+    let params = new HttpParams().set('tablas', codes.join(','));
+    if (a !== undefined) params = params.set('activo', a);
 
-    return this.http.post<BulkValoresResponse>(url, body).pipe(
+    return this.http.get<BulkValoresResponse>(url, { params }).pipe(
       map((resp: any) => ({
         results: resp?.results ?? {},
         counts: resp?.counts ?? {},

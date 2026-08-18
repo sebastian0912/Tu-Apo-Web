@@ -89,7 +89,7 @@ export class CandidatoNewS {
 
     // POST /biometria/upload/{tipo}
     return this.http
-      .post<DocumentInfo>(this.url(`biometria/upload/${tipo}/`), fd)
+      .post<DocumentInfo>(this.url(`gestion_contratacion/biometria/upload/${tipo}/`), fd)
       .pipe(this.handle$());
   }
 
@@ -109,7 +109,7 @@ export class CandidatoNewS {
       fd.append('consentimiento_user_agent', consentimiento.userAgent);
     }
     return this.http
-      .post<DocumentInfo>(this.url('biometria/upload/firma/'), fd)
+      .post<DocumentInfo>(this.url('gestion_contratacion/biometria/upload/firma/'), fd)
       .pipe(this.handle$());
   }
   uploadHuella(numero_documento: string | number, file: File) {
@@ -124,7 +124,7 @@ export class CandidatoNewS {
     const safe = encodeURIComponent(String(numero_documento));
     // GET /biometria/<cedula>/
     return this.http
-      .get<BiometriaResponse>(this.url(`biometria/${safe}/`))
+      .get<BiometriaResponse>(this.url(`gestion_contratacion/biometria/${safe}/`))
       .pipe(this.handle$());
   }
 
@@ -139,7 +139,7 @@ export class CandidatoNewS {
     // Dependiendo de tu API, puede devolver array o paginado {results, count,...}
     return this.http
       .get<DocumentInfo[] | { results: DocumentInfo[]; count: number }>(
-        this.url('biometria'),
+        this.url('gestion_contratacion/biometria'),
         { params }
       )
       .pipe(this.handle$());
@@ -158,7 +158,7 @@ export class CandidatoNewS {
     if (full) params = params.set('full', '1');
 
     return this.http
-      .get<any>(this.url(`candidatos/by-document/${safe}`), { params })
+      .get<any>(this.url(`gestion_contratacion/candidatos/by-document/${safe}`), { params })
       .pipe(this.handle$());
   }
 }

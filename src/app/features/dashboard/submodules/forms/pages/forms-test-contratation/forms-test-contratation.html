@@ -168,12 +168,13 @@
                     <h4>Contacto y Domicilio</h4>
                   </div>
                   <div class="grid-layout">
-                    <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'zonaResidencia', label: 'Barrio'}"></ng-container>
+                    <!-- Jerarquía geográfica: departamento → ciudad → barrio. -->
                     <ng-container
                     *ngTemplateOutlet="selectField; context: {control: 'departamento', label: 'Departamento Residencia', options: filteredDeptoRes, optionsKey: 'departamento', valueKey: 'departamento', searchControl: searchDeptoRes}"></ng-container>
                     <ng-container
                     *ngTemplateOutlet="selectField; context: {control: 'ciudad', label: 'Ciudad Residencia', options: filteredMunRes, searchControl: searchMunRes}"></ng-container>
+                    <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'zonaResidencia', label: 'Barrio'}"></ng-container>
                     <ng-container
                     *ngTemplateOutlet="textField; context: {control: 'direccionResidencia', label: 'Dirección Residencia', isAddress: true}"></ng-container>
                     <ng-container
@@ -202,6 +203,17 @@
                            mat-error del propio campo vía getErrorMessage. -->
                       <ng-container
                       *ngTemplateOutlet="textField; context: {control: 'correoUsuario', label: 'Usuario', placeholder: 'ej: juan.perez', sanitizar: 'usuarioCorreo', hint: 'Sin tildes ni espacios'}"></ng-container>
+                      <!-- ADVERTENCIA, no error: el campo parece traer un dominio
+                           pegado ("ivvangmail.com"). No invalida ni bloquea el
+                           guardado; la vista previa de abajo deja ver el correo
+                           mal armado y la persona decide corregirlo. -->
+                      @if (tieneAvisoDominio('correoUsuario', formHojaDeVida2)) {
+                        <p class="email-warning" id="aviso-correo-usuario" role="status">
+                          <mat-icon aria-hidden="true">warning_amber</mat-icon>
+                          <span>Parece que escribiste un dominio en el campo <strong>Usuario</strong>.
+                            Verifica que solo hayas ingresado la parte anterior al &#64;.</span>
+                        </p>
+                      }
                     </div>
                     <div class="email-at">&#64;</div>
                     <!-- Dominio Dropdown -->
@@ -221,7 +233,11 @@
                       }
                     </div>
                   </div>
-                  <p class="hint-text" style="margin-top:-10px; margin-bottom: 20px; font-size: 12px; color: #666;">
+                  <!-- Sin márgenes negativos: el hint del campo ("Sin tildes ni
+                       espacios") ocupa su propio alto (subscriptSizing dynamic)
+                       y este párrafo va DEBAJO con su margen normal; con el
+                       -10px que había aquí se montaban uno sobre otro. -->
+                  <p class="email-preview">
                     El correo se formará automáticamente: <strong>{{ formHojaDeVida2.get('correo')?.value || '...'
                   }}</strong>
                 </p>
@@ -387,36 +403,43 @@
                   <div class="full-width sub-section">
                     <h4>Padres</h4>
                   </div>
+                  <!-- Cada padre en su PROPIA subgrilla: compartían la grilla y
+                       al ocultar los campos condicionales del padre (NO VIVE),
+                       los de la madre subían a su fila y parecían intercambiados. -->
                   <!-- Padre -->
-                  <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'nombrePadre', label: 'Nombre Padre'}"></ng-container>
-                  <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'elPadreVive', label: 'Estado del padre', options: parentStatusOptions, optionsKey: 'display', valueKey: 'value'}"></ng-container>
-                  @if (formHojaDeVida2.get('elPadreVive')?.value === 'VIVE') {
+                  <div class="grid-layout full-width">
                     <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'ocupacionPadre', label: 'Ocupación', options: Ocupacion}"></ng-container>
+                    *ngTemplateOutlet="textField; context: {control: 'nombrePadre', label: 'Nombre Padre'}"></ng-container>
                     <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'direccionPadre', label: 'Dirección (Ej: CR 35 B 25 53. Se normaliza)', isAddress: true}"></ng-container>
-                    <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'barrioPadre', label: 'Barrio', hint: 'Opcional'}"></ng-container>
-                    <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'telefonoPadre', label: 'Teléfono', type: 'tel'}"></ng-container>
-                  }
+                    *ngTemplateOutlet="selectField; context: {control: 'elPadreVive', label: 'Estado del padre', options: parentStatusOptions, optionsKey: 'display', valueKey: 'value'}"></ng-container>
+                    @if (formHojaDeVida2.get('elPadreVive')?.value === 'VIVE') {
+                      <ng-container
+                      *ngTemplateOutlet="selectField; context: {control: 'ocupacionPadre', label: 'Ocupación', options: Ocupacion}"></ng-container>
+                      <ng-container
+                      *ngTemplateOutlet="textField; context: {control: 'direccionPadre', label: 'Dirección (Ej: CR 35 B 25 53. Se normaliza)', isAddress: true}"></ng-container>
+                      <ng-container
+                      *ngTemplateOutlet="textField; context: {control: 'barrioPadre', label: 'Barrio', hint: 'Opcional'}"></ng-container>
+                      <ng-container
+                      *ngTemplateOutlet="textField; context: {control: 'telefonoPadre', label: 'Teléfono', type: 'tel'}"></ng-container>
+                    }
+                  </div>
                   <!-- Madre -->
-                  <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'nombreMadre', label: 'Nombre Madre'}"></ng-container>
-                  <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'madreVive', label: 'Estado de la madre', options: parentStatusOptions, optionsKey: 'display', valueKey: 'value'}"></ng-container>
-                  @if (formHojaDeVida2.get('madreVive')?.value === 'VIVE') {
+                  <div class="grid-layout full-width">
                     <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'ocupacionMadre', label: 'Ocupación', options: Ocupacion}"></ng-container>
+                    *ngTemplateOutlet="textField; context: {control: 'nombreMadre', label: 'Nombre Madre'}"></ng-container>
                     <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'direccionMadre', label: 'Dirección (Ej: CR 35 B 25 53. Se normaliza)', isAddress: true}"></ng-container>
-                    <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'barrioMadre', label: 'Barrio', hint: 'Opcional'}"></ng-container>
-                    <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'telefonoMadre', label: 'Teléfono', type: 'tel'}"></ng-container>
-                  }
+                    *ngTemplateOutlet="selectField; context: {control: 'madreVive', label: 'Estado de la madre', options: parentStatusOptions, optionsKey: 'display', valueKey: 'value'}"></ng-container>
+                    @if (formHojaDeVida2.get('madreVive')?.value === 'VIVE') {
+                      <ng-container
+                      *ngTemplateOutlet="selectField; context: {control: 'ocupacionMadre', label: 'Ocupación', options: Ocupacion}"></ng-container>
+                      <ng-container
+                      *ngTemplateOutlet="textField; context: {control: 'direccionMadre', label: 'Dirección (Ej: CR 35 B 25 53. Se normaliza)', isAddress: true}"></ng-container>
+                      <ng-container
+                      *ngTemplateOutlet="textField; context: {control: 'barrioMadre', label: 'Barrio', hint: 'Opcional'}"></ng-container>
+                      <ng-container
+                      *ngTemplateOutlet="textField; context: {control: 'telefonoMadre', label: 'Teléfono', type: 'tel'}"></ng-container>
+                    }
+                  </div>
                   <!-- Referencias Personales -->
                   <div class="full-width sub-section">
                     <h4>Referencia Personal 1</h4>
@@ -678,13 +701,17 @@
   let-isAddress="isAddress" let-hint="hint" let-placeholder="placeholder" let-sanitizar="sanitizar"
   let-min="min" let-max="max" let-step="step">
   <mat-form-field appearance="outline" class="w-100 check-field"
-    [class.field-ok]="isFieldOk(control, formGroup)"
+    [class.field-ok]="isFieldOk(control, formGroup) && !tieneAvisoDominio(control, formGroup)"
+    [class.field-warn]="tieneAvisoDominio(control, formGroup)"
     [class.field-bad]="shouldShowError(control, formGroup)">
     <mat-label>{{label}}</mat-label>
     <!-- `sanitizar` limpia el valor mientras se escribe (hoy solo el usuario
          del correo: le quita tildes y espacios en vivo).
-         `min`/`max`/`step` acotan los campos numéricos desde el propio input. -->
+         `min`/`max`/`step` acotan los campos numéricos desde el propio input.
+         `aria-describedby` ata el aviso amarillo del correo al input para que
+         un lector de pantalla lo anuncie (solo se emite cuando hay aviso). -->
     <input matInput [formControl]="getControl(control, formGroup)"
+      [aria-describedby]="tieneAvisoDominio(control, formGroup) ? 'aviso-correo-usuario' : ''"
       [type]="type === 'password' ? (hidePassword ? 'password' : 'text') : (type || 'text')"
       [placeholder]="isAddress ? 'CL 12 33 24' : (placeholder || '')"
       [attr.min]="min ?? null" [attr.max]="max ?? null" [attr.step]="step ?? null"

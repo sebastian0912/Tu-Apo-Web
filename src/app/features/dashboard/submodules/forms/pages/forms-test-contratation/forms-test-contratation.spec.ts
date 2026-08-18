@@ -13,6 +13,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { of, throwError } from 'rxjs';
 
 import { FormsTestContratation } from './forms-test-contratation';
+import { detectarDominioEnUsuario } from './email-warning.util';
 import { ParametrizacionS } from '../../services/parametrizacion/parametrizacion-s';
 import { RegistroProcesoContratacion } from '../../services/registro-proceso-contratacion/registro-proceso-contratacion';
 import { CandidateS } from '../../../../../../shared/services/candidate-s/candidate-s';
@@ -60,6 +61,11 @@ describe('FormsTestContratation (DOM)', () => {
     // sobre cualquier provider del TestBed. Se neutraliza el modal de habeas
     // data en el prototipo: no es lo que se está probando aquí.
     spyOn(FormsTestContratation.prototype as any, 'openPoliciesDialog').and.stub();
+
+    // `onSearch` confirma el documento con un Swal.fire que espera un clic;
+    // en el runner no hay quien lo dé y el await colgaba TODA la suite DOM
+    // (stepper undefined + timeouts). Se resuelve como "sí, es correcto".
+    spyOn(FormsTestContratation.prototype as any, 'confirmarDocumento').and.resolveTo(true);
 
     await TestBed.configureTestingModule({
       // El proyecto no instala @angular/animations: Material corre sin ellas.
@@ -188,6 +194,59 @@ describe('FormsTestContratation (DOM)', () => {
     expect(camposBarrio()).withContext('padre y madre VIVE').toBe(2);
   });
 
+  it('marcar NO VIVE conserva el nombre del padre; NO LO CONOCE lo vacía recordándolo', async () => {
+    await abrirFormulario();
+    await irAlPaso(2);
+    const f = comp.formHojaDeVida2;
+    f.get('nombrePadre')!.setValue('JUAN PEREZ');
+
+    // NO VIVE: la dirección/teléfono/ocupación dejan de aplicar, pero el
+    // nombre del fallecido se conserva (antes se borraba: bug reportado).
+    f.get('elPadreVive')!.setValue('NO VIVE');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(f.get('nombrePadre')!.value).toBe('JUAN PEREZ');
+    expect(f.get('nombrePadre')!.enabled).toBeTrue();
+
+    // NO LO CONOCE: sí se vacía y bloquea…
+    f.get('elPadreVive')!.setValue('NO LO CONOCE');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(f.get('nombrePadre')!.value).toBe('');
+    expect(f.get('nombrePadre')!.disabled).toBeTrue();
+
+    // …y al volver a VIVE se restaura lo recordado.
+    f.get('elPadreVive')!.setValue('VIVE');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(f.get('nombrePadre')!.value).toBe('JUAN PEREZ');
+    expect(f.get('nombrePadre')!.enabled).toBeTrue();
+  });
+
+  it('finalizar con pendientes muestra el resumen TOTAL por pasos y NO llama al backend', async () => {
+    await abrirFormulario();
+    // Fechas de identidad válidas para que el candado específico de fechas no
+    // tape el resumen general.
+    comp.formHojaDeVida2.get('fechaNacimiento')!.setValue(new Date(1990, 0, 15));
+    comp.formHojaDeVida2.get('fechaExpedicionCC')!.setValue(new Date(2010, 5, 20));
+
+    const svc: any = TestBed.inject(RegistroProcesoContratacion);
+    const spyUpsert = spyOn(svc, 'crearActualizarCandidato2').and.callThrough();
+
+    await comp.imprimirInformacion2();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(spyUpsert).withContext('con pendientes no debe enviarse nada').not.toHaveBeenCalled();
+    const swal = document.body.querySelector('.swal2-container');
+    expect(swal).withContext('debe abrirse el resumen').not.toBeNull();
+    const texto = swal!.textContent || '';
+    expect(texto).toContain('por completar');
+    expect(texto).toContain('Paso 1');
+    (document.body.querySelector('.swal2-confirm') as HTMLButtonElement | null)?.click();
+    await fixture.whenStable();
+  });
+
   it('el paso final ya no ofrece "¿Generar HV automática?"', async () => {
     await abrirFormulario();
     await irAlPaso(4);
@@ -231,5 +290,129 @@ describe('FormsTestContratation (DOM)', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     expect(comp.ciudadesResidencia.length).toBe(3);
+  });
+
+  // ------------------------------------------------------------------
+  // Aviso "dominio en el Usuario del correo": ADVERTENCIA, nunca error.
+  // ------------------------------------------------------------------
+  describe('aviso de dominio en el usuario del correo', () => {
+    /** Fija usuario + dominio y deja el DOM estable. */
+    async function ponerCorreo(usuario: string, dominio = 'GMAIL.COM') {
+      comp.formHojaDeVida2.get('correoUsuario')!.setValue(usuario);
+      comp.formHojaDeVida2.get('correoDominio')!.setValue(dominio);
+      fixture.detectChanges();
+      await fixture.whenStable();
+    }
+    const aviso = () => fixture.nativeElement.querySelector('.email-warning');
+    const campoWarn = () => fixture.nativeElement.querySelector('.email-row .check-field.field-warn');
+
+    it('ivvan + GMAIL.COM: sin aviso y el correo se arma', async () => {
+      await abrirFormulario();
+      await ponerCorreo('ivvan');
+      expect(comp.avisoDominioEnUsuario).toBeFalse();
+      expect(aviso()).toBeNull();
+      expect(campoWarn()).toBeNull();
+      expect(comp.formHojaDeVida2.get('correo')!.value).toBe('IVVAN@GMAIL.COM');
+    });
+
+    it('ivvangmail.com: avisa (amarillo) pero el control SIGUE VÁLIDO y el correo se arma igual', async () => {
+      await abrirFormulario();
+      await ponerCorreo('ivvangmail.com');
+      expect(comp.avisoDominioEnUsuario).toBeTrue();
+      expect(aviso()).withContext('debe pintarse el mensaje').not.toBeNull();
+      expect(aviso()!.textContent).toContain('parte anterior al @');
+      expect(campoWarn()).withContext('el campo debe llevar .field-warn').not.toBeNull();
+      // La advertencia NO invalida ni bloquea: sin errores en el control y el
+      // correo se arma tal cual (eso deja VER el error en la vista previa).
+      expect(comp.formHojaDeVida2.get('correoUsuario')!.valid).toBeTrue();
+      expect(comp.formHojaDeVida2.get('correoUsuario')!.errors).toBeNull();
+      expect(comp.formHojaDeVida2.get('correo')!.value).toBe('IVVANGMAIL.COM@GMAIL.COM');
+    });
+
+    it('MAYÚSCULAS: IVVANGMAIL.COM también avisa', async () => {
+      await abrirFormulario();
+      await ponerCorreo('IVVANGMAIL.COM');
+      expect(comp.avisoDominioEnUsuario).toBeTrue();
+      expect(comp.formHojaDeVida2.get('correoUsuario')!.valid).toBeTrue();
+    });
+
+    it('otro dominio del catálogo (ivvanoutlook.com) avisa aunque el elegido sea GMAIL.COM', async () => {
+      await abrirFormulario();
+      await ponerCorreo('ivvanoutlook.com', 'GMAIL.COM');
+      expect(comp.avisoDominioEnUsuario).toBeTrue();
+    });
+
+    it('un @ (valor precargado) avisa; el validador previo sigue intacto', async () => {
+      await abrirFormulario();
+      await ponerCorreo('ivvan@gmail.com');
+      expect(comp.avisoDominioEnUsuario).toBeTrue();
+      expect(aviso()).not.toBeNull();
+      // La regla de negocio EXISTENTE no se toca: @ sigue siendo error del
+      // validador (el aviso no la reemplaza ni la duplica en rojo).
+      expect(comp.formHojaDeVida2.get('correoUsuario')!.hasError('arrobaEnUsuario')).toBeTrue();
+    });
+
+    it('reactividad: el aviso aparece y desaparece al corregir, sin residuo', async () => {
+      await abrirFormulario();
+      await ponerCorreo('ivvan');
+      expect(aviso()).toBeNull();
+      await ponerCorreo('ivvangmail.com');
+      expect(aviso()).not.toBeNull();
+      await ponerCorreo('ivvan');
+      expect(aviso()).toBeNull();
+      expect(campoWarn()).toBeNull();
+      expect(comp.formHojaDeVida2.get('correo')!.value).toBe('IVVAN@GMAIL.COM');
+    });
+
+    it('accesibilidad: el aviso queda atado al input por aria-describedby', async () => {
+      await abrirFormulario();
+      await ponerCorreo('ivvangmail.com');
+      const input: HTMLInputElement | null =
+        fixture.nativeElement.querySelector('.email-row .check-field.field-warn input');
+      expect(input).not.toBeNull();
+      expect(input!.getAttribute('aria-describedby') || '').toContain('aviso-correo-usuario');
+      expect(aviso()!.id).toBe('aviso-correo-usuario');
+    });
+  });
+});
+
+// La regla de detección es una función pura: se prueba aparte, sin TestBed.
+describe('detectarDominioEnUsuario (regla pura de la advertencia)', () => {
+  const CATALOGO = ['GMAIL.COM', 'HOTMAIL.COM', 'OUTLOOK.COM', 'YAHOO.COM', 'ICLOUD.COM'];
+
+  const CASOS: Array<[string, boolean, string]> = [
+    ['ivvan', false, 'usuario normal'],
+    ['juan.perez', false, 'los puntos de usuario no molestan'],
+    ['ivvangmail', false, 'marca sin dominio completo: no ser agresivos'],
+    ['ivvanhotmail', false, 'marca sin dominio completo'],
+    ['', false, 'vacío'],
+    ['ivvangmail.com', true, 'dominio del catálogo concatenado'],
+    ['IVVANGMAIL.COM', true, 'insensible a mayúsculas'],
+    ['ivvanGMAIL.COM', true, 'mezcla de mayúsculas'],
+    ['ivvanoutlook.com', true, 'otro dominio del catálogo'],
+    ['ivvanyahoo.com', true, 'otro dominio del catálogo'],
+    ['ivvanicloud.com', true, 'otro dominio del catálogo'],
+    ['ivvan@gmail.com', true, 'correo completo'],
+    ['ivvan@', true, 'arroba suelta'],
+    ['ivvan@gmail', true, 'arroba con dominio a medias'],
+    ['ivvan gmail.com', true, 'espacio antes del dominio'],
+    ['ivvan @gmail.com', true, 'espacio y arroba'],
+    ['ivvangmail.com ', true, 'espacio al final'],
+    [' ivvangmail.com', true, 'espacio al inicio'],
+    ['ivvangmail.comgmail.com', true, 'dominio repetido'],
+    ['ivvan@gmail.com@gmail.com', true, 'doble arroba'],
+    ['ivvan..gmail.com', true, 'puntos dobles con dominio'],
+    ['ivvangmail.com.com', true, 'dominio malformado con .com extra'],
+    ['ivvanlatinmail.com', true, 'dominio FUERA del catálogo: cae por el TLD .COM'],
+  ];
+
+  for (const [entrada, esperado, motivo] of CASOS) {
+    it(`"${entrada}" → ${esperado ? 'avisa' : 'no avisa'} (${motivo})`, () => {
+      expect(detectarDominioEnUsuario(entrada, CATALOGO)).toBe(esperado);
+    });
+  }
+
+  it('el catálogo real del formulario también detecta dominios .EDU.CO', () => {
+    expect(detectarDominioEnUsuario('pepitomisena.edu.co', ['MISENA.EDU.CO'])).toBeTrue();
   });
 });

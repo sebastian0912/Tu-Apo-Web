@@ -193,7 +193,10 @@ export class CapturaCedula implements OnDestroy {
 
   private mensajeErrorCamara(e: any): string {
     const n = String(e?.name || '');
-    if (n === 'NotAllowedError') return 'Usted bloqueó el permiso de la cámara. Actívelo en el candado de la barra de direcciones y vuelva a intentar.';
+    // NotAllowedError también salta cuando el permiso del sitio está concedido
+    // pero algo por encima lo niega (privacidad de cámara del sistema operativo;
+    // ya pasó con el Permissions-Policy del borde). No culpar solo al candado.
+    if (n === 'NotAllowedError') return 'El navegador no permitió usar la cámara. Revise el candado de la barra de direcciones y, si ahí ya aparece permitida, la privacidad de cámara del sistema (en Windows: Configuración → Privacidad y seguridad → Cámara).';
     if (n === 'NotFoundError') return 'Este dispositivo no tiene una cámara disponible.';
     if (n === 'NotReadableError') return 'La cámara está siendo usada por otra aplicación. Ciérrela e intente de nuevo.';
     return 'Revise que el navegador tenga permiso para usar la cámara.';

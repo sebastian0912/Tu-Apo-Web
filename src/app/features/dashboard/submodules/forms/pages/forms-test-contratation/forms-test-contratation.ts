@@ -5,6 +5,7 @@ import { MatStepper, MatStepperModule } from '@angular/material/stepper';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
+import { MAT_FORM_FIELD_DEFAULT_OPTIONS } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
 import { MatDatepickerModule } from '@angular/material/datepicker';
@@ -28,6 +29,7 @@ import { CandidatoNewS } from '../../../../../../shared/services/candidato-new/c
 import { CapturaCedula } from '../../../../../../shared/components/captura-cedula/captura-cedula';
 import { CapturaFoto } from '../../../../../../shared/components/captura-foto/captura-foto';
 import { PoliciesModal } from '../../components/policies-modal/policies-modal';
+import { detectarDominioEnUsuario } from './email-warning.util';
 
 // Claves con prefijo propio. Antes la guardia del borrador vivía en
 // 'numeroCedula', la MISMA clave que escribe form-vacancies.ts:527; si la
@@ -195,7 +197,14 @@ export class CustomDateAdapter extends NativeDateAdapter {
         }
       }
     },
-    { provide: MAT_DATE_LOCALE, useValue: 'es-CO' }
+    { provide: MAT_DATE_LOCALE, useValue: 'es-CO' },
+    // Varios hints/errores ocupan 2-3 líneas y con el subscript "fixed" de
+    // Material (reserva exactamente 1 línea) el texto se pintaba ENCIMA de la
+    // fila siguiente. "dynamic" hace crecer el campo y nada se superpone.
+    {
+      provide: MAT_FORM_FIELD_DEFAULT_OPTIONS,
+      useValue: { appearance: 'outline', subscriptSizing: 'dynamic' }
+    }
   ],
 })
 
@@ -299,6 +308,14 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     'UNAL.EDU.CO', 'UNICAUCA.EDU.CO', 'UNIMILITAR.EDU.CO', 'HOTMAIL.COM.CO',
     'HOTMAIL.COM.AR', 'LASVILLAS.EMAIL', 'YAHOO.ES'
   ].sort(); // Sorted alphabetically for better UX
+
+  /**
+   * ADVERTENCIA (no validación): el Usuario parece traer un dominio pegado
+   * ("ivvangmail.com", "ivvan@gmail.com"). Solo pinta el campo en amarillo y
+   * muestra un aviso; el control sigue válido y el formulario se puede guardar.
+   * Se recalcula en la misma suscripción que arma el correo completo.
+   */
+  avisoDominioEnUsuario = false;
 
   // Search Controls for Selects
   searchDominio = new FormControl('');
@@ -777,6 +794,11 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
         const domain = f.get('correoDominio')?.value || '';
         const correoCtrl = f.get('correo');
 
+        // Advertencia no bloqueante: usa el catálogo completo de dominios (no
+        // solo el seleccionado), así "ivvanyahoo.com" también avisa aunque el
+        // dominio elegido sea GMAIL.COM. Nunca toca errores ni validez.
+        this.avisoDominioEnUsuario = detectarDominioEnUsuario(user, this.dominiosCorreo);
+
         // Check internal validity of parts (no @)
         const userValid = f.get('correoUsuario')?.valid;
         const domainValid = f.get('correoDominio')?.valid;
@@ -913,27 +935,21 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       if (isVive) this.restaurarRecordado(`barrio${prefix}`);
       else this.vaciarRecordando(`barrio${prefix}`);
 
-      // Name: 
-      // User said: "lo conoce? si o no, si si klos campos son obligatorios, y no no"
-      // Interpretation: 
-      // VIVE -> Required
-      // NO VIVE -> Not Required? Or maybe Name is kept but not invalid?
-      // NO LO CONOCE -> Not Required (and cleared)
-
-      // Let's assume Name is required if VIVE or NO VIVE (since they exist), 
-      // BUT user explicitly complained about logic.
-      // If "NO VIVE", usually we still want the name for record.
-      // But if user insists "no no", I'll make it optional if NO VIVE.
-      const nameRequired = isVive;
-
-      toggle(`nombre${prefix}`, nameRequired, [this.fullNameValidator(nameRequired)]);
-
+      // Nombre: requerido solo si VIVE, pero NUNCA se borra por marcar
+      // "NO VIVE" — el nombre del padre/madre fallecido se conserva en el
+      // registro (pasarlo por `toggle(false)` lo vaciaba: era el bug de
+      // "selecciono NO VIVE y me borra el nombre"). Solo "NO LO CONOCE" lo
+      // vacía (recordándolo, por si fue un clic errado) y bloquea el campo.
+      const nombreCtrl = f.get(`nombre${prefix}`);
+      nombreCtrl?.setValidators([this.fullNameValidator(isVive)]);
       if (isNoConoce) {
-        f.get(`nombre${prefix}`)?.setValue('');
-        f.get(`nombre${prefix}`)?.disable({ emitEvent: false });
+        this.vaciarRecordando(`nombre${prefix}`);
+        nombreCtrl?.disable({ emitEvent: false });
       } else {
-        f.get(`nombre${prefix}`)?.enable({ emitEvent: false });
+        nombreCtrl?.enable({ emitEvent: false });
+        this.restaurarRecordado(`nombre${prefix}`);
       }
+      nombreCtrl?.updateValueAndValidity({ emitEvent: false });
     };
 
     f.get('elPadreVive')?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(val => updateParent('Padre', val));
@@ -1622,6 +1638,19 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     if (Array.isArray(v)) return v.length > 0;
     if (typeof v === 'boolean') return v;
     return String(v).trim().length > 0;
+  }
+
+  /**
+   * Estado AMARILLO (advertencia) del usuario del correo. Solo aplica a ese
+   * control y nunca compite con el rojo: si el campo tiene un error visible,
+   * gana el error y el aviso se calla para no mezclar dos mensajes.
+   * Es puramente visual: no toca validez ni impide guardar.
+   */
+  tieneAvisoDominio(controlName: string, form: FormGroup = this.formHojaDeVida2): boolean {
+    return controlName === 'correoUsuario'
+      && form === this.formHojaDeVida2
+      && this.avisoDominioEnUsuario
+      && !this.shouldShowError(controlName, form);
   }
 
   // ----------------------------------------------------
@@ -3007,6 +3036,49 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
    * Revisa los pasos 0..`hasta`. En el primero incompleto: salta a él, marca sus
    * campos y avisa qué falta. Devuelve true solo si todos están completos.
    */
+  /**
+   * Resumen TOTAL para el envío final: junta los pendientes de TODOS los pasos
+   * en un solo aviso (el flujo de "Siguiente" usa `revisarPasosHasta`, que va
+   * paso a paso). Marca todo como tocado, lleva al primer paso con faltantes y
+   * devuelve true si bloqueó el envío.
+   */
+  private avisarPendientesTotales(): boolean {
+    const bloques: string[] = [];
+    let total = 0;
+    let primerPaso = -1;
+
+    for (let i = 0; i < this.STEP_KEYS.length; i++) {
+      this.marcarPasoComoTocado(i);
+      const pendientes = this.pendientesDelPaso(i);
+      if (!pendientes.length) continue;
+      if (primerPaso < 0) primerPaso = i;
+      total += pendientes.reduce((n, s) => n + s.campos.length, 0);
+      const secciones = pendientes.map(s =>
+        `<div style="margin:4px 0 6px;"><b>${this.esc(s.seccion)}</b>` +
+        `<ul style="margin:2px 0 0 18px;padding:0;">` +
+        s.campos.map(c => `<li>${this.esc(c.campo)}: ${this.esc(c.motivo.toLowerCase())}</li>`).join('') +
+        `</ul></div>`
+      ).join('');
+      bloques.push(`<div style="margin-bottom:10px;"><div style="font-weight:700;">Paso ${i + 1}</div>${secciones}</div>`);
+    }
+
+    if (primerPaso < 0) return false;
+
+    Swal.fire({
+      icon: 'warning',
+      title: `Falta${total === 1 ? '' : 'n'} ${total} campo${total === 1 ? '' : 's'} por completar`,
+      html: `<div style="text-align:left;max-height:300px;overflow:auto;">${bloques.join('')}</div>
+             <p style="text-align:left;font-size:12px;color:#6b7280;margin:10px 0 0;">
+               Lo llevamos al primer paso con pendientes; los campos quedaron marcados en rojo.</p>`,
+      confirmButtonText: 'Completar ahora',
+      confirmButtonColor: '#111827',
+      width: 560,
+    }).then(() => this.enfocarPrimerCampoConError());
+
+    if (this.stepper && this.stepper.selectedIndex !== primerPaso) this.stepper.selectedIndex = primerPaso;
+    return true;
+  }
+
   private revisarPasosHasta(hasta: number): boolean {
     // Candado duro de las fechas del documento (edad mínima y coherencia
     // nacimiento/expedición). Va antes del recorrido por pasos para que el
@@ -3204,9 +3276,12 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       this.formHojaDeVida2.markAllAsTouched();
       this.espejarErroresAutocompletado();
 
-      // Mismo candado que el botón "Siguiente": salta al primer paso incompleto
-      // (incluye el cruce fecha expedición/nacimiento) y dice qué campo falta.
-      if (!this.revisarPasosHasta(this.STEP_KEYS.length - 1)) return;
+      // Candado duro de fechas primero (mensaje específico) y después el
+      // RESUMEN COMPLETO: al finalizar se listan los pendientes de TODOS los
+      // pasos en un solo aviso (no solo el primer paso incompleto) y se
+      // bloquea el envío hasta que todo esté correcto.
+      if (this.bloqueadoPorFechasIdentidad()) return;
+      if (this.avisarPendientesTotales()) return;
 
       // Quedó inválido por algo que no está en el mapa de pasos.
       let firstInvalidControl = '';
@@ -3293,11 +3368,10 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           }
           this.numeroCedula = upsertResp.numero_documento ?? this.numeroCedula;
 
-          // Formulario Vacantes Part 2
-          const part2: any = await firstValueFrom(this.registroProcesoContratacion.formulario_vacantes(payload));
-          if (!part2 || (!part2.ok && !part2.success && !part2.message)) {
-            return this.handleBackendError(part2, 'Ocurrió un error guardando tu experiencia/vacante.');
-          }
+          // NOTA: ya no se llama a subirParte2 aquí. La entrevista (oficina,
+          // cómo se enteró, expectativas) viaja dentro del upsert anterior; el
+          // subirParte2 del backend Java CREA una entrevista nueva en cada
+          // llamada y duplicaba el registro del candidato en cada envío.
 
           // Upload Files
           let filesOk = true;

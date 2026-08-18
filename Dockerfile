@@ -4,8 +4,8 @@
 #   - usa el lockfile (npm ci) para un install determinista,
 #   - build de produccion sin sourcemaps,
 #   - sirve el SPA en el puerto 4444 (lo que esperan compose/caddy).
-# La API la consume el NAVEGADOR contra https://formulario.tsservicios.co (legacy),
-# NO este contenedor.
+# La API la consume el NAVEGADOR contra https://api.tuapo.co (gateway Java),
+# NO este contenedor. (El legacy formulario.tsservicios.co quedó apagado.)
 FROM node:22-alpine AS builder
 WORKDIR /app
 COPY package.json package-lock.json ./

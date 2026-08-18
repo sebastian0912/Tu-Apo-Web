@@ -217,7 +217,13 @@ export class RegistroProcesoContratacion {
     // ⬇️ MAYÚSCULAS excepto correo/email
     const upperPayload = this.uppercaseDeepExcept(payload, new Set(['correo', 'email']));
 
-    const url = `${this.apiUrl}/gestion_contratacion/candidatos/`;
+    // by-document-upsert: es el endpoint de PARIDAD Django en ms-hr (upsert
+    // idempotente de candidato + contacto + info_cc + entrevistas + …, lee
+    // este mismo payload snake_case). El POST /candidatos/ "pelado" del backend
+    // Java es un CRUD JPA genérico en camelCase que NO entiende este payload
+    // (y su path exacto sirve el listado con PII, así que además no puede ser
+    // público en el gateway).
+    const url = `${this.apiUrl}/gestion_contratacion/candidatos/by-document-upsert/`;
 
     if (!isPlatformBrowser(this.platformId)) {
       return of({
@@ -237,8 +243,13 @@ export class RegistroProcesoContratacion {
 
 
   formulario_vacantes(datos: any): Observable<any> {
-    const url = `${this.apiUrl}/contratacion/subirParte2`;
-    return this.http.post(url, datos);
+    // En el backend Java vive bajo /gestion_contratacion (el prefijo
+    // /contratacion solo conserva 8 GETs de lectura del contrato viejo).
+    const url = `${this.apiUrl}/gestion_contratacion/subirParte2`;
+    // El endpoint Java lee `cedula`; varios llamadores mandan numeroCedula.
+    const body: any = { ...datos };
+    if (body.cedula == null) body.cedula = body.numeroCedula ?? body.numero_documento ?? null;
+    return this.http.post(url, body);
   }
 
   /**
@@ -268,7 +279,14 @@ export class RegistroProcesoContratacion {
     // ⬇️ MAYÚSCULAS excepto correo
     const upperPayload = this.uppercaseDeepExcept(payload, new Set(['correo']));
 
-    const urlUpsert = `${this.apiUrl}/gestion_contratacion/upsert_forms/`;
+    // El guardado FINAL viaja al mismo endpoint de paridad del paso 1
+    // (by-document-upsert): es el único del backend Java que persiste el
+    // grueso del formulario (contacto, residencia, info_cc, vivienda,
+    // evaluación, entrevista, formaciones, referencias familiares).
+    // /upsert_forms/ solo guardaba nombres y NO entiende `numeroCedula`
+    // — de ahí el "tipo_doc y numero_documento requeridos" al finalizar.
+    const body = this.aCuerpoByDocumentUpsert(upperPayload);
+    const urlUpsert = `${this.apiUrl}/gestion_contratacion/candidatos/by-document-upsert/`;
 
     if (!isPlatformBrowser(this.platformId)) {
       return of({
@@ -280,36 +298,176 @@ export class RegistroProcesoContratacion {
       });
     }
 
-    return this.http.post<CandidatoUpsertResponse>(urlUpsert, upperPayload).pipe(
-      map((resp) => resp),
-      catchError((err) => {
-        const st = err?.status;
-
-        // ✅ fallback automático al endpoint viejo (si upsert aún no está disponible)
-        if (st === 404 || st === 405) {
-          return this.formulario_vacantes(upperPayload).pipe(
-            map((respOld: any) => {
-              // Detecta éxito real según tu endpoint viejo (ajusta si tu backend retorna diferente)
-              const ok =
-                respOld?.ok === true ||
-                !!respOld?.message ||
-                respOld?.success === true;
-
-              return {
-                ok,
-                created: !!respOld?.created, // si no existe, queda false
-                candidato_id: respOld?.candidato_id ?? respOld?.id ?? 0,
-                tipo_doc: String(payload.tipoDoc ?? ''),
-                numero_documento: String(payload.numeroCedula ?? ''),
-              } as CandidatoUpsertResponse;
-            }),
-            catchError((err2) => throwError(() => err2))
-          );
-        }
-
-        return throwError(() => err);
-      })
+    return this.http.post<any>(urlUpsert, body).pipe(
+      map((resp: any) => ({
+        ok: resp?.ok === true,
+        created: !!resp?.created,
+        candidato_id: resp?.id ?? resp?.candidato_id ?? 0,
+        tipo_doc: String(payload.tipoDoc ?? ''),
+        numero_documento: String(resp?.numero_documento ?? payload.numeroCedula ?? ''),
+      }) as CandidatoUpsertResponse),
+      catchError((err) => throwError(() => err))
     );
+  }
+
+  /**
+   * Traduce el payload plano estilo Django (tipoDoc, numCelular, …) al cuerpo
+   * anidado snake_case que persiste `by-document-upsert` en ms-hr
+   * (CandidatoFormUpsertService). PARIDAD COMPLETA: todo dato de negocio que
+   * el formulario pide tiene su clave aquí; si agregas un campo al formulario,
+   * agrégalo también a este cuerpo o no se guardará.
+   */
+  private aCuerpoByDocumentUpsert(p: any): any {
+    const si = (v: any) => v === true || v === 'SI';
+    const anio = (ymd: any) => {
+      const m = /^(\d{4})/.exec(String(ymd ?? ''));
+      return m ? Number(m[1]) : undefined;
+    };
+    const ref = (nombre: any, telefono: any, ocupacion: any, direccion: any, extra: any) =>
+      nombre ? this.clean({ nombre, telefono, ocupacion, direccion, ...extra }) : null;
+
+    return this.clean({
+      tipo_doc: p.tipoDoc ?? p.tipo_doc,
+      numero_documento: p.numeroCedula ?? p.numero_documento,
+      primer_nombre: p.pNombre,
+      segundo_nombre: p.sNombre,
+      primer_apellido: p.pApellido,
+      segundo_apellido: p.sApellido,
+      sexo: p.genero,
+      estado_civil: p.estadoCivil,
+      fecha_nacimiento: p.fechaNacimiento,
+      // Atributos personales que viven en el propio Candidato (modelo Django):
+      rh: p.rh,
+      zurdo_diestro: p.zurdoDiestro,
+      departamento: p.departamento,
+      municipio: p.ciudad,
+      contacto: { email: p.correo, celular: p.numCelular, whatsapp: p.numWha },
+      residencia: {
+        direccion: p.direccionResidencia,
+        barrio: p.barrio,
+        hace_cuanto_vive: p.tiempoResidenciaZona,
+        lugar_anterior: p.lugarAnteriorResidencia,
+        razon_mudanza: p.razonCambioResidencia,
+        zonas_del_pais: p.zonasConocidas,
+      },
+      vivienda: {
+        personas_con_quien_convive: p.personasConQuienConvive,
+        responsable_hijos: p.cuidadorHijos,
+        estudia_actualmente: si(p.estudiaActualmente),
+        familia_un_solo_ingreso: si(p.familiaConUnSoloIngreso),
+        tipo_vivienda: p.tipoVivienda,
+        num_habitaciones: p.numHabitaciones,
+        personas_por_habitacion: p.numPersonasPorHabitacion,
+        caracteristicas_vivienda: p.caracteristicasVivienda,
+        servicios: p.servicios,
+        num_hijos_dependen_economicamente: p.numHijosDependientes,
+        expectativas_de_vida: p.expectativasDeVida,
+      },
+      info_cc: {
+        fecha_expedicion: p.fechaExpedicionCc,
+        depto_expedicion: p.departamentoExpedicionCc,
+        mpio_expedicion: p.municipioExpedicionCc,
+        depto_nacimiento: p.lugarNacimientoDepartamento,
+        mpio_nacimiento: p.lugarNacimientoMunicipio,
+      },
+      // Tallas de dotación (el catálogo es numérico: "4".."44").
+      dotacion: {
+        chaqueta: p.chaqueta, pantalon: p.pantalon, camisa: p.camisa, calzado: p.calzado,
+      },
+      experiencia_resumen: {
+        tiene_experiencia: si(p.experienciaLaboral),
+        area_experiencia: p.areaExperiencia,
+        tiempo_experiencia_texto: p.tiempoExperiencia,
+        empresas_laborado: p.empresas_laborado,
+      },
+      evaluacion: {
+        relacion_familiar: p.relacion_familiar,
+        rendimiento_laboral: p.rendimiento_laboral,
+        porque_lo_felicitarian: p.porque_lo_felicitarian,
+        malentendido: p.malentendido,
+        actividades_diarias: p.actividades_diarias,
+        personas_a_cargo: p.personas_a_cargo,
+      },
+      entrevistas: [{
+        oficina: p.oficina,
+        como_se_entero: p.fuenteVacante,
+        como_se_proyecta: p.expectativasDeVida,
+      }],
+      formaciones: p.escolaridad ? [this.clean({
+        nivel: p.escolaridad,
+        institucion: p.nombreInstitucion,
+        titulo_obtenido: p.tituloObtenido,
+        anio_finalizacion: anio(p.anoFinalizacion),
+        estudios_extra: p.estudiosExtra,
+      })] : undefined,
+      // Empresa anterior (una sola en el formulario; el backend la modela 1:N).
+      experiencias: p.nombreExpeLaboral1Empresa ? [this.clean({
+        empresa: p.nombreExpeLaboral1Empresa,
+        tiempo_trabajado: p.tiempoExperiencia,
+        telefonos: p.telefonosEmpresa1,
+        direccion: p.direccionEmpresa1,
+        nombre_jefe: p.nombreJefeEmpresa1,
+        cargo: p.cargoEmpresa1,
+        fecha_retiro: p.fechaRetiroEmpresa1,
+        motivo_retiro: p.motivoRetiroEmpresa1,
+      })] : undefined,
+      // Hijos: claves canónicas del backend (clave_front → clave DTO).
+      hijos: (p.hijos || []).map((h: any) => this.clean({
+        nombre: h.nombreHijo,
+        sexo: h.sexoHijo,
+        fecha_nac: h.fechaNacimientoHijo,
+        numero_de_documento: h.docIdentidadHijo,
+        ocupacion: h.ocupacionHijo,
+        curso: h.cursoHijo,
+      })),
+      // Familiares: una fila por tipo en el backend (FamiliarContacto).
+      conyuge: (p.nombreConyugue || p.numDocIdentidadConyugue) ? this.clean({
+        nombre: p.nombreConyugue,
+        apellido: p.apellidoConyugue,
+        numero_de_documento: p.numDocIdentidadConyugue,
+        vive_con: p.viveConElConyugue,
+        direccion: p.direccionConyugue,
+        barrio: p.barrioMunicipioConyugue,
+        telefono: p.telefonoConyugue,
+        ocupacion: p.ocupacion_conyugue,
+      }) : undefined,
+      padre: p.vivePadre ? this.clean({
+        nombre: p.nombrePadre,
+        vive_con: p.vivePadre, // VIVE | NO VIVE | NO LO CONOCE (semántica del legacy)
+        ocupacion: p.ocupacionPadre,
+        direccion: p.direccionPadre,
+        telefono: p.telefonoPadre,
+        barrio: p.barrioPadre,
+      }) : undefined,
+      madre: p.viveMadre ? this.clean({
+        nombre: p.nombreMadre,
+        vive_con: p.viveMadre,
+        ocupacion: p.ocupacionMadre,
+        direccion: p.direccionMadre,
+        telefono: p.telefonoMadre,
+        barrio: p.barrioMadre,
+      }) : undefined,
+      emergencia: p.familiarEmergencia ? this.clean({
+        nombre: p.familiarEmergencia,
+        parentesco: p.parentescoFamiliarEmergencia,
+        telefono: p.telefonoFamiliarEmergencia,
+        ocupacion: p.ocupacionFamiliarEmergencia,
+        direccion: p.direccionFamiliarEmergencia,
+        barrio: p.barrioFamiliarEmergencia,
+      }) : undefined,
+      referencias_personales: [
+        ref(p.nombreReferenciaPersonal1, p.telefonoReferenciaPersonal1, p.ocupacionReferenciaPersonal1,
+            p.direccionReferenciaPersonal1, { tiempo_conoce: p.tiempoConoceReferenciaPersonal1 }),
+        ref(p.nombreReferenciaPersonal2, p.telefonoReferenciaPersonal2, p.ocupacionReferenciaPersonal2,
+            p.direccionReferenciaPersonal2, { tiempo_conoce: p.tiempoConoceReferenciaPersonal2 }),
+      ].filter(Boolean),
+      referencias_familiares: [
+        ref(p.nombreReferenciaFamiliar1, p.telefonoReferenciaFamiliar1, p.ocupacionReferenciaFamiliar1,
+            p.direccionReferenciaFamiliar1, { parentesco: p.parentescoReferenciaFamiliar1 }),
+        ref(p.nombreReferenciaFamiliar2, p.telefonoReferenciaFamiliar2, p.ocupacionReferenciaFamiliar2,
+            p.direccionReferenciaFamiliar2, { parentesco: p.parentescoReferenciaFamiliar2 }),
+      ].filter(Boolean),
+    });
   }
 
   /**

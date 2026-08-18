@@ -53,7 +53,8 @@ export class CandidateS {
   public validarCorreoCedula(correo: string, cedula: string): Observable<any> {
     const params = { cedula, correo };  // Asegurarse de que están en el orden correcto
 
-    return this.http.get(`${this.apiUrl}/contratacion/validar-correo-cedula/`, { params }).pipe(
+    // En el backend Java este endpoint vive bajo /gestion_contratacion.
+    return this.http.get(`${this.apiUrl}/gestion_contratacion/validar-correo-cedula/`, { params }).pipe(
       map((response: any) => response),
       catchError(this.handleError)
     );
@@ -68,8 +69,12 @@ export class CandidateS {
   }
 
   formulario_vacantes(datos: any): Observable<any> {
-    const url = `${this.apiUrl}/contratacion/subirParte2`;
-    return this.http.post(url, datos);
+    // En el backend Java vive bajo /gestion_contratacion.
+    const url = `${this.apiUrl}/gestion_contratacion/subirParte2`;
+    // El endpoint Java lee `cedula`; varios llamadores mandan numeroCedula.
+    const body: any = { ...datos };
+    if (body.cedula == null) body.cedula = body.numeroCedula ?? body.numero_documento ?? null;
+    return this.http.post(url, body);
   }
 
   // Crear o actualizar candidato
@@ -121,7 +126,8 @@ export class CandidateS {
   }
 
   subirFirmaBase64(pk: number | string, firmaBase64: string): Observable<UploadFotoResponse> {
-    const url = `${this.apiUrl}/contratacion/candidatos/${pk}/firma-solicitante/`;
+    // En el backend Java vive bajo /gestion_contratacion.
+    const url = `${this.apiUrl}/gestion_contratacion/candidatos/${pk}/firma-solicitante/`;
     const body = { firma_base64: firmaBase64 };
     // Sin headers explícitos: HttpClient envía JSON por defecto
     return this.http.post<UploadFotoResponse>(url, body);
