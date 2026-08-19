@@ -46,7 +46,23 @@ interface PublicField {
   children?: PublicField[];
 }
 interface PublicSection { code: string; title?: string | null; order_no: number; fields: PublicField[]; }
-interface PublicStructure { form_name: string; form_description?: string | null; version: number; sections: PublicSection[]; }
+/**
+ * Tema de diseño del formulario (ms-forms, df_form.ui_json). Todos los campos son
+ * opcionales: lo que falte se queda con el look por defecto de esta página.
+ */
+interface PublicTheme {
+  primary?: string; on_primary?: string; accent?: string;
+  surface?: string; bg?: string; text?: string;
+  header_from?: string; header_to?: string;
+  radius?: number;
+  cover_url?: string; cover_document_id?: number; cover_alt?: string;
+}
+interface PublicUi { theme?: PublicTheme; }
+interface PublicStructure {
+  form_name: string; form_description?: string | null;
+  ui?: PublicUi | null;
+  version: number; sections: PublicSection[];
+}
 interface DocumentRef { source: 'ms-documents'; document_id: number; filename: string; mime_type: string; size: number; }
 interface Problem { detail?: string; code?: string; errors?: { section: string; field: string; message: string }[]; }
 
@@ -74,9 +90,20 @@ type Value = string | number | string[] | DocumentRef | DocumentRef[] | { lat: n
           <p>Tu respuesta fue registrada correctamente.</p>
         </div>
       } @else if (structure(); as st) {
-        <header class="pdf__head">
-          <h1>{{ st.form_name }}</h1>
-          @if (st.form_description) { <p>{{ st.form_description }}</p> }
+        <header class="pdf__head" [class.pdf__head--cover]="coverUrl()">
+          @if (coverUrl(); as url) {
+            <div class="pdf__cover">
+              <img [src]="url" [alt]="st.ui?.theme?.cover_alt || ''" (error)="coverUrl.set(null)" />
+              <span class="pdf__cover-veil"></span>
+              <div class="pdf__cover-text">
+                <h1>{{ st.form_name }}</h1>
+                @if (st.form_description) { <p>{{ st.form_description }}</p> }
+              </div>
+            </div>
+          } @else {
+            <h1>{{ st.form_name }}</h1>
+            @if (st.form_description) { <p>{{ st.form_description }}</p> }
+          }
         </header>
 
         <form (submit)="$event.preventDefault(); submit()">
@@ -266,16 +293,31 @@ type Value = string | number | string[] | DocumentRef | DocumentRef[] | { lat: n
   `,
   styles: [`
     :host { display: block; }
-    .pdf { min-height: 100dvh; background: #f2f4f8; padding: 24px 12px; font-family: system-ui, Roboto, sans-serif; }
-    .pdf__card { max-width: 680px; margin: 0 auto; background: #fff; border-radius: 16px;
+    .pdf { min-height: 100dvh; background: var(--df-bg, #f2f4f8); padding: 24px 12px; font-family: system-ui, Roboto, sans-serif; }
+    .pdf__card { max-width: 680px; margin: 0 auto; background: var(--df-surface, #fff);
+                 border-radius: var(--df-radius, 16px);
                  box-shadow: 0 4px 24px rgba(15, 23, 42, .08); padding: 28px 24px; }
-    .pdf__head h1 { margin: 0 0 6px; font-size: 1.35rem; color: #21263c; }
+    .pdf__head h1 { margin: 0 0 6px; font-size: 1.35rem; color: var(--df-accent, #21263c); }
     .pdf__head p { margin: 0 0 18px; color: #64748b; font-size: .95rem; }
+
+    /* Portada del tema: ocupa el ancho de la tarjeta con el título encima. El velo
+       garantiza que el texto blanco se lea sea cual sea la imagen generada. */
+    .pdf__head--cover { margin: -28px -24px 18px; }
+    .pdf__cover { position: relative; min-height: 150px; display: flex; align-items: flex-end;
+                  overflow: hidden; border-radius: var(--df-radius, 16px) var(--df-radius, 16px) 0 0;
+                  background: var(--df-header-bg, linear-gradient(135deg, #0f172a, #334155)); }
+    .pdf__cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .pdf__cover-veil { position: absolute; inset: 0;
+                       background: linear-gradient(180deg, rgba(2,6,23,.25) 0%, rgba(2,6,23,.82) 100%); }
+    .pdf__cover-text { position: relative; padding: 18px 24px; }
+    .pdf__cover-text h1 { margin: 0 0 4px; font-size: 1.35rem; color: #fff; }
+    .pdf__cover-text p { margin: 0; color: rgba(255,255,255,.85); font-size: .92rem; }
     .pdf__state { text-align: center; padding: 48px 8px; color: #334155; }
     .pdf__state--err p { color: #b3261e; }
     .pdf__icon { font-size: 2rem; margin-bottom: 8px; }
     .pdf__section { margin-bottom: 8px; }
-    .pdf__section-title { font-size: 1.05rem; color: #21263c; border-bottom: 2px solid #8cd50a;
+    .pdf__section-title { font-size: 1.05rem; color: var(--df-accent, #21263c);
+                          border-bottom: 2px solid var(--df-primary, #8cd50a);
                           display: inline-block; padding-bottom: 2px; margin: 18px 0 10px; }
     .pdf__group { border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin: 0 0 14px; }
     .pdf__group legend { font-weight: 700; color: #21263c; padding: 0 6px; font-size: .95rem; }
@@ -296,30 +338,38 @@ type Value = string | number | string[] | DocumentRef | DocumentRef[] | { lat: n
     .pdf__rating { display: flex; gap: 6px; flex-wrap: wrap; }
     .pdf__rating-btn { width: 40px; height: 40px; border-radius: 10px; border: 1px solid #cbd5e1;
                        background: #fff; font: inherit; cursor: pointer; }
-    .pdf__rating-btn--on { background: #21263c; color: #fff; border-color: #21263c; }
+    .pdf__rating-btn--on { background: var(--df-accent, #21263c); color: #fff;
+                           border-color: var(--df-accent, #21263c); }
     .pdf__files { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .pdf__chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
                  border: 1px solid #cbd5e1; border-radius: 10px; background: #f8fafc; font-size: .85rem; }
     .pdf__chip-x { border: none; background: none; cursor: pointer; color: #64748b; font-size: .8rem; }
     .pdf__btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; cursor: pointer;
                 border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; font: inherit; font-size: .88rem; }
-    .pdf__btn--main { background: #21263c; color: #fff; border-color: #21263c; }
+    .pdf__btn--main { background: var(--df-accent, #21263c); color: #fff;
+                      border-color: var(--df-accent, #21263c); }
     .pdf__btn:disabled { opacity: .55; cursor: not-allowed; }
     .pdf__row { display: flex; gap: 8px; flex-wrap: wrap; }
     .pdf__canvas { width: 100%; height: 180px; border: 1px dashed #94a3b8; border-radius: 10px;
                    touch-action: none; background: #fff; }
     .pdf__error-box { margin: 12px 0; padding: 10px 12px; border-radius: 10px; background: #fdecea;
                       color: #b3261e; font-size: .9rem; }
-    .pdf__submit { width: 100%; margin-top: 10px; padding: 13px; border: none; border-radius: 12px;
-                   background: #21263c; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+    .pdf__submit { width: 100%; margin-top: 10px; padding: 13px; border: none;
+                   border-radius: var(--df-radius, 12px);
+                   background: var(--df-primary, #21263c); color: var(--df-on-primary, #fff);
+                   font: inherit; font-weight: 700; cursor: pointer; }
     .pdf__submit:disabled { opacity: .6; cursor: not-allowed; }
   `],
 })
 export class PublicDynamicFormComponent implements OnInit {
   private http = inject(HttpClient);
   private route = inject(ActivatedRoute);
+  private host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   @ViewChild('sigCanvas') sigCanvas?: ElementRef<HTMLCanvasElement>;
+
+  /** URL de la portada; null = sin portada (o falló la carga y se cae al degradado). */
+  coverUrl = signal<string | null>(null);
 
   loading = signal(true);
   fatal = signal<string | null>(null);
@@ -344,12 +394,44 @@ export class PublicDynamicFormComponent implements OnInit {
   ngOnInit(): void {
     this.token = this.route.snapshot.paramMap.get('token') ?? '';
     this.http.get<PublicStructure>(`${GATEWAY}/api/dynamic-forms/public/${this.token}/structure`).subscribe({
-      next: st => { this.structure.set(st); this.loading.set(false); },
+      next: st => { this.structure.set(st); this.aplicarTema(st.ui?.theme); this.loading.set(false); },
       error: (e: HttpErrorResponse) => {
         this.fatal.set(this.friendly(e, 'Este formulario no está disponible.'));
         this.loading.set(false);
       },
     });
+  }
+
+  // ---------- Tema de diseño ----------
+
+  /**
+   * Vuelca el tema del formulario en custom properties del host; el CSS de esta página
+   * las lee con fallback, así un formulario sin tema se ve exactamente como antes.
+   * Se hace por API del DOM porque el binding [style] de Angular no fija propiedades
+   * personalizadas.
+   */
+  private aplicarTema(theme?: PublicTheme | null): void {
+    if (theme) {
+      const el = this.host.nativeElement;
+      const set = (nombre: string, valor?: string | number) => {
+        if (valor !== undefined && valor !== null && valor !== '') el.style.setProperty(nombre, String(valor));
+      };
+      set('--df-primary', theme.primary);
+      set('--df-on-primary', theme.on_primary);
+      set('--df-accent', theme.accent);
+      set('--df-surface', theme.surface);
+      set('--df-bg', theme.bg);
+      if (theme.radius != null) set('--df-radius', `${theme.radius}px`);
+      if (theme.header_from) {
+        set('--df-header-bg', `linear-gradient(135deg, ${theme.header_from} 0%, ${theme.header_to ?? theme.header_from} 100%)`);
+      }
+    }
+    // La portada vive en ms-documents, que exige JWT: la sirve ms-forms detrás del
+    // MISMO token del link (endpoint público /cover). Una URL absoluta en el tema
+    // se usa tal cual.
+    if (theme?.cover_url) this.coverUrl.set(theme.cover_url);
+    else if (theme?.cover_document_id) this.coverUrl.set(`${GATEWAY}/api/dynamic-forms/public/${this.token}/cover`);
+    else this.coverUrl.set(null);
   }
 
   // ---------- Estado ----------
