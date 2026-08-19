@@ -247,6 +247,195 @@ describe('FormsTestContratation (DOM)', () => {
     await fixture.whenStable();
   });
 
+  // ------------------------------------------------------------------
+  // Finalizar exige TODOS los pasos: con cualquier faltante se bloquea
+  // (resumen por pasos) y NO se envía nada; completo, sí guarda.
+  // ------------------------------------------------------------------
+  describe('finalizar con información faltante en pasos anteriores', () => {
+    /** Deja el formulario COMPLETO y válido (base del control positivo). */
+    async function llenarTodoValido() {
+      const f = comp.formHojaDeVida2;
+      const set = (k: string, v: any) => f.get(k)!.setValue(v);
+
+      // Paso 1 — identificación y contacto
+      set('fuenteVacante', 'FACEBOOK');
+      set('oficina', 'FACA_PRIMERA');
+      set('tipoDoc', 'CC');
+      set('numeroCedula', '1023456789');
+      set('fechaNacimiento', new Date(1990, 0, 15));
+      set('fechaExpedicionCC', new Date(2010, 5, 20));
+      set('departamentoNacimiento', 'Cundinamarca');
+      set('departamentoExpedicionCC', 'Cundinamarca');
+      set('pNombre', 'IVAN'); set('pApellido', 'BERMUDEZ');
+      set('genero', 'M'); set('estadoCivil', 'SO');
+      set('departamento', 'Cundinamarca');
+      fixture.detectChanges(); await fixture.whenStable();
+      // Las ciudades en cascada nacen deshabilitadas; al elegir depto se habilitan.
+      for (const c of ['ciudad', 'municipioNacimiento', 'municipioExpedicionCC']) {
+        const ctrl = f.get(c)!;
+        if (ctrl.disabled) ctrl.enable({ emitEvent: false });
+        ctrl.setValue('Funza');
+      }
+      set('zonaResidencia', 'CENTRO');
+      set('direccionResidencia', 'CL 12 33 24');
+      set('numCelular', '3101234567'); set('numWha', '3101234567');
+      set('conQuienViveChecks', ['PADRES']);
+      set('tiempoResidenciaZona', '1 AÑO');
+      set('correoUsuario', 'ivan'); set('correoDominio', 'GMAIL.COM');
+      set('escolaridad', 'SIN ESTUDIOS'); // sin detalle académico obligatorio
+      set('expectativasVidaChecks', ['CASA PROPIA']);
+
+      // Paso 2 — detalles
+      set('rh', 'O+'); set('lateralidad', 'D');
+      set('tallaCamisa', 'M'); set('tallaPantalon', 'M');
+      set('tallaChaqueta', 'M'); set('tallaCalzado', '40');
+      set('lugarAnteriorResidencia', 'MADRID');
+      set('razonCambioResidencia', 'TRABAJO');
+      set('familiarEmergencia', 'MARIA PEREZ');
+      set('parentescoFamiliarEmergencia', 'HE');
+      set('telefonoFamiliarEmergencia', '3111234567');
+      set('direccionFamiliarEmergencia', 'CL 1 2 3');
+      set('estudiaActualmente', 'NO');
+
+      // Paso 3 — familia y referencias (padres sin detalle obligatorio)
+      set('elPadreVive', 'NO LO CONOCE');
+      set('madreVive', 'NO LO CONOCE');
+      set('nombreReferenciaPersonal1', 'JUAN PEREZ');
+      set('telefonoReferencia1', '3200000001');
+      set('direccionReferenciaPersonal1', 'CL 1 1 1');
+      set('nombreReferenciaPersonal2', 'ANA GOMEZ');
+      set('telefonoReferencia2', '3200000002');
+      set('direccionReferenciaPersonal2', 'CL 2 2 2');
+      set('nombreReferenciaFamiliar1', 'LUISA CASTRO');
+      set('telefonoReferenciaFamiliar1', '3300000001');
+      set('direccionReferenciaFamiliar1', 'CL 3 3 3');
+      set('parentescoReferenciaFamiliar1', 'HE');
+      set('nombreReferenciaFamiliar2', 'PEDRO RIOS');
+      set('telefonoReferenciaFamiliar2', '3300000002');
+      set('direccionReferenciaFamiliar2', 'CL 4 4 4');
+      set('parentescoReferenciaFamiliar2', 'HE');
+
+      // Paso 4 — experiencia, hijos, vivienda
+      set('experienciaLaboral', 'NO');
+      set('numHijosDependientes', 0);
+      set('familiaSolo', 'SI');
+      set('personas_a_cargo', ['NINGUNA']);
+      set('tiposViviendaChecks', ['ARRIENDO']);
+      set('numeroHabitaciones', '3');
+      set('personasPorHabitacion', '2');
+      set('caracteristicasVivienda', 'LADRILLO');
+      set('comodidadesChecks', ['AGUA']);
+
+      fixture.detectChanges();
+      await fixture.whenStable();
+    }
+
+    const swalTexto = () => document.body.querySelector('.swal2-container')?.textContent || '';
+    async function cerrarSwal() {
+      (document.body.querySelector('.swal2-confirm') as HTMLButtonElement | null)?.click();
+      await fixture.whenStable();
+    }
+
+    /** Finaliza y devuelve si se llamó al guardado del backend. */
+    async function finalizar(): Promise<jasmine.Spy> {
+      const svc: any = TestBed.inject(RegistroProcesoContratacion);
+      const spy = (svc.crearActualizarCandidato2 as jasmine.Spy).calls
+        ? svc.crearActualizarCandidato2
+        : spyOn(svc, 'crearActualizarCandidato2').and.callThrough();
+      spy.calls.reset();
+      await comp.imprimirInformacion2();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      return spy;
+    }
+
+    it('control positivo: con TODO diligenciado sí se envía al backend', async () => {
+      await abrirFormulario();
+      await llenarTodoValido();
+      expect(comp.formHojaDeVida2.valid)
+        .withContext('el helper debe dejar el formulario válido; si falla, revisar qué control quedó inválido: '
+          + Object.keys(comp.formHojaDeVida2.controls).filter(k => comp.formHojaDeVida2.get(k)!.invalid).join(', '))
+        .toBeTrue();
+      const spy = await finalizar();
+      expect(spy).toHaveBeenCalled();
+      await cerrarSwal();
+    });
+
+    it('falta el correo (paso 1): bloquea con el resumen y NO envía', async () => {
+      await abrirFormulario();
+      await llenarTodoValido();
+      comp.formHojaDeVida2.get('correoUsuario')!.setValue('');
+      const spy = await finalizar();
+      expect(spy).not.toHaveBeenCalled();
+      expect(swalTexto()).toContain('por completar');
+      expect(swalTexto()).toContain('Paso 1');
+      await cerrarSwal();
+    });
+
+    it('falta el RH (paso 2): bloquea y NO envía', async () => {
+      await abrirFormulario();
+      await llenarTodoValido();
+      comp.formHojaDeVida2.get('rh')!.setValue('');
+      const spy = await finalizar();
+      expect(spy).not.toHaveBeenCalled();
+      expect(swalTexto()).toContain('Paso 2');
+      await cerrarSwal();
+    });
+
+    it('falta una referencia (paso 3): bloquea y NO envía', async () => {
+      await abrirFormulario();
+      await llenarTodoValido();
+      comp.formHojaDeVida2.get('nombreReferenciaPersonal1')!.setValue('');
+      const spy = await finalizar();
+      expect(spy).not.toHaveBeenCalled();
+      expect(swalTexto()).toContain('Paso 3');
+      await cerrarSwal();
+    });
+
+    it('falta vivienda (paso 4): bloquea y NO envía', async () => {
+      await abrirFormulario();
+      await llenarTodoValido();
+      comp.formHojaDeVida2.get('caracteristicasVivienda')!.setValue('');
+      const spy = await finalizar();
+      expect(spy).not.toHaveBeenCalled();
+      expect(swalTexto()).toContain('Paso 4');
+      await cerrarSwal();
+    });
+
+    it('condicional cónyuge: CASADO sin datos del cónyuge bloquea', async () => {
+      await abrirFormulario();
+      await llenarTodoValido();
+      comp.formHojaDeVida2.get('estadoCivil')!.setValue('CA');
+      fixture.detectChanges(); await fixture.whenStable();
+      const spy = await finalizar();
+      expect(spy).not.toHaveBeenCalled();
+      expect(swalTexto()).toContain('por completar');
+      await cerrarSwal();
+    });
+
+    it('condicional padre VIVE sin dirección bloquea', async () => {
+      await abrirFormulario();
+      await llenarTodoValido();
+      comp.formHojaDeVida2.get('elPadreVive')!.setValue('VIVE');
+      fixture.detectChanges(); await fixture.whenStable();
+      const spy = await finalizar();
+      expect(spy).not.toHaveBeenCalled();
+      expect(swalTexto()).toContain('Paso 3');
+      await cerrarSwal();
+    });
+
+    it('condicional hijos: 2 hijos con tarjetas vacías bloquea listando cada hijo', async () => {
+      await abrirFormulario();
+      await llenarTodoValido();
+      comp.formHojaDeVida2.get('numHijosDependientes')!.setValue(2);
+      fixture.detectChanges(); await fixture.whenStable();
+      const spy = await finalizar();
+      expect(spy).not.toHaveBeenCalled();
+      expect(swalTexto()).toContain('Hijo 1');
+      await cerrarSwal();
+    });
+  });
+
   it('el paso final ya no ofrece "¿Generar HV automática?"', async () => {
     await abrirFormulario();
     await irAlPaso(4);

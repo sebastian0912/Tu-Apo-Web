@@ -4,6 +4,7 @@ import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NetworkService } from './network.service';
 import { DbService, SyncQueueItem, SYNC_QUEUE_MAX_RETRIES } from '../../shared/services/db.service';
+import { environment } from '../../../environments/environment';
 import Swal from 'sweetalert2';
 
 @Injectable({
@@ -47,7 +48,23 @@ export class SyncService {
   }
 
   private async runSync(): Promise<void> {
-    const items: SyncQueueItem[] = await this.dbService.getSyncQueue();
+    const todos: SyncQueueItem[] = await this.dbService.getSyncQueue();
+
+    // La cola guarda la URL ABSOLUTA de cada request. Hubo versiones que
+    // apuntaban al dominio legacy (formulario.tsservicios.co, ya apagado), y
+    // esos items quedaron persistidos en IndexedDB de los navegadores:
+    // reintentarlos solo produce CORS + 504 en consola en cada arranque.
+    // Todo item cuyo origen no sea el API actual ni esta misma app se descarta.
+    const items: SyncQueueItem[] = [];
+    for (const item of todos) {
+      if (this.esOrigenActual(item.url)) {
+        items.push(item);
+      } else {
+        console.info('[sync] Descartado item offline de un origen obsoleto:', item.url);
+        await this.dbService.removeFromSyncQueue(item.id!);
+      }
+    }
+
     if (items.length === 0) return;
 
     let syncCount = 0;
@@ -122,6 +139,15 @@ export class SyncService {
         title: `Se sincronizaron ${syncCount} tareas correctamente.`,
         timer: 4000
       });
+    }
+  }
+
+  private esOrigenActual(url: string): boolean {
+    try {
+      const origin = new URL(url, window.location.origin).origin;
+      return origin === window.location.origin || origin === new URL(environment.apiUrl).origin;
+    } catch {
+      return false;
     }
   }
 

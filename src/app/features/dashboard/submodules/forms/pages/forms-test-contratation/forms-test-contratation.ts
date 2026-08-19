@@ -766,6 +766,10 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       // El teléfono de la empresa nunca tuvo formato y aceptaba cualquier cosa
       // ("ABC"). Ahora exige un número real, pero admite fijo además de celular.
       telefonosEmpresa1: this.telefonoEmpresaValidator(),
+      // Un retiro o una graduación no pueden estar en el futuro; sin esto el
+      // datepicker (sin [max]) aceptaba cualquier fecha.
+      fechaRetiro1: this.noFuturaValidator(),
+      anoFinalizacion: this.noFuturaValidator(),
     };
 
     const toggle = (ctrlName: string, required: boolean, validators: ValidatorFn[] = []) => {
@@ -877,10 +881,10 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     // Conyuge / Padres Validators Logic
     f.get('viveConyuge')?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(val => {
       const req = val === 'SI';
-      // Toggle plural fields (used in HTML)
-      toggle('nombresConyuge', req, [this.nameValidator()]);
-      toggle('apellidosConyuge', req, [this.nameValidator()]);
-
+      // Nombres/apellidos del cónyuge NO se tocan acá: dependen del estado civil
+      // (CA/UL), no de la convivencia. Cuando se toggleaban con "¿vive con el
+      // cónyuge? NO", el nombre recién escrito se borraba EN PANTALLA (el campo
+      // sigue visible) y un casado que no convive quedaba sin cónyuge registrado.
       toggle('documentoIdentidadConyuge', req);
       toggle('direccionConyuge', req, [Validators.required]);
       toggle('telefonoConyuge', req);
@@ -898,6 +902,11 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       const conyugeCtrl = f.get('viveConyuge');
 
       if (requiresRef) {
+        // El NOMBRE del cónyuge se exige por el estado civil (hay cónyuge),
+        // conviva o no. Los datos de contacto (documento, dirección, teléfono)
+        // sí dependen de "¿vive con el cónyuge?" — ver el toggle de arriba.
+        toggle('nombresConyuge', true, [this.nameValidator()]);
+        toggle('apellidosConyuge', true, [this.nameValidator()]);
         if (!conyugeCtrl?.value) conyugeCtrl?.setValue('SI');
       } else {
         // No casado/unión libre → limpiar TODOS los campos de cónyuge.
@@ -1069,9 +1078,11 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       const g = this.fb.group({
         nombreHijo: ['', [Validators.required]],
         sexoHijo: ['', Validators.required],
-        fechaNacimientoHijo: ['', [Validators.required]],
-        // Doc ID Required
-        docIdentidadHijo: ['', Validators.required],
+        // Un hijo no puede nacer en el futuro (el datepicker además acota con [max]).
+        fechaNacimientoHijo: ['', [Validators.required, this.noFuturaValidator()]],
+        // Registro civil / TI del hijo: solo dígitos, igual de estricto que el
+        // documento principal (antes aceptaba cualquier texto).
+        docIdentidadHijo: ['', [Validators.required, Validators.pattern(REGEX_NUMERIC), Validators.maxLength(11)]],
         ocupacionHijo: ['', [Validators.required]],
         // Curso conditional
         cursoHijo: ['']
@@ -1116,14 +1127,18 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     // donde el sistema puede matar la pestaña sin avisar) y 'pagehide' cubre
     // cerrar, recargar o navegar fuera. 'beforeunload' no dispara en iOS.
     const flush = () => this.guardarBorrador();
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
     window.addEventListener('pagehide', flush);
     window.addEventListener('beforeunload', flush);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') flush();
-    });
+    document.addEventListener('visibilitychange', onVisibility);
     this.destroy$.subscribe(() => {
       window.removeEventListener('pagehide', flush);
       window.removeEventListener('beforeunload', flush);
+      // Con la función anónima de antes este listener quedaba vivo tras salir
+      // de la página y seguía guardando borradores del componente destruido.
+      document.removeEventListener('visibilitychange', onVisibility);
     });
   }
 
@@ -1142,7 +1157,10 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       const limpio = this.sanitizeForStorage(this.formHojaDeVida2.getRawValue());
       localStorage.setItem(STORAGE_KEY, JSON.stringify(limpio));
       localStorage.setItem(CEDULA_KEY, String(cedula));
-      localStorage.setItem(STEP_KEY, String(this.stepperIndex ?? 0));
+      // 0-based (índice del stepper). `stepperIndex` es el contador VISIBLE
+      // (1-based): guardarlo tal cual hacía que el borrador restaurara a la
+      // persona un paso ADELANTE de donde iba.
+      localStorage.setItem(STEP_KEY, String(Math.max(0, (this.stepperIndex || 1) - 1)));
       localStorage.setItem(STAMP_KEY, String(Date.now()));
     } catch (e) {
       // QuotaExceeded u otro fallo de storage: no debe tumbar el formulario.
@@ -1580,44 +1598,15 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     return c as FormGroup;
   }
 
-  // ----------------------------------------------------
-  // Multi-credencial por cédula: una cédula puede acumular X correos de acceso,
-  // cada uno como UsuarioCredencial propia. El correo del formulario NO pisa el
-  // correo ya existente en BD: se ANEXA vía el endpoint público
-  // /gestion_admin/auth/agregar-credenciales/ (no requiere sesión).
-  // ----------------------------------------------------
-  /**
-   * Anexa UN correo como credencial de acceso de la cédula. La contraseña es la
-   * cédula (misma convención del correo principal del formulario). No lanza:
-   * devuelve el resultado para que el llamador decida el mensaje al usuario.
-   *
-   * @returns ok=true si quedó agregado (o ya existía como credencial de la misma
-   *          cédula); ok=false con `rechazo` si el backend lo rechazó/ falló.
-   */
-  private async agregarCorreoComoCredencial(
-    apiUrl: string,
-    cedula: string,
-    correo: string,
-    password: string,
-    etiqueta: string = 'PERSONAL',
-  ): Promise<{ ok: boolean; rechazo?: string }> {
-    const correoNorm = String(correo || '').trim().toLowerCase();
-    if (!correoNorm || !password) return { ok: false, rechazo: 'Datos incompletos.' };
-    try {
-      const res: any = await firstValueFrom(this.http.post(
-        `${apiUrl}/gestion_admin/auth/agregar-credenciales/`,
-        { numero_de_documento: cedula, credenciales: [{ correo: correoNorm, password, etiqueta }] }
-      ));
-      const agregadas = Array.isArray(res?.agregadas) ? res.agregadas : [];
-      const rechazadas = Array.isArray(res?.rechazadas) ? res.rechazadas : [];
-      if (agregadas.length > 0) return { ok: true };
-      if (rechazadas.length > 0) return { ok: false, rechazo: String(rechazadas[0]?.motivo || '') };
-      return { ok: false };
-    } catch (e: any) {
-      console.warn('[credencial] no se pudo anexar:', e?.status, e?.error);
-      return { ok: false, rechazo: 'No se pudo conectar con el servidor.' };
-    }
-  }
+  // NOTA (2026-08-19): acá vivía la versión Django del subsistema
+  // "multi-credencial por cédula" (updateExistingUserByDoc /
+  // agregarCredencialPersonal / showEmailOwner / comprobarDuenoCorreo), que
+  // analizaba los cuerpos de error DRF y llamaba endpoints que no existen en
+  // Java. El multi-correo real vive ahora en ms-auth-admin (V42,
+  // /gestion_admin/auth/agregar-credenciales/) y se usa desde
+  // `manejarCuentaExistente` + `agregarCorreoComoCredencial` (más abajo).
+  // El correo ajeno lo frena el upsert con EMAIL_BELONGS_TO_OTHER_CEDULA
+  // (handleBackendError → showEmailOwnerWithInfo).
 
   shouldShowError(controlName: string, form: FormGroup = this.formHojaDeVida2): boolean {
     const control = form.get(controlName);
@@ -1878,9 +1867,19 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   // Utils
   toYmd(d: any): string {
     if (!d) return '';
-    const date = new Date(d);
+    // Cadena que ya viene como YYYY-MM-DD (borrador/prefill): se respeta tal
+    // cual. Pasarla por `new Date()` la interpreta en UTC y corre el día.
+    if (typeof d === 'string') {
+      const m = /^(\d{4}-\d{2}-\d{2})/.exec(d.trim());
+      if (m) return m[1];
+    }
+    const date = d instanceof Date ? d : new Date(d);
     if (isNaN(date.getTime())) return '';
-    return date.toISOString().split('T')[0];
+    // En LOCAL, no UTC: con `toISOString()` la fecha retrocedía un día para
+    // quien llenara el formulario desde un huso horario positivo (Europa).
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${date.getFullYear()}-${mm}-${dd}`;
   }
 
   // ----------------------------------------------------
@@ -3314,32 +3313,15 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    // Backend duplicate check
     const raw = this.formHojaDeVida2.getRawValue();
-    const correo = String(raw.correo || '').trim().toUpperCase();
     const cedula = String(raw.numeroCedula || '').trim();
 
-    try {
-      const check: any = await firstValueFrom(this.candidateS.validarCorreoCedula(correo, cedula));
-      if (check?.correo_repetido) {
-        let msg = 'El correo ya existe en nuestro sistema.';
-        if (check.duplicado_info) {
-          msg = `El correo ya está en uso por:<br><b>${this.esc(check.duplicado_info.nombres)} ${this.esc(check.duplicado_info.apellidos)}</b><br>Documento: <b>${this.esc(check.duplicado_info.documento)}</b>`;
-        }
-        Swal.fire({
-          icon: 'error',
-          title: '¡Correo duplicado!',
-          html: msg
-        });
-        return;
-      }
-    } catch (e) {
-      // Esta consulta es una cortesía para avisar temprano. Si el endpoint está
-      // caído NO se puede dejar a la persona sin poder enviar: el upsert del
-      // backend rechaza el correo ajeno con EMAIL_BELONGS_TO_OTHER_CEDULA y ese
-      // caso ya lo trata `handleBackendError`.
-      console.warn('[correo] no se pudo validar previamente, se continúa', e);
-    }
+    // Del correo duplicado se encarga el UPSERT del backend: rechaza el correo
+    // ajeno con EMAIL_BELONGS_TO_OTHER_CEDULA (con el dueño incluido) y ese caso
+    // lo pinta `handleBackendError`. El "aviso temprano" que había acá consultaba
+    // /validar-correo-cedula esperando el contrato Django (`correo_repetido`),
+    // pero el endpoint Java devuelve `correoExiste` SIEMPRE en false (stub):
+    // era una llamada bloqueante que no podía detectar nada.
 
     // Build Payload
     this.numeroCedula = cedula;
@@ -3392,7 +3374,24 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           this.borradorDeshabilitado = true;
           this.limpiarBorrador();
 
-          Swal.fire(filesOk ? '¡Éxito!' : 'Proceso Incompleto', filesOk ? 'Tu información general ha sido guardada exitosamente.' : 'La información guardó, pero hubo un problema subiendo tu Hoja de Vida. Intenta enviarla más tarde.', filesOk ? 'success' : 'warning');
+          if (filesOk) {
+            // El formulario se llena en computadores de oficina compartidos: al
+            // cerrar el aviso se recarga la página para que los datos personales
+            // no queden en pantalla para la siguiente persona (el borrador ya se
+            // borró y la URL conserva ?empresa= y ?oficina=).
+            await Swal.fire({
+              icon: 'success',
+              title: '¡Éxito!',
+              text: 'Tu información fue guardada exitosamente. Al cerrar este aviso el formulario quedará listo para un nuevo registro.',
+              confirmButtonText: 'Terminar',
+              confirmButtonColor: '#111827',
+            });
+            if (this.isBrowser) window.location.reload();
+          } else {
+            // No se recarga: la persona puede volver a pulsar "Enviar" para
+            // reintentar la subida de la hoja de vida (el upsert es idempotente).
+            Swal.fire('Proceso Incompleto', 'La información guardó, pero hubo un problema subiendo tu Hoja de Vida. Pulsa "Enviar formulario" otra vez para reintentar.', 'warning');
+          }
         } catch (error) {
            this.handleBackendError(error, 'Fallo procesando la carga (Parte 2)');
         } finally {
@@ -3720,24 +3719,36 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           // otra vez repetía el registro, el 400 por documento duplicado y toda
           // la cadena de modales de credenciales.
           const claveUsuario = `${String(g('numeroCedula')).trim()}|${(g('correo') || '').toUpperCase().trim()}`;
-          if (claveUsuario !== this.usuarioRegistradoPara) {
+          const esPrimeraVez = claveUsuario !== this.usuarioRegistradoPara;
+          if (esPrimeraVez) {
             this.usuarioRegistradoPara = claveUsuario;
             this.createUserInBackground(raw);
+            // Es el único momento en que se le puede entregar el usuario: acá se
+            // crea la cuenta. Sin temporizador — tiene que poder anotarlo.
+            const usuarioAcceso = this.usuarioDeAcceso(g('tipoDoc'), g('numeroCedula'));
+            const cedulaLimpia = String(g('numeroCedula')).replace(/\D/g, '');
+            Swal.fire({
+              icon: 'success',
+              title: 'Paso 1 guardado',
+              html: `<p style="text-align:left;margin:0;">Sus datos básicos se guardaron y ya tiene cuenta para ingresar al portal:</p>
+                     ${this.cajaCredenciales(usuarioAcceso, cedulaLimpia, (g('correo') || '').toLowerCase())}
+                     <p style="text-align:left;font-size:12px;color:#6b7280;margin:0;">Anótelos: los va a necesitar para consultar sus documentos y desprendibles.</p>`,
+              confirmButtonText: 'Anotado, continuar',
+              confirmButtonColor: '#111827',
+              width: 480,
+            });
+          } else {
+            // Ya pasó por acá con esta misma cédula+correo: volver a mostrar el
+            // modal grande de credenciales en cada "Siguiente" era ruido.
+            Swal.fire({
+              icon: 'success',
+              title: 'Paso 1 actualizado',
+              toast: true,
+              position: 'bottom-end',
+              timer: 2500,
+              showConfirmButton: false,
+            });
           }
-          // Es el único momento en que se le puede entregar el usuario: acá se
-          // crea la cuenta. Sin temporizador — tiene que poder anotarlo.
-          const usuarioAcceso = this.usuarioDeAcceso(g('tipoDoc'), g('numeroCedula'));
-          const cedulaLimpia = String(g('numeroCedula')).replace(/\D/g, '');
-          Swal.fire({
-            icon: 'success',
-            title: 'Paso 1 guardado',
-            html: `<p style="text-align:left;margin:0;">Sus datos básicos se guardaron y ya tiene cuenta para ingresar al portal:</p>
-                   ${this.cajaCredenciales(usuarioAcceso, cedulaLimpia, (g('correo') || '').toLowerCase())}
-                   <p style="text-align:left;font-size:12px;color:#6b7280;margin:0;">Anótelos: los va a necesitar para consultar sus documentos y desprendibles.</p>`,
-            confirmButtonText: 'Anotado, continuar',
-            confirmButtonColor: '#111827',
-            width: 480,
-          });
           this.stepper.next();
         },
         error: (err) => {
@@ -3831,7 +3842,9 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       apellidos,
       celular,
       estado_solicitudes: true,
-      rol: '136d38f8e3a04ca299a6e8b9105c1900',
+      // El `rol` no se manda: AuthService.register lo ignora y asigna SIEMPRE
+      // el rol de auto-registro (DEFAULT_SELF_REGISTER_ROLE). El UUID Django
+      // que viajaba acá era payload muerto.
     };
 
     this.http.post<any>(`${apiUrl}/gestion_admin/auth/register/`, registerPayload)
@@ -3915,64 +3928,33 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
             return;
           }
 
-          // Error 400: analizar QUÉ campo falló
-          const docErr = JSON.stringify(errBody.numero_de_documento || '').toLowerCase();
-          const emailErr = JSON.stringify(errBody.correo_electronico || '').toLowerCase();
-          const isDocDuplicate = docErr.includes('ya registrado') || docErr.includes('unique') || docErr.includes('already exists');
-          const isEmailDuplicate = emailErr.includes('ya registrado') || emailErr.includes('unique') || emailErr.includes('already exists');
-
-          // CASO 1: El documento ya existe → significa que es la MISMA persona intentando volver a registrarse. Actualizamos sus datos.
-          if (isDocDuplicate) {
-            console.log('[createUser] Documento duplicado → actualizar usuario existente');
-            this.updateExistingUserByDoc(apiUrl, numeroCedula, correo, password, raw, isEmailDuplicate);
+          // Backend Java: cuando el documento O el correo ya tienen cuenta,
+          // register responde un genérico anti-enumeración ("No se puede crear
+          // el usuario con esos datos") sin detalle por campo. Para quien se
+          // registra con SU propia cédula eso significa "usted ya tiene
+          // cuenta": se anexa el correo del formulario como credencial de
+          // acceso ADICIONAL (multi-correo por cédula) y se avisa según
+          // el resultado, con las credenciales a la vista.
+          const msgJava = String(errBody?.message ?? errBody?.reason ?? '').toLowerCase();
+          if (msgJava.includes('no se puede crear el usuario')) {
+            void this.manejarCuentaExistente(apiUrl, tipoDoc, numeroCedula, correo, password);
             return;
           }
 
-          // CASO 2: Solo el correo está duplicado (OTRA persona distinta lo tiene) → mostrar quién
-          if (isEmailDuplicate) {
-            console.log('[createUser] Correo duplicado por otra persona');
-            this.showEmailOwner(correo, numeroCedula);
-            return;
-          }
-
-          // CASO 3: Otro error de validación (password corto, formato inválido, etc.)
+          // Otro error de validación 400 (formato inválido, campo faltante…).
+          // Los "duplicados" ya no llegan acá: el backend Java responde el
+          // genérico anti-enumeración que trata la rama de arriba. Las ramas
+          // Django que había acá (analizar `numero_de_documento`/`correo_electronico`
+          // del body y saltar a actualizar el usuario o buscar al dueño del
+          // correo) dependían de endpoints que no existen en Java y eran
+          // inalcanzables con este backend.
           this.showUserCreationError(errBody, numeroCedula);
         }
       });
   }
 
-  /**
-   * Busca quién tiene el correo duplicado y le muestra al usuario.
-   * Usa el endpoint público validar-correo-cedula que no requiere auth.
-   */
-  /**
-   * Consulta al backend si el correo pertenece a otra cédula distinta a `cedulaActual`.
-   * Retorna { ownedByOther: true, info } si pertenece a otra persona, o null si no.
-   */
-  private async comprobarDuenoCorreo(correo: string, cedulaActual: string): Promise<{ ownedByOther: boolean; info: any } | null> {
-    try {
-      const check: any = await firstValueFrom(this.candidateS.validarCorreoCedula(correo, cedulaActual));
-      if (check?.duplicado_info) {
-        const info = check.duplicado_info;
-        const docOtro = String(info.documento || '').replace(/\D/g, '').trim();
-        const docActual = String(cedulaActual || '').replace(/\D/g, '').trim();
-        // Solo marcar como "de otra persona" si las cédulas son distintas
-        if (docOtro && docActual && docOtro !== docActual) {
-          return { ownedByOther: true, info };
-        }
-      }
-      // Fallback: si el backend solo dice 'correo_repetido' sin info, asumimos que es de otro
-      if (check?.correo_repetido && !check?.duplicado_info) {
-        return { ownedByOther: true, info: null };
-      }
-      return null;
-    } catch (e) {
-      console.warn('[comprobarDuenoCorreo] No se pudo validar:', e);
-      return null;
-    }
-  }
-
-  /** Muestra el modal del dueño del correo cuando YA tenemos la info del backend */
+  /** Muestra el modal del dueño del correo cuando YA tenemos la info del backend
+   *  (llega en `owner` dentro del error EMAIL_BELONGS_TO_OTHER_CEDULA del upsert). */
   private showEmailOwnerWithInfo(correoCrudo: string, cedulaActualCruda: string, info: any): void {
     // Nombre, documento y correo llegan del backend: se escapan antes de
     // inyectarlos en el `html` del modal.
@@ -4012,10 +3994,75 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  /** Consulta al backend y muestra al dueño del correo. NO actualiza nada. */
-  private async showEmailOwner(correo: string, cedulaActual: string): Promise<void> {
-    const ownerInfo = await this.comprobarDuenoCorreo(correo, cedulaActual);
-    this.showEmailOwnerWithInfo(correo, cedulaActual, ownerInfo?.info ?? null);
+  /**
+   * Anexa UN correo como credencial de acceso ADICIONAL de la cédula
+   * (multi-correo: corporativo + personal, cada uno con su propia contraseña).
+   * Endpoint público /gestion_admin/auth/agregar-credenciales/ (ms-auth-admin
+   * V42). El backend rechaza cuentas administrativas y correos de otra persona;
+   * los textos de `motivo` son contrato: acá se buscan "principal",
+   * "pertenece a otro" y "no existe una cuenta".
+   */
+  private async agregarCorreoComoCredencial(
+    apiUrl: string,
+    cedula: string,
+    correo: string,
+    password: string,
+    etiqueta: string = 'PERSONAL',
+  ): Promise<{ ok: boolean; rechazo?: string }> {
+    const correoNorm = String(correo || '').trim().toLowerCase();
+    if (!correoNorm || !password) return { ok: false, rechazo: 'Datos incompletos.' };
+    try {
+      const res: any = await firstValueFrom(this.http.post(
+        `${apiUrl}/gestion_admin/auth/agregar-credenciales/`,
+        { numero_de_documento: cedula, credenciales: [{ correo: correoNorm, password, etiqueta }] }
+      ));
+      const agregadas = Array.isArray(res?.agregadas) ? res.agregadas : [];
+      const rechazadas = Array.isArray(res?.rechazadas) ? res.rechazadas : [];
+      if (agregadas.length > 0) return { ok: true };
+      if (rechazadas.length > 0) return { ok: false, rechazo: String(rechazadas[0]?.motivo || '') };
+      return { ok: false };
+    } catch (e: any) {
+      console.warn('[credencial] no se pudo anexar:', e?.status, e?.error);
+      return { ok: false };
+    }
+  }
+
+  /**
+   * El register dijo "cuenta existente" (genérico anti-enumeración). Se intenta
+   * anexar el correo del formulario como acceso adicional y se explica el
+   * resultado. Si el conflicto real era el CORREO de otra persona (la cédula no
+   * tiene cuenta, o el correo pertenece a otro), se pide cambiarlo.
+   */
+  private async manejarCuentaExistente(apiUrl: string, tipoDoc: string, cedula: string, correo: string, password: string): Promise<void> {
+    const usuarioAcceso = this.usuarioDeAcceso(tipoDoc, cedula);
+    const correoLower = (correo || '').toLowerCase();
+    const cred = await this.agregarCorreoComoCredencial(apiUrl, cedula, correoLower, password);
+
+    if (!cred.ok && /pertenece a otro|no existe una cuenta/i.test(cred.rechazo || '')) {
+      // "no existe una cuenta" = la cédula NO tiene usuario, así que lo que
+      // chocó en el register fue el correo (es de otra persona).
+      this.showEmailOwnerWithInfo(correo, cedula, null);
+      return;
+    }
+
+    const detalleCorreo = cred.ok
+      ? `<p style="text-align:left;">Además, agregamos <b>${this.esc(correoLower)}</b> como correo de acceso adicional: puede ingresar con cualquiera de sus correos, cada uno con su propia contraseña.</p>`
+      : /principal/i.test(cred.rechazo || '')
+        ? `<p style="text-align:left;">Ese correo ya es su acceso: ingrese con él y su número de documento.</p>`
+        : '';
+
+    Swal.fire({
+      icon: 'info',
+      title: 'Su cuenta ya existe',
+      html: `<p style="text-align:left;">Sus datos del formulario <b>sí se guardaron correctamente</b>.</p>
+             <p style="text-align:left;">Su documento (o su correo) <b>ya tiene una cuenta de acceso</b> en el portal, así que no fue necesario crear una nueva.</p>
+             ${detalleCorreo}
+             ${this.cajaCredenciales(usuarioAcceso, cedula, correoLower)}
+             <p style="text-align:left;font-size:13px;color:#6b7280;">Si no puede ingresar con estos datos, comuníquese con la oficina con su cédula: <b>${this.esc(cedula)}</b>.</p>`,
+      confirmButtonText: 'Entendido',
+      confirmButtonColor: '#111827',
+      width: 520
+    });
   }
 
   /** Muestra al usuario final los errores específicos al crear su cuenta de acceso */
@@ -4094,334 +4141,6 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       confirmButtonColor: '#111827',
       width: 520
     });
-  }
-
-  /**
-   * Agrega un correo + password como credencial PERSONAL del usuario existente.
-   * No toca su correo principal ni su rol. La persona podrá iniciar sesión
-   * con cualquiera de sus correos (cada uno con su propia contraseña).
-   */
-  private async agregarCredencialPersonal(
-    apiUrl: string,
-    correo: string,
-    password: string,
-    cedula: string,
-  ): Promise<void> {
-    const cred = await this.agregarCorreoComoCredencial(apiUrl, cedula, correo, password, 'PERSONAL');
-    if (cred.ok) {
-      Swal.fire({
-        icon: 'success',
-        title: 'Correo personal agregado',
-        html: `<p style="text-align:left;">Listo. Ahora puede ingresar al portal operativo con:</p>
-               <p style="text-align:left;background:#f5f5f5;padding:10px;border-radius:6px;margin:10px 0;">
-                 <b>Correo:</b> ${correo}<br>
-                 <b>Contraseña:</b> ${cedula}
-               </p>
-               <p style="text-align:left;">Su cuenta corporativa <b>queda intacta</b>: sigue ingresando con su correo corporativo y su contraseña habitual.</p>`,
-        confirmButtonText: 'Entendido',
-        confirmButtonColor: '#111827',
-        width: 560,
-      });
-      return;
-    }
-    const rechazo = cred.rechazo || '';
-    const msg = /pertenece a otro/i.test(rechazo)
-      ? 'Ese correo ya pertenece a otro usuario. Use un correo distinto.'
-      : /principal/i.test(rechazo)
-        ? 'Ese ya es su correo de acceso: puede ingresar con él usando su cédula.'
-        : (rechazo || 'No pudimos agregar el correo personal. Sus datos del formulario sí se guardaron.');
-    Swal.fire({
-      icon: 'warning',
-      title: 'No se pudo agregar el correo personal',
-      html: `<p style="text-align:left;">${this.esc(msg)}</p>
-             <p style="text-align:left;">Su cuenta corporativa <b>no fue modificada</b>. Si necesita acceso operativo, comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
-      confirmButtonText: 'Entendido',
-      confirmButtonColor: '#111827',
-      width: 520
-    });
-  }
-
-  /**
-   * El documento ya existe en BD. Política multi-correo por cédula:
-   *  - Si el correo del formulario ES distinto al correo principal ya guardado,
-   *    NO lo sobrescribimos: lo ANEXAMOS como credencial de acceso adicional, de
-   *    modo que la cédula acumule X correos (cada uno login propio).
-   *  - Si es el MISMO correo (o la cuenta aún no tenía), refrescamos los datos.
-   *  - Si el correo pertenece a OTRA cédula, se avisa y no se toca nada.
-   */
-  private async updateExistingUserByDoc(apiUrl: string, cedula: string, correo: string, password: string, raw: any, emailAlsoDuplicate: boolean): Promise<void> {
-    const g = (k: string) => (raw[k] || '');
-    const upper = (v: string) => String(v || '').toUpperCase().trim();
-
-    // Sólo datos de perfil. El correo/clave principal se decide más abajo según
-    // si el correo del formulario coincide o no con el principal ya existente.
-    const patchPayload: any = {
-      nombres: [upper(g('pNombre')), upper(g('sNombre'))].filter(Boolean).join(' ').substring(0, 64),
-      apellidos: [upper(g('pApellido')), upper(g('sApellido'))].filter(Boolean).join(' ').substring(0, 64),
-    };
-    if (g('numCelular')) patchPayload.celular = g('numCelular');
-
-    // Verificar SIEMPRE si el correo pertenece a otra cédula antes de tocar nada.
-    // Si es de otra persona -> mostrar dueño y NO actualizar.
-    const ownerInfo = await this.comprobarDuenoCorreo(correo, cedula);
-    if (ownerInfo?.ownedByOther) {
-      this.showEmailOwnerWithInfo(correo, cedula, ownerInfo.info);
-      return;
-    }
-
-    try {
-      // Buscar el usuario existente por cédula
-      const cleanCedula = String(cedula).replace(/\D/g, '').trim();
-      let userToUpdate: any = null;
-      let authBlocked = false;
-      let networkProblem = false;
-
-      for (const doc of [cleanCedula, cedula]) {
-        if (userToUpdate || !doc) continue;
-        try {
-          const resp = await firstValueFrom(this.http.get<any>(`${apiUrl}/gestion_admin/usuarios/?numero_de_documento=${doc}`));
-          const list = Array.isArray(resp) ? resp : (resp?.results ?? []);
-          if (list.length > 0) userToUpdate = list[0];
-        } catch (e: any) {
-          if (e?.status === 401 || e?.status === 403) {
-            authBlocked = true;
-            break;
-          }
-          if (e?.status === 0) {
-            networkProblem = true;
-            break;
-          }
-        }
-      }
-
-      // Caso: existe usuario con esa cédula pero no tenemos permisos para verlo
-      // (el candidato no está logueado, lo cual es normal en este flujo público).
-      // No podemos leer/editar la cuenta, PERO sí podemos anexar el correo como
-      // credencial de acceso por cédula (endpoint público): así la cédula acumula
-      // varios correos de login sin pisar el principal existente.
-      if (authBlocked) {
-        console.warn('[updateUser] Sin sesión: anexando correo como credencial pública.');
-        const cred = await this.agregarCorreoComoCredencial(apiUrl, cedula, correo, password, 'PERSONAL');
-        if (cred.ok) {
-          Swal.fire({
-            icon: 'success',
-            title: 'Correo de acceso agregado',
-            html: `<p style="text-align:left;">Ya existía una cuenta con la cédula <b>${this.esc(cedula)}</b>. Agregamos este correo como acceso adicional.</p>
-                   ${this.cajaCredenciales(this.usuarioDeAcceso(raw?.tipoDoc, cedula), String(cedula).replace(/\D/g, ''), correo)}
-                   <p style="font-size:12px;color:#666;text-align:left;">Sus otros correos registrados siguen funcionando igual.</p>`,
-            confirmButtonText: 'Entendido',
-            confirmButtonColor: '#111827',
-            width: 540
-          });
-        } else if (/principal/i.test(cred.rechazo || '')) {
-          // Ese correo ya es el principal de la cédula: la persona ya puede entrar con él.
-          Swal.fire({
-            icon: 'info',
-            title: 'Usted ya tiene una cuenta registrada',
-            html: `<p style="text-align:left;">Ya existe una cuenta con la cédula <b>${cedula}</b> y ese correo ya es su acceso.</p>
-                   <p style="text-align:left;">Sus datos del formulario <b>se guardaron correctamente</b>. Ingrese con <b>${correo}</b> y su número de cédula.</p>
-                   <p style="text-align:left;">Si no recuerda su contraseña, comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
-            confirmButtonText: 'Entendido',
-            confirmButtonColor: '#111827',
-            width: 520
-          });
-        } else {
-          Swal.fire({
-            icon: 'info',
-            title: 'Usted ya tiene una cuenta registrada',
-            html: `<p style="text-align:left;">Ya existe una cuenta con la cédula <b>${cedula}</b>.</p>
-                   <p style="text-align:left;">Sus datos del formulario <b>se guardaron correctamente</b>.</p>
-                   ${cred.rechazo ? `<p style="text-align:left;color:#b45309;">${this.esc(cred.rechazo)}</p>` : ''}
-                   <p style="text-align:left;">Si tiene problemas para ingresar, comuníquese con la oficina con su cédula: <b>${this.esc(cedula)}</b>.</p>`,
-            confirmButtonText: 'Entendido',
-            confirmButtonColor: '#111827',
-            width: 520
-          });
-        }
-        return;
-      }
-
-      if (networkProblem) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Sin conexión con el servidor',
-          html: `<p style="text-align:left;">Sus datos del formulario <b>sí se guardaron</b>.</p>
-                 <p style="text-align:left;">No pudimos actualizar su cuenta de acceso porque se perdió la conexión a internet.</p>
-                 <p style="text-align:left;">Si al terminar el formulario todavía tiene problemas para ingresar, comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
-          confirmButtonText: 'Entendido',
-          confirmButtonColor: '#111827',
-          width: 520
-        });
-        return;
-      }
-
-      // ── GUARD DE ROL ──────────────────────────────────────────────
-      // El formulario es para OPERARIOS. Si la cédula pertenece a un usuario
-      // con rol distinto (gerencia, coordinacion, jefatura, etc.) NO debemos
-      // sobreescribir su cuenta. En lugar de bloquear seco, ofrecemos agregar
-      // el correo del formulario como credencial PERSONAL adicional — la
-      // cuenta corporativa queda intacta y la persona gana un correo personal
-      // con su propia contraseña para el portal operativo.
-      if (userToUpdate) {
-        const rolNombre = this.esc(String(userToUpdate?.rol?.nombre ?? '').trim().toUpperCase());
-        if (rolNombre && rolNombre !== 'OPERARIO') {
-          console.warn('[updateUser] cédula con rol', rolNombre, '— ofreciendo credencial adicional');
-          const correoCorporativo = this.esc(String(userToUpdate?.correo_electronico || '').trim());
-          const result = await Swal.fire({
-            icon: 'info',
-            title: 'Esta cédula tiene una cuenta administrativa',
-            html: `<p style="text-align:left;">La cédula <b>${cedula}</b> ya existe como usuario con rol <b>${rolNombre}</b>${correoCorporativo ? ` y correo corporativo <b>${correoCorporativo}</b>` : ''}.</p>
-                   <p style="text-align:left;">No podemos modificar su cuenta corporativa. Pero podemos <b>agregar el correo personal</b> <b>${correo}</b> a su perfil, con la cédula como contraseña, para que ingrese al portal operativo sin afectar su cuenta corporativa.</p>`,
-            showCancelButton: true,
-            confirmButtonText: 'Sí, agregar correo personal',
-            cancelButtonText: 'No, solo guardar el formulario',
-            confirmButtonColor: '#111827',
-            width: 560
-          });
-          if (result.isConfirmed) {
-            await this.agregarCredencialPersonal(apiUrl, correo, password, cedula);
-          } else {
-            Swal.fire({
-              icon: 'success',
-              title: 'Formulario guardado',
-              html: `<p style="text-align:left;">Sus datos del formulario <b>se guardaron correctamente</b>. Su cuenta corporativa queda como estaba.</p>`,
-              confirmButtonText: 'Entendido',
-              confirmButtonColor: '#111827',
-              width: 520
-            });
-          }
-          return;
-        }
-      }
-
-      if (!userToUpdate) {
-        console.warn('[updateUser] El backend dijo que la cédula ya estaba, pero no la encontramos.');
-        Swal.fire({
-          icon: 'warning',
-          title: 'Su cuenta necesita revisión',
-          html: `<p style="text-align:left;">Sus datos del formulario <b>sí se guardaron correctamente</b>.</p>
-                 <p style="text-align:left;">Pero hubo un problema actualizando su cuenta de acceso.</p>
-                 <p style="text-align:left;">Comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
-          confirmButtonText: 'Entendido',
-          confirmButtonColor: '#111827',
-          width: 520
-        });
-        return;
-      }
-
-      // ¿El correo del formulario es DISTINTO al correo principal ya guardado?
-      // Si difiere, NO lo sobrescribimos: lo anexamos como acceso adicional, así
-      // la cédula acumula varios correos. Si coincide, refrescamos principal+clave.
-      // OJO: estos dos se usan para comparar y para ENVIAR al backend, así que
-      // se guardan crudos. El escape se aplica solo al pintarlos (`escExist` /
-      // `escNuevo`); escapar el valor real corrompería el correo enviado.
-      const correoExistente = String(userToUpdate?.correo_electronico || '').trim().toUpperCase();
-      const correoNuevo = String(correo || '').trim().toUpperCase();
-      const escExist = this.esc(correoExistente);
-      const escNuevo = this.esc(correoNuevo);
-      const emailsDifieren = !!correoNuevo && !!correoExistente && correoNuevo !== correoExistente;
-      if (!emailsDifieren) {
-        patchPayload.correo_electronico = correo;
-        patchPayload.password = password;
-      }
-
-      // Intentamos actualizar la cuenta existente
-      try {
-        await firstValueFrom(this.http.patch(`${apiUrl}/gestion_admin/usuarios/${userToUpdate.id}/`, patchPayload));
-        console.log('[updateUser] Usuario actualizado OK:', userToUpdate.id);
-
-        if (emailsDifieren) {
-          // Anexar el nuevo correo como credencial de acceso adicional (no pisa el principal).
-          const cred = await this.agregarCorreoComoCredencial(apiUrl, cedula, correoNuevo, password, 'PERSONAL');
-          if (cred.ok) {
-            Swal.fire({
-              icon: 'success',
-              title: 'Correo de acceso agregado',
-              html: `<p style="text-align:left;">La cédula <b>${this.esc(cedula)}</b> ya tenía el correo <b>${escExist}</b>. Agregamos <b>${escNuevo}</b> como acceso adicional.</p>
-                     <p style="text-align:left;">Puede ingresar con <b>cualquiera</b> de sus correos usando su número de cédula como contraseña.</p>`,
-              confirmButtonText: 'Entendido',
-              confirmButtonColor: '#111827',
-              width: 560,
-              timer: 7000,
-              timerProgressBar: true
-            });
-          } else {
-            Swal.fire({
-              icon: 'warning',
-              title: 'No se pudo agregar el correo adicional',
-              html: `<p style="text-align:left;">Actualizamos sus datos, pero no pudimos agregar <b>${escNuevo}</b> como acceso.</p>
-                     ${cred.rechazo ? `<p style="text-align:left;color:#b45309;">${this.esc(cred.rechazo)}</p>` : ''}
-                     <p style="text-align:left;">Su correo <b>${escExist}</b> sigue funcionando. Si necesita ayuda, comuníquese con la oficina con su cédula: <b>${this.esc(cedula)}</b>.</p>`,
-              confirmButtonText: 'Entendido',
-              confirmButtonColor: '#111827',
-              width: 540
-            });
-          }
-        } else {
-          Swal.fire({
-            icon: 'success',
-            title: 'Su cuenta fue actualizada',
-            html: `<p style="text-align:left;">Ya teníamos registrada la cédula <b>${this.esc(cedula)}</b>.</p>
-                   <p style="text-align:left;">Actualizamos sus datos de acceso con la información más reciente.</p>
-                   ${this.cajaCredenciales(this.usuarioDeAcceso(raw?.tipoDoc, cedula), String(cedula).replace(/\D/g, ''), correo)}`,
-            confirmButtonText: 'Entendido',
-            confirmButtonColor: '#111827',
-            width: 520,
-            timer: 6000,
-            timerProgressBar: true
-          });
-        }
-      } catch (patchErr: any) {
-        const patchStatus = patchErr?.status;
-        const patchBody = patchErr?.error;
-        const patchEmailErr = JSON.stringify(patchBody?.correo_electronico || '').toLowerCase();
-
-        // El correo pertenece a OTRA persona distinta → ya lo detectamos al principio normalmente,
-        // pero puede ocurrir si se creó entre medias. Avisar.
-        if (patchEmailErr.includes('ya registrado') || patchEmailErr.includes('unique')) {
-          this.showEmailOwner(correo, cedula);
-          return;
-        }
-
-        if (patchStatus === 401 || patchStatus === 403) {
-          Swal.fire({
-            icon: 'info',
-            title: 'Usted ya tiene una cuenta registrada',
-            html: `<p style="text-align:left;">Ya existe una cuenta con la cédula <b>${cedula}</b>.</p>
-                   <p style="text-align:left;">Sus datos del formulario <b>se guardaron correctamente</b>.</p>
-                   <p style="text-align:left;">Si no recuerda su contraseña, comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
-            confirmButtonText: 'Entendido',
-            confirmButtonColor: '#111827',
-            width: 520
-          });
-          return;
-        }
-
-        console.error('[updateUser] PATCH falló:', patchBody);
-        Swal.fire({
-          icon: 'warning',
-          title: 'Su cuenta no pudo actualizarse',
-          html: `<p style="text-align:left;">Sus datos del formulario <b>sí se guardaron correctamente</b>.</p>
-                 <p style="text-align:left;">Pero no pudimos actualizar su cuenta de acceso en este momento.</p>
-                 <p style="text-align:left;">Comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
-          confirmButtonText: 'Entendido',
-          confirmButtonColor: '#111827',
-          width: 520
-        });
-      }
-    } catch (err: any) {
-      console.error('[updateUser] Error general:', err);
-      Swal.fire({
-        icon: 'warning',
-        title: 'Problema con su cuenta de acceso',
-        html: `<p style="text-align:left;">Sus datos del formulario <b>sí se guardaron correctamente</b>.</p>
-               <p style="text-align:left;">Ocurrió un problema inesperado con su cuenta de acceso.</p>
-               <p style="text-align:left;">Comuníquese con la oficina con su cédula: <b>${cedula}</b>.</p>`,
-        confirmButtonText: 'Entendido',
-        confirmButtonColor: '#111827',
-        width: 520
-      });
-    }
   }
 
 

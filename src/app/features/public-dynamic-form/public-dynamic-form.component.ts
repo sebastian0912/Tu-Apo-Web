@@ -24,6 +24,8 @@ interface FieldSchema {
   text?: string;
   options?: FieldOption[];
   rating_config?: { scale_max?: number; show_labels?: boolean; labels?: Record<string, string> };
+  /** Ruta de respuestas: "si responde X, salta a la sección Y" (o 'END'). */
+  routing?: { rules?: { option?: string; go_to?: string }[] };
   ui?: { variant?: string; full_width?: boolean };
   validation?: {
     required?: boolean;
@@ -45,7 +47,14 @@ interface PublicField {
   schema: FieldSchema;
   children?: PublicField[];
 }
-interface PublicSection { code: string; title?: string | null; order_no: number; fields: PublicField[]; }
+interface PublicSection {
+  code: string;
+  title?: string | null;
+  order_no: number;
+  /** Destino por defecto al terminar la sección: null · '<code>' posterior · 'END'. */
+  next_section?: string | null;
+  fields: PublicField[];
+}
 /**
  * Tema de diseño del formulario (ms-forms, df_form.ui_json). Todos los campos son
  * opcionales: lo que falte se queda con el look por defecto de esta página.
@@ -107,7 +116,7 @@ type Value = string | number | string[] | DocumentRef | DocumentRef[] | { lat: n
         </header>
 
         <form (submit)="$event.preventDefault(); submit()">
-          @for (sec of st.sections; track sec.code) {
+          @for (sec of visibleSections(); track sec.code) {
             <section class="pdf__section">
               @if (sec.title) { <h2 class="pdf__section-title">{{ sec.title }}</h2> }
               @for (fld of sec.fields; track fld.name) {
@@ -231,6 +240,14 @@ type Value = string | number | string[] | DocumentRef | DocumentRef[] | { lat: n
           }
           @case ('FILE') {
             <ng-container *ngTemplateOutlet="filesTpl; context: { $implicit: fld, sec: sec, accept: acceptOf(fld, ''), capture: null }" />
+          }
+          @case ('SCAN_DOC') {
+            <!-- El escáner con recorte y filtros vive en TesoroApp; aquí, que es una
+                 página anónima y sin app, se toma la foto o se sube el PDF ya hecho. -->
+            <ng-container *ngTemplateOutlet="filesTpl; context: { $implicit: fld, sec: sec, accept: acceptOf(fld, '.pdf,image/*'), capture: 'environment' }" />
+          }
+          @case ('SCAN_ID') {
+            <ng-container *ngTemplateOutlet="filesTpl; context: { $implicit: fld, sec: sec, accept: acceptOf(fld, '.pdf,image/*'), capture: 'environment' }" />
           }
           @case ('SIGNATURE') {
             @if (refsOf(sec, fld.name).length > 0) {
@@ -497,7 +514,10 @@ export class PublicDynamicFormComponent implements OnInit {
     const file = input.files?.[0];
     input.value = '';
     if (!file) return;
-    const maxMb = fld.schema.validation?.max_size_mb ?? (fld.type === 'VIDEO' ? 100 : fld.type === 'FILE' ? 20 : 10);
+    // Mismos defaults POR TIPO que el backend (PublicAccessService): divergir aquí
+    // produce "el cliente lo rechazó y el servidor lo habría aceptado" (y al revés).
+    const maxMb = fld.schema.validation?.max_size_mb
+      ?? (fld.type === 'VIDEO' ? 100 : (fld.type === 'FILE' || fld.type === 'SCAN_DOC') ? 20 : 10);
     if (file.size > maxMb * 1024 * 1024) {
       this.errors.update(m => ({ ...m, [this.anchor(sec, fld.name)]: `El archivo supera ${maxMb} MB` }));
       return;
@@ -637,9 +657,12 @@ export class PublicDynamicFormComponent implements OnInit {
     if (!st || this.sending()) return;
 
     // Validación mínima en cliente (el backend es quien manda).
+    // Solo cuenta lo del RECORRIDO: las secciones que la ruta descarta ni se pintaron
+    // ni se envían (y el servidor tampoco les exige nada).
+    const recorrido = this.visibleSections();
     const errs: Record<string, string> = {};
     let firstInvalid: string | null = null;
-    for (const sec of st.sections) {
+    for (const sec of recorrido) {
       for (const fld of this.flat(sec.fields)) {
         if (fld.type === 'COMMENT' || fld.type === 'SECTION') continue;
         const v = this.val(sec.code, fld.name);
@@ -658,7 +681,7 @@ export class PublicDynamicFormComponent implements OnInit {
     }
 
     const payload: Record<string, Record<string, Value>> = {};
-    for (const sec of st.sections) {
+    for (const sec of recorrido) {
       for (const fld of this.flat(sec.fields)) {
         if (fld.type === 'COMMENT' || fld.type === 'SECTION') continue;
         const v = this.val(sec.code, fld.name);
@@ -682,6 +705,65 @@ export class PublicDynamicFormComponent implements OnInit {
         this.submitError.set(this.friendly(e, 'No se pudo enviar la respuesta. Intenta de nuevo.'));
       },
     });
+  }
+
+  // ---------- Ruta de respuestas ----------
+
+  /**
+   * Secciones que este formulario, con lo respondido hasta ahora, sí recorre.
+   *
+   * Espejo de `RoutingPlan` del servidor (ms-forms): la primera regla `schema.routing`
+   * de la sección que case gana, si no manda `next_section`, si no la siguiente por
+   * orden; 'END' termina. Si aquí saliera un recorrido distinto al del servidor, el
+   * envío se rechazaría por un obligatorio de una sección que nunca se pintó.
+   */
+  visibleSections(): PublicSection[] {
+    const st = this.structure();
+    if (!st?.sections?.length) return [];
+    const indexByCode = new Map<string, number>();
+    st.sections.forEach((sec, i) => indexByCode.set(sec.code, i));
+
+    const out: PublicSection[] = [];
+    const seen = new Set<number>();
+    let i = 0;
+    while (i >= 0 && i < st.sections.length) {
+      if (seen.has(i)) break;                        // guarda anti-ciclo
+      seen.add(i);
+      const sec = st.sections[i];
+      out.push(sec);
+
+      let target: string | null = null;
+      for (const fld of this.flat(sec.fields)) {
+        target = this.routeTarget(sec.code, fld);
+        if (target) break;
+      }
+      if (!target) target = (sec.next_section ?? '').trim() || null;
+      if (!target) { i++; continue; }
+      if (target.toUpperCase() === 'END') break;
+
+      const j = indexByCode.get(target);
+      if (j == null || j <= i) break;                // destino inválido o hacia atrás
+      i = j;
+    }
+    return out;
+  }
+
+  /** Destino que dispara ESTE campo con lo respondido, o null si no desvía. */
+  private routeTarget(secCode: string, fld: PublicField): string | null {
+    if (fld.type !== 'SINGLE_CHOICE' && fld.type !== 'DROPDOWN') return null;
+    const rules = fld.schema?.routing?.rules;
+    if (!rules?.length) return null;
+    const answered = this.val(secCode, fld.name);
+    if (typeof answered !== 'string' || !answered.trim()) return null;
+
+    // El payload guarda la ETIQUETA; una regla puede citar la etiqueta o el value.
+    const opt = (fld.schema.options ?? []).find(o => o.label === answered || o.value === answered);
+    for (const rule of rules) {
+      if (rule.option === answered || (opt && rule.option === opt.value)) {
+        return (rule.go_to ?? '').trim() || null;
+      }
+    }
+    return null;
   }
 
   private flat(fields: PublicField[]): PublicField[] {

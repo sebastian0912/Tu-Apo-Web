@@ -342,7 +342,7 @@
                     <ng-container
                     *ngTemplateOutlet="textField; context: {control: 'nombreInstitucion', label: 'Institución'}"></ng-container>
                     <ng-container
-                    *ngTemplateOutlet="dateField; context: {control: 'anoFinalizacion', label: 'Fecha Finalización'}"></ng-container>
+                    *ngTemplateOutlet="dateField; context: {control: 'anoFinalizacion', label: 'Fecha Finalización', max: hoy}"></ng-container>
                     <ng-container
                     *ngTemplateOutlet="textField; context: {control: 'tituloObtenido', label: 'Título'}"></ng-container>
                     <ng-container
@@ -527,7 +527,7 @@
                     <ng-container
                     *ngTemplateOutlet="selectField; context: {control: 'areaExperiencia', label: 'Áreas', options: areasExperiencia, multiple: true}"></ng-container>
                     <ng-container
-                    *ngTemplateOutlet="dateField; context: {control: 'fechaRetiro1', label: 'Fecha Retiro'}"></ng-container>
+                    *ngTemplateOutlet="dateField; context: {control: 'fechaRetiro1', label: 'Fecha Retiro', max: hoy}"></ng-container>
                     <ng-container
                     *ngTemplateOutlet="selectField; context: {control: 'tiempoExperiencia', label: 'Tiempo Experiencia', options: tiempoTrabajado}"></ng-container>
                     <ng-container
@@ -573,17 +573,23 @@
                       </mat-form-field>
                       <mat-form-field appearance="outline"><mat-label>Nacimiento</mat-label><input matInput
                       [matDatepicker]="pd" formControlName="fechaNacimientoHijo" readonly (click)="pd.open()"
-                      (focus)="pd.open()">
+                      (focus)="pd.open()" [max]="hoy">
                       <mat-datepicker-toggle matSuffix [for]="pd"></mat-datepicker-toggle><mat-datepicker
-                    #pd></mat-datepicker>
+                    #pd startView="multi-year"></mat-datepicker>
                     @if (h.get('fechaNacimientoHijo')?.hasError('required')) {
                       <mat-error>Requerido</mat-error>
                     }
+                    @if (h.get('fechaNacimientoHijo')?.hasError('fechaFutura') || h.get('fechaNacimientoHijo')?.hasError('matDatepickerMax')) {
+                      <mat-error>La fecha no puede ser futura</mat-error>
+                    }
                   </mat-form-field>
                   <mat-form-field appearance="outline"><mat-label>Doc ID</mat-label><input matInput
-                  formControlName="docIdentidadHijo">
+                  formControlName="docIdentidadHijo" inputmode="numeric">
                   @if (h.get('docIdentidadHijo')?.hasError('required')) {
                     <mat-error>Requerido</mat-error>
+                  }
+                  @if (h.get('docIdentidadHijo')?.hasError('pattern') || h.get('docIdentidadHijo')?.hasError('maxlength')) {
+                    <mat-error>Solo números (máx. 11 dígitos)</mat-error>
                   }
                 </mat-form-field>
                 <mat-form-field appearance="outline"><mat-label>Ocupación</mat-label><mat-select
