@@ -230,6 +230,9 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
 
   /** Envío en curso: bloquea el botón para que no salgan dos registros. */
   enviando = false;
+  // RF-024/025: bloquea "Siguiente" mientras se persiste el paso (evita doble-clic y el
+  // avance optimista antes de confirmar el guardado en BD).
+  guardandoPaso = false;
 
   /** `cedula|correo` para el que ya se intentó crear la cuenta de acceso. */
   private usuarioRegistradoPara = '';
@@ -258,7 +261,39 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   listaParentescosFamiliares: string[] = [];
   Ocupacion: string[] = [];
   listaEscolaridad: string[] = [];
-  tallas: string[] = [];
+  // RF-014/016 (solo presentación): el GRADO se muestra con nombre legible y "Sin estudio"
+  // va primero, pero el `value` guardado sigue siendo el código del catálogo
+  // CATALOGO_NIVELES_ESCOLARIDAD ('1'..'11','SIN ESTUDIOS','OTROS'). No cambia backend ni BD.
+  listaEscolaridadOpts: { codigo: string; label: string }[] = [];
+  private static readonly GRADO_ESCOLARIDAD_LABEL: Record<string, string> = {
+    'SIN ESTUDIOS': 'Sin estudio', '1': 'Primero', '2': 'Segundo', '3': 'Tercero',
+    '4': 'Cuarto', '5': 'Quinto', '6': 'Sexto', '7': 'Séptimo', '8': 'Octavo',
+    '9': 'Noveno', '10': 'Décimo', '11': 'Undécimo', 'OTROS': 'Otros',
+  };
+  private static readonly GRADO_ESCOLARIDAD_ORDEN = [
+    'SIN ESTUDIOS', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', 'OTROS',
+  ];
+  // RF-017: opciones de "Nivel de educación superior" (aparecen al elegir 'Otros' en el grado).
+  // Catálogo definitivo pendiente de validación → hardcodeado provisional. El `codigo` va en
+  // MAYÚSCULAS porque el payload se envía en mayúsculas; así el prefill vuelve a casar el valor
+  // guardado en `estudios_extra`. La etiqueta legible es solo presentación.
+  readonly nivelSuperiorOpts: { codigo: string; label: string }[] = [
+    { codigo: 'TÉCNICO', label: 'Técnico' },
+    { codigo: 'TECNÓLOGO', label: 'Tecnólogo' },
+    { codigo: 'PROFESIONAL', label: 'Profesional' },
+    { codigo: 'ESPECIALIZACIÓN', label: 'Especialización' },
+    { codigo: 'MAESTRÍA', label: 'Maestría' },
+    { codigo: 'DOCTORADO', label: 'Doctorado' },
+    { codigo: 'CURSO / DIPLOMADO', label: 'Curso / Diplomado' },
+    { codigo: 'CERTIFICACIÓN', label: 'Certificación' },
+    { codigo: 'OTRO', label: 'Otro' },
+  ];
+  // RF-029: catálogo DOTACION_TALLA (sexo + tipo de prenda + talla, parametrizable en meta_valores) y
+  // listas derivadas por prenda según el género. Administrable sin tocar la lógica del formulario.
+  dotacionTallasRaw: { codigo: string; sexo: string; tipoPrenda: string; talla: string; orden: number }[] = [];
+  tallasCamisa: string[] = [];
+  tallasPantalon: string[] = [];
+  tallasChaqueta: string[] = [];
   tallasCalzado: string[] = [];
   comodidades: string[] = [];
   opcionesPromocion: string[] = [];
@@ -280,6 +315,11 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   searchMunExp = new FormControl('');
   searchDeptoNac = new FormControl('');
   searchMunNac = new FormControl('');
+  // RF-032/035: cascadas nuevas (residencia anterior y contacto de emergencia).
+  searchDeptoResAnt = new FormControl('');
+  searchMunResAnt = new FormControl('');
+  searchDeptoEmer = new FormControl('');
+  searchMunEmer = new FormControl('');
 
   // Computed / Dynamic Lists (+ Filtered versions)
   ciudadesResidencia: string[] = [];
@@ -293,6 +333,14 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   ciudadesNacimiento: string[] = [];
   filteredDeptoNac: any[] = [];
   filteredMunNac: string[] = [];
+
+  ciudadesResidenciaAnterior: string[] = [];
+  filteredDeptoResAnt: any[] = [];
+  filteredMunResAnt: string[] = [];
+
+  ciudadesEmergencia: string[] = [];
+  filteredDeptoEmer: any[] = [];
+  filteredMunEmer: string[] = [];
 
   // Options
   opcionBinaria = OPCION_BINARIA;
@@ -338,8 +386,11 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     'PARENTESCOS_FAMILIARES': { prop: 'listaParentescosFamiliares', map: (d: any) => ({ codigo: d.codigo, descripcion: d.descripcion || d.nombre || d.codigo }) },
     'OCUPACIONES': { prop: 'Ocupacion', map: (d: any) => d.codigo },
     'CATALOGO_NIVELES_ESCOLARIDAD': { prop: 'listaEscolaridad', map: (d: any) => d.codigo },
-    'TALLA_ROPA': { prop: 'tallas', map: (d: any) => d.talla }, // Uses 'talla'
-    'TALLAS_CALZADO': { prop: 'tallasCalzado', map: (d: any) => d.talla }, // Uses 'talla'
+    // RF-029: se conserva el `sexo` del valor del catálogo (hoy vacío = unisex) para poder filtrar
+    // las tallas según el género seleccionado sin hardcodear rangos (catálogo productivo pendiente).
+    // RF-029: catálogo único parametrizado por sexo + tipo de prenda. `codigo` = sexo|prenda|talla
+    // para que el dedup de loadCatalogs NO colapse tallas iguales de prendas/sexos distintos.
+    'DOTACION_TALLA': { prop: 'dotacionTallasRaw', map: (d: any) => ({ codigo: `${d.sexo ?? ''}|${d.tipo_prenda ?? ''}|${d.talla ?? ''}`, sexo: String(d.sexo ?? '').toUpperCase().trim(), tipoPrenda: String(d.tipo_prenda ?? '').toUpperCase().trim(), talla: String(d.talla ?? ''), orden: Number(d.orden ?? 0) }) },
     'CATALOGO_SERVICIOS': { prop: 'comodidades', map: (d: any) => d.codigo },
     'CATALOGO_MARKETING': { prop: 'opcionesPromocion', map: (d: any) => d.codigo },
     'CATALOGO_CON_QUIEN_VIVE': { prop: 'listaPosiblesRespuestasConquienVive', map: (d: any) => d.codigo },
@@ -468,16 +519,10 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     this.revalidarNumeroAlCambiarTipo(this.formHojaDeVida2, 'tipoDoc', 'numeroCedula');
     this.initAutoSave();
 
-    // Query Params
-    this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe(params => {
-      const ofi = (params.get('oficina') || '').toUpperCase().trim();
-      // Deshabilitar el control ya bloquea el campo en pantalla; no hace falta
-      // una bandera aparte (el template no la usaba).
-      if (ofi && this.oficinas.includes(ofi)) {
-        this.formHojaDeVida2.get('oficina')?.setValue(ofi);
-        this.formHojaDeVida2.get('oficina')?.disable();
-      }
-    });
+    // Oficina desacoplada del enlace público: hay UN solo link general por empresa
+    // (?empresa=apoyo-laboral) para todas las sedes. El candidato elige su oficina en
+    // el formulario (control 'oficina', required). Un ?oficina= de un enlace antiguo se
+    // ignora a propósito: no precarga, no bloquea el campo y no rompe la página.
   }
 
   ngAfterViewInit(): void {
@@ -618,17 +663,32 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       tallaCamisa: ['', req],
       tallaCalzado: ['', req],
 
-      lugarAnteriorResidencia: ['', req],
-      razonCambioResidencia: ['', req],
+      // Legacy: el control se conserva por compatibilidad pero ya no se captura ni es obligatorio
+      // (RF-030/032: reemplazado por la residencia anterior estructurada de abajo).
+      lugarAnteriorResidencia: [''],
+      razonCambioResidencia: [''],   // RF-031: obligatorio solo si hubo residencia anterior
       zonasConocidas: [''],
+      // RF-032: residencia anterior estructurada (condicional a tiempo != TODO LA VIDA; validators
+      // dinámicos vía toggle). Territorio texto (colombia.json), como la residencia actual.
+      departamentoResidenciaAnterior: [''],
+      municipioResidenciaAnterior: [{ value: '', disabled: true }],
+      direccionResidenciaAnterior: [''],
+      barrioResidenciaAnterior: [''],
 
-      // Familiar Emergencia
-      familiarEmergencia: ['', fullName],
+      // Familiar Emergencia (RF-033/034/035): nombre en componentes + ubicación territorial.
+      // `familiarEmergencia` (nombre completo) se conserva como DERIVADO por compatibilidad.
+      familiarEmergencia: [''],
+      emergenciaPrimerNombre: ['', name],
+      emergenciaSegundoNombre: ['', this.nameValidator(false)],
+      emergenciaPrimerApellido: ['', name],
+      emergenciaSegundoApellido: ['', this.nameValidator(false)],
       parentescoFamiliarEmergencia: ['', req],
       telefonoFamiliarEmergencia: ['', phone],
       ocupacionFamiliarEmergencia: [''],
+      departamentoEmergencia: ['', req],
+      municipioEmergencia: [{ value: '', disabled: true }, req],
+      barrioFamiliarEmergencia: ['', req],
       direccionFamiliarEmergencia: ['', [Validators.required]],
-      barrioFamiliarEmergencia: [''],
 
       // Education
       escolaridad: ['', req],
@@ -636,6 +696,11 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       nombreInstitucion: [''],
       anoFinalizacion: [''],
       tituloObtenido: [''],
+      // RF-017: educación superior; solo aplica (y es obligatoria) cuando el grado es 'OTROS'.
+      // El toggle en initObservables los habilita/valida o los vacía. Persisten en las
+      // columnas existentes estudios_extra (nivel) y titulo_obtenido (carrera).
+      nivelEducacionSuperior: [''],
+      carreraEstudio: [''],
       estudiaActualmente: ['', req],
 
       // Step 3: Family
@@ -678,12 +743,16 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       ocupacionReferencia1: [''],
       direccionReferenciaPersonal1: ['', [Validators.required]],
       tiempoConoceReferenciaPersonal1: [''],
+      // Parentesco también en las PERSONALES (p. ej. AMIGO(A)): la entrevista
+      // de Selección en TesoroApp lo precarga y quedaba siempre vacío.
+      parentescoReferenciaPersonal1: ['', req],
 
       nombreReferenciaPersonal2: ['', fullName],
       telefonoReferencia2: ['', phone],
       ocupacionReferencia2: [''],
       direccionReferenciaPersonal2: ['', [Validators.required]],
       tiempoConoceReferenciaPersonal2: [''],
+      parentescoReferenciaPersonal2: ['', req],
 
       nombreReferenciaFamiliar1: ['', fullName],
       telefonoReferenciaFamiliar1: ['', phone],
@@ -823,16 +892,44 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     // Escolaridad Logic
     f.get('escolaridad')?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(val => {
       const isSinEstudios = val === 'SIN ESTUDIOS';
-      toggle('nombreInstitucion', !isSinEstudios);
-      toggle('anoFinalizacion', !isSinEstudios);
-      toggle('tituloObtenido', !isSinEstudios);
+      const isOtros = val === 'OTROS';
+      // Bloque de colegio (Institución/Fecha/Título/Otros estudios): solo para grados 1..11.
+      // Con 'OTROS' se oculta para no capturar dos veces en las mismas columnas.
+      const mostrarColegio = !isSinEstudios && !isOtros;
+      toggle('nombreInstitucion', mostrarColegio);
+      toggle('anoFinalizacion', mostrarColegio);
+      toggle('tituloObtenido', mostrarColegio);
 
       const extras = f.get('estudiosExtrasSelect');
-      if (isSinEstudios) {
+      if (mostrarColegio) {
+        extras?.enable({ emitEvent: false });
+      } else {
         extras?.setValue([], { emitEvent: false });
         extras?.disable({ emitEvent: false });
-      } else {
-        extras?.enable({ emitEvent: false });
+      }
+
+      // RF-017: educación superior solo cuando el grado es 'Otros'. El toggle deja los
+      // campos obligatorios y habilitados si aplica, o los vacía (sin enviar residuales).
+      toggle('nivelEducacionSuperior', isOtros);
+      toggle('carreraEstudio', isOtros, [Validators.maxLength(120), Validators.minLength(3)]);
+    });
+
+    // RF-029: al cambiar el género se recalculan las tallas aplicables y se limpian las incompatibles.
+    f.get('genero')?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(() => this.recomputarTallas());
+
+    // RF-031: residencia anterior condicional. "TODO LA VIDA" (catálogo HACE_CUENTO_ZONA) => no hubo
+    // residencia anterior: se ocultan los campos, se quitan sus validators (no bloquean) y se vacían.
+    f.get('tiempoResidenciaZona')?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(val => {
+      const hayAnterior = !this.esTodaLaVida(val);
+      toggle('departamentoResidenciaAnterior', hayAnterior);
+      toggle('municipioResidenciaAnterior', hayAnterior);
+      toggle('direccionResidenciaAnterior', hayAnterior);
+      toggle('barrioResidenciaAnterior', hayAnterior);
+      toggle('razonCambioResidencia', hayAnterior);
+      if (!hayAnterior) {
+        this.searchDeptoResAnt.setValue('');
+        this.searchMunResAnt.setValue('');
+        this.ciudadesResidenciaAnterior = [];
       }
     });
 
@@ -965,9 +1062,12 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     f.get('madreVive')?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(val => updateParent('Madre', val));
 
     // Location Listeners
-    this.setupLocationListener('departamento', 'ciudad', 'ciudadesResidencia');
-    this.setupLocationListener('departamentoExpedicionCC', 'municipioExpedicionCC', 'ciudadesExpedicionCC');
-    this.setupLocationListener('departamentoNacimiento', 'municipioNacimiento', 'ciudadesNacimiento');
+    this.setupLocationListener('departamento', 'ciudad', 'ciudadesResidencia', this.searchMunRes);
+    this.setupLocationListener('departamentoExpedicionCC', 'municipioExpedicionCC', 'ciudadesExpedicionCC', this.searchMunExp);
+    this.setupLocationListener('departamentoNacimiento', 'municipioNacimiento', 'ciudadesNacimiento', this.searchMunNac);
+    // RF-032/035: cascadas territoriales nuevas (residencia anterior y contacto de emergencia).
+    this.setupLocationListener('departamentoResidenciaAnterior', 'municipioResidenciaAnterior', 'ciudadesResidenciaAnterior', this.searchMunResAnt);
+    this.setupLocationListener('departamentoEmergencia', 'municipioEmergencia', 'ciudadesEmergencia', this.searchMunEmer);
   }
 
   /**
@@ -997,7 +1097,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   /** Último valor de cada campo condicional antes de vaciarse. Ver `toggle()`. */
   private readonly valoresRecordados = new Map<string, any>();
 
-  private setupLocationListener(deptKey: string, cityKey: string, listProp: 'ciudadesResidencia' | 'ciudadesExpedicionCC' | 'ciudadesNacimiento') {
+  private setupLocationListener(deptKey: string, cityKey: string, listProp: string, searchMun?: FormControl) {
     this.formHojaDeVida2.get(deptKey)?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(dept => {
       // Comparación normalizada: colombia.json trae "Cundinamarca" y el backend
       // devuelve "CUNDINAMARCA". Con `===` la lista de municipios quedaba vacía
@@ -1006,15 +1106,11 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       const dData = objetivo
         ? this.datos?.find((d: any) => this.normalizarTexto(d.departamento) === objetivo)
         : null;
-      this[listProp] = dData ? dData.ciudades : [];
+      (this as any)[listProp] = dData ? dData.ciudades : [];
       this.formHojaDeVida2.get(cityKey)?.enable();
-
-      // Sync Search & Filter
-      if (listProp === 'ciudadesResidencia') this.searchMunRes.setValue('');
-      if (listProp === 'ciudadesExpedicionCC') this.searchMunExp.setValue('');
-      if (listProp === 'ciudadesNacimiento') this.searchMunNac.setValue('');
-
-      if (!dept) this.formHojaDeVida2.get(cityKey)?.setValue('');
+      // Al cambiar de departamento se limpia el municipio (RF-021/037: no dejar uno incompatible).
+      searchMun?.setValue('');
+      this.formHojaDeVida2.get(cityKey)?.setValue('');
     });
   }
 
@@ -1044,6 +1140,21 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     // Mun Nac
     this.searchMunNac.valueChanges.pipe(startWith(''), takeUntil(this.destroy$)).subscribe(val => {
       this.filteredMunNac = this.filterList(this.ciudadesNacimiento, val);
+    });
+
+    // RF-032: Residencia anterior
+    this.searchDeptoResAnt.valueChanges.pipe(startWith(''), takeUntil(this.destroy$)).subscribe(val => {
+      this.filteredDeptoResAnt = this.filterList(this.datos, val, 'departamento');
+    });
+    this.searchMunResAnt.valueChanges.pipe(startWith(''), takeUntil(this.destroy$)).subscribe(val => {
+      this.filteredMunResAnt = this.filterList(this.ciudadesResidenciaAnterior, val);
+    });
+    // RF-035: Contacto de emergencia
+    this.searchDeptoEmer.valueChanges.pipe(startWith(''), takeUntil(this.destroy$)).subscribe(val => {
+      this.filteredDeptoEmer = this.filterList(this.datos, val, 'departamento');
+    });
+    this.searchMunEmer.valueChanges.pipe(startWith(''), takeUntil(this.destroy$)).subscribe(val => {
+      this.filteredMunEmer = this.filterList(this.ciudadesEmergencia, val);
     });
 
     // Dominio
@@ -1225,6 +1336,49 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   // ----------------------------------------------------
   // 4. Catalogs
   // ----------------------------------------------------
+  /**
+   * RF-029: recalcula las tallas visibles según el género. `sexo` vacío en el catálogo = unisex
+   * (aplica a ambos); 'M'/'F' solo al género correspondiente. Sin género, listas vacías (selects
+   * deshabilitados). Al cambiar el género limpia SOLO las tallas ya incompatibles.
+   */
+  recomputarTallas(): void {
+    const g = String(this.formHojaDeVida2?.get('genero')?.value || '').toUpperCase().trim();
+    const porPrenda = (prenda: string): string[] => !g ? [] : this.dotacionTallasRaw
+      .filter(t => t.sexo === g && t.tipoPrenda === prenda)
+      .sort((a, b) => a.orden - b.orden)
+      .map(t => t.talla);
+    this.tallasCamisa = porPrenda('CAMISA');
+    this.tallasPantalon = porPrenda('PANTALON');
+    this.tallasChaqueta = porPrenda('CHAQUETA');
+    this.tallasCalzado = porPrenda('CALZADO');
+    const limpiar = (ctrl: string, lista: string[]) => {
+      const v = this.formHojaDeVida2?.get(ctrl)?.value;
+      if (v && !lista.includes(String(v))) this.formHojaDeVida2.get(ctrl)?.setValue('', { emitEvent: false });
+    };
+    limpiar('tallaCamisa', this.tallasCamisa);
+    limpiar('tallaPantalon', this.tallasPantalon);
+    limpiar('tallaChaqueta', this.tallasChaqueta);
+    limpiar('tallaCalzado', this.tallasCalzado);
+    this.cdr?.markForCheck();
+  }
+
+  /** RF-029: true cuando aún no hay género → los selects de talla se muestran vacíos con ayuda. */
+  get faltaGeneroParaTallas(): boolean {
+    return !String(this.formHojaDeVida2?.get('genero')?.value || '').trim();
+  }
+
+  /** RF-031: el valor real del catálogo es "TODO LA VIDA"; se compara normalizado y tolerante. */
+  esTodaLaVida(v: any): boolean {
+    const t = String(v ?? '').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+    return /^TOD[AO]\s+LA\s+VIDA/.test(t);
+  }
+
+  /** RF-031: la sección "Residencia Anterior" se muestra salvo que el tiempo sea "TODO LA VIDA". */
+  get mostrarResidenciaAnterior(): boolean {
+    const v = this.formHojaDeVida2?.get('tiempoResidenciaZona')?.value;
+    return !!v && !this.esTodaLaVida(v);
+  }
+
   private loadCatalogs(): void {
     this.loadingCatalogos = true;
     this.parametrizacionS.bulkValores([...this.CATALOG_KEYS], true).subscribe({
@@ -1266,6 +1420,14 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           // `optionsKey`/`valueKey`. Solo se deduplica y se ordena.
           (this as any)[config.prop] = unique;
         }
+        // RF-014/016: opciones legibles del GRADO ("Sin estudio" primero, luego 1..11,
+        // OTROS al final). El `value` se mantiene = código; solo cambia texto y orden.
+        const ordenG = FormsTestContratation.GRADO_ESCOLARIDAD_ORDEN;
+        const rankG = (c: string) => { const i = ordenG.indexOf(c); return i === -1 ? ordenG.length : i; };
+        this.listaEscolaridadOpts = [...this.listaEscolaridad]
+          .sort((a, b) => rankG(a) - rankG(b) || a.localeCompare(b))
+          .map(c => ({ codigo: c, label: FormsTestContratation.GRADO_ESCOLARIDAD_LABEL[c] ?? c }));
+        this.recomputarTallas();   // RF-029: derivar tallas visibles según el género ya cargado
         this.loadingCatalogos = false;
         this.avisarSiNoHayCatalogos();
         this.cdr.markForCheck();
@@ -1350,20 +1512,37 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       lugarAnteriorResidencia: g('lugarAnteriorResidencia'),
       razonCambioResidencia: g('razonCambioResidencia'),
       zonasConocidas: g('zonasConocidas'),
+      // RF-032: residencia anterior estructurada (planos; el servicio los anida en `residencia`).
+      departamentoResidenciaAnterior: g('departamentoResidenciaAnterior'),
+      municipioResidenciaAnterior: g('municipioResidenciaAnterior'),
+      direccionResidenciaAnterior: g('direccionResidenciaAnterior'),
+      barrioResidenciaAnterior: g('barrioResidenciaAnterior'),
       fechaNacimiento: this.toYmd(g('fechaNacimiento')),
       estudiaActualmente: g('estudiaActualmente'),
-      familiarEmergencia: g('familiarEmergencia'),
+      // RF-033: componentes separados + nombre completo derivado (compat).
+      emergenciaPrimerNombre: g('emergenciaPrimerNombre'),
+      emergenciaSegundoNombre: g('emergenciaSegundoNombre'),
+      emergenciaPrimerApellido: g('emergenciaPrimerApellido'),
+      emergenciaSegundoApellido: g('emergenciaSegundoApellido'),
+      familiarEmergencia: [g('emergenciaPrimerNombre'), g('emergenciaSegundoNombre'), g('emergenciaPrimerApellido'), g('emergenciaSegundoApellido')].filter((x: any) => x).join(' ').trim() || g('familiarEmergencia'),
       parentescoFamiliarEmergencia: g('parentescoFamiliarEmergencia'),
       direccionFamiliarEmergencia: addr('direccionFamiliarEmergencia'),
       barrioFamiliarEmergencia: g('barrioFamiliarEmergencia'),
       telefonoFamiliarEmergencia: g('telefonoFamiliarEmergencia'),
       ocupacionFamiliarEmergencia: g('ocupacionFamiliarEmergencia'),
+      // RF-035: ubicación territorial del contacto.
+      departamentoEmergencia: g('departamentoEmergencia'),
+      municipioEmergencia: g('municipioEmergencia'),
       oficina: g('oficina'),
       escolaridad: g('escolaridad'),
-      estudiosExtra: (g('estudiosExtrasSelect') || []).join(','),
-      nombreInstitucion: g('nombreInstitucion'),
-      anoFinalizacion: this.toYmd(g('anoFinalizacion')),
-      tituloObtenido: g('tituloObtenido'),
+      // RF-017: con 'OTROS', la educación superior reutiliza estudios_extra (nivel) y
+      // titulo_obtenido (carrera); el bloque de colegio no aplica y no se envía.
+      estudiosExtra: g('escolaridad') === 'OTROS'
+        ? (g('nivelEducacionSuperior') || '')
+        : (g('estudiosExtrasSelect') || []).join(','),
+      nombreInstitucion: g('escolaridad') === 'OTROS' ? '' : g('nombreInstitucion'),
+      anoFinalizacion: g('escolaridad') === 'OTROS' ? '' : this.toYmd(g('anoFinalizacion')),
+      tituloObtenido: g('escolaridad') === 'OTROS' ? (g('carreraEstudio') || '') : g('tituloObtenido'),
       chaqueta: g('tallaChaqueta'),
       pantalon: g('tallaPantalon'),
       camisa: g('tallaCamisa'),
@@ -1395,11 +1574,13 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       ocupacionReferenciaPersonal1: g('ocupacionReferencia1'),
       tiempoConoceReferenciaPersonal1: g('tiempoConoceReferenciaPersonal1'),
       direccionReferenciaPersonal1: addr('direccionReferenciaPersonal1'),
+      parentescoReferenciaPersonal1: g('parentescoReferenciaPersonal1'),
       nombreReferenciaPersonal2: g('nombreReferenciaPersonal2'),
       telefonoReferenciaPersonal2: g('telefonoReferencia2'),
       ocupacionReferenciaPersonal2: g('ocupacionReferencia2'),
       tiempoConoceReferenciaPersonal2: g('tiempoConoceReferenciaPersonal2'),
       direccionReferenciaPersonal2: addr('direccionReferenciaPersonal2'),
+      parentescoReferenciaPersonal2: g('parentescoReferenciaPersonal2'),
       nombreReferenciaFamiliar1: g('nombreReferenciaFamiliar1'),
       telefonoReferenciaFamiliar1: g('telefonoReferenciaFamiliar1'),
       ocupacionReferenciaFamiliar1: g('ocupacionReferenciaFamiliar1'),
@@ -1511,6 +1692,10 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
 
     this.uploadedFiles[campo] = { file, fileName: file.name };
     this.formHojaDeVida2.patchValue({ [campo]: file.name });
+    // Vaciar el input también en éxito: el navegador no dispara `change` si se
+    // vuelve a elegir el MISMO archivo (típico al re-exportar el PDF corregido
+    // con el mismo nombre) y el botón parecía muerto.
+    if (input) input.value = '';
     this.cdr.markForCheck();
   }
 
@@ -1529,6 +1714,9 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     if (f) {
       const url = f instanceof File ? URL.createObjectURL(f) : f;
       window.open(url as string, '_blank');
+      // Liberar el blob cuando la pestaña nueva ya lo cargó: cada vista previa
+      // dejaba un object URL vivo (y su PDF en memoria) hasta cerrar la página.
+      if (f instanceof File) setTimeout(() => URL.revokeObjectURL(url as string), 60_000);
     } else {
       Swal.fire('Error', 'No hay archivo', 'error');
     }
@@ -2672,6 +2860,21 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     const vivienda = cand.vivienda ?? {};
     const expResumen = cand.experiencia_resumen ?? {};
     const formacion0 = Array.isArray(cand.formaciones) && cand.formaciones.length ? cand.formaciones[0] : {};
+    // RF-026: bloques adicionales que ahora devuelve el prefill.
+    const dot = cand.dotacion ?? {};
+    const emer = cand.emergencia ?? {};
+    const cony = cand.conyuge ?? {};
+    const padre = cand.padre ?? {};
+    const madre = cand.madre ?? {};
+    const evalc = cand.evaluacion ?? {};
+    const entr = cand.entrevista ?? {};
+    const exp0 = Array.isArray(cand.experiencias) && cand.experiencias.length ? cand.experiencias[0] : {};
+    const rp = Array.isArray(cand.referencias_personales) ? cand.referencias_personales : [];
+    const rf = Array.isArray(cand.referencias_familiares) ? cand.referencias_familiares : [];
+    const rp0 = rp[0] ?? {}, rp1 = rp[1] ?? {};
+    const rf0 = rf[0] ?? {}, rf1 = rf[1] ?? {};
+    const esOtros = formacion0.nivel === 'OTROS';
+    const hijosBk: any[] = Array.isArray(cand.hijos) ? cand.hijos : [];
 
     // Email → usuario + dominio (el observable de `correo` arma el correo completo).
     const email = String(contacto.email || '');
@@ -2679,6 +2882,10 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     const correoUsuario = at > 0 ? email.slice(0, at) : '';
     const correoDominio = at > 0 ? email.slice(at + 1) : '';
 
+    // El orden de las claves importa: cada gatillo condicional (estadoCivil, viveConyuge,
+    // elPadreVive/madreVive, escolaridad, experienciaLaboral, numHijosDependientes) va ANTES
+    // que los campos que su toggle habilita, para que patchValue asigne el valor DESPUÉS de
+    // que el toggle haya corrido (si no, el toggle los vaciaría).
     f.patchValue({
       pNombre: cand.primer_nombre || '',
       sNombre: cand.segundo_nombre || '',
@@ -2686,7 +2893,6 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       sApellido: cand.segundo_apellido || '',
       genero: cand.sexo || '',
       fechaNacimiento: toDate(cand.fecha_nacimiento),
-      estadoCivil: cand.estado_civil || '',
       fechaExpedicionCC: toDate(info.fecha_expedicion),
 
       correoUsuario,
@@ -2699,25 +2905,145 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       zonaResidencia: residencia.barrio || '',
       tiempoResidenciaZona: residencia.hace_cuanto_vive || '',
       lugarAnteriorResidencia: residencia.lugar_anterior || '',
+      // RF-032: residencia anterior (DESPUÉS de tiempoResidenciaZona para que el toggle ya haya
+      // habilitado los controles). Depto/municipio se rehidratan por setDeptCity más abajo.
       razonCambioResidencia: residencia.razon_mudanza || '',
+      direccionResidenciaAnterior: residencia.residencia_anterior_direccion || '',
+      barrioResidenciaAnterior: residencia.residencia_anterior_barrio || '',
       zonasConocidas: residencia.zonas_del_pais || '',
 
-      escolaridad: formacion0.nivel || '',
+      // Datos propios que antes no se rehidrataban (RF-026/028)
+      rh: cand.rh || '',
+      lateralidad: cand.zurdo_diestro || '',
+      tallaChaqueta: dot.chaqueta ?? '',
+      tallaPantalon: dot.pantalon ?? '',
+      tallaCamisa: dot.camisa ?? '',
+      tallaCalzado: dot.calzado ?? '',
 
+      // Contacto de emergencia (RF-033/035). Compat legacy (RF-029 caso 2): si no hay componentes
+      // separados pero sí `nombre` completo, se muestra en "primer nombre" (editable) sin perderlo.
+      // Depto/municipio se rehidratan por setDeptCity más abajo.
+      emergenciaPrimerNombre: emer.primer_nombre || emer.nombre || '',
+      emergenciaSegundoNombre: emer.segundo_nombre || '',
+      emergenciaPrimerApellido: emer.primer_apellido || '',
+      emergenciaSegundoApellido: emer.segundo_apellido || '',
+      familiarEmergencia: emer.nombre || '',
+      parentescoFamiliarEmergencia: emer.parentesco || '',
+      telefonoFamiliarEmergencia: emer.telefono || '',
+      ocupacionFamiliarEmergencia: emer.ocupacion || '',
+      direccionFamiliarEmergencia: emer.direccion || '',
+      barrioFamiliarEmergencia: emer.barrio || '',
+
+      // Cónyuge (estadoCivil primero → viveConyuge → detalles)
+      estadoCivil: cand.estado_civil || '',
+      viveConyuge: cony.vive_con || '',
+      nombresConyuge: cony.nombre || '',
+      apellidosConyuge: cony.apellido || '',
+      documentoIdentidadConyuge: cony.numero_de_documento || '',
+      ocupacionConyuge: cony.ocupacion || '',
+      telefonoConyuge: cony.telefono || '',
+      direccionConyuge: cony.direccion || '',
+      barrioMunicipioConyugue: cony.barrio || '',
+
+      // Padre (elPadreVive primero → detalles)
+      elPadreVive: padre.vive_con || '',
+      nombrePadre: padre.nombre || '',
+      ocupacionPadre: padre.ocupacion || '',
+      direccionPadre: padre.direccion || '',
+      telefonoPadre: padre.telefono || '',
+      barrioPadre: padre.barrio || '',
+
+      // Madre
+      madreVive: madre.vive_con || '',
+      nombreMadre: madre.nombre || '',
+      ocupacionMadre: madre.ocupacion || '',
+      direccionMadre: madre.direccion || '',
+      telefonoMadre: madre.telefono || '',
+      barrioMadre: madre.barrio || '',
+
+      // Referencias personales
+      nombreReferenciaPersonal1: rp0.nombre || '',
+      telefonoReferencia1: rp0.telefono || '',
+      ocupacionReferencia1: rp0.ocupacion || '',
+      direccionReferenciaPersonal1: rp0.direccion || '',
+      tiempoConoceReferenciaPersonal1: rp0.tiempo_conoce || '',
+      parentescoReferenciaPersonal1: rp0.parentesco || '',
+      nombreReferenciaPersonal2: rp1.nombre || '',
+      telefonoReferencia2: rp1.telefono || '',
+      ocupacionReferencia2: rp1.ocupacion || '',
+      direccionReferenciaPersonal2: rp1.direccion || '',
+      tiempoConoceReferenciaPersonal2: rp1.tiempo_conoce || '',
+      parentescoReferenciaPersonal2: rp1.parentesco || '',
+      // Referencias familiares
+      nombreReferenciaFamiliar1: rf0.nombre || '',
+      telefonoReferenciaFamiliar1: rf0.telefono || '',
+      ocupacionReferenciaFamiliar1: rf0.ocupacion || '',
+      direccionReferenciaFamiliar1: rf0.direccion || '',
+      parentescoReferenciaFamiliar1: rf0.parentesco || '',
+      nombreReferenciaFamiliar2: rf1.nombre || '',
+      telefonoReferenciaFamiliar2: rf1.telefono || '',
+      ocupacionReferenciaFamiliar2: rf1.ocupacion || '',
+      direccionReferenciaFamiliar2: rf1.direccion || '',
+      parentescoReferenciaFamiliar2: rf1.parentesco || '',
+
+      // Escolaridad (grado primero → detalle de colegio / educación superior)
+      escolaridad: formacion0.nivel || '',
+      nivelEducacionSuperior: esOtros ? (formacion0.estudios_extra || '') : '',
+      carreraEstudio: esOtros ? (formacion0.titulo_obtenido || '') : '',
+      nombreInstitucion: esOtros ? '' : (formacion0.institucion || ''),
+      anoFinalizacion: esOtros || !formacion0.anio_finalizacion ? '' : toDate(`${formacion0.anio_finalizacion}-01-01`),
+      tituloObtenido: esOtros ? '' : (formacion0.titulo_obtenido || ''),
+      estudiosExtrasSelect: esOtros ? [] : splitMulti(formacion0.estudios_extra),
       estudiaActualmente: boolToSiNo(vivienda.estudia_actualmente),
+
+      // Experiencia laboral (gatillo primero → detalle)
       experienciaLaboral: boolToSiNo(expResumen.tiene_experiencia),
+      nombreEmpresa1: exp0.empresa || '',
+      telefonosEmpresa1: exp0.telefonos || '',
+      direccionEmpresa1: exp0.direccion || '',
+      nombreJefe1: exp0.nombre_jefe || '',
+      cargoEmpresa1: exp0.cargo || '',
+      fechaRetiro1: toDate(exp0.fecha_retiro),
+      motivoRetiro1: exp0.motivo_retiro || '',
+      tiempoExperiencia: expResumen.tiempo_experiencia_texto || exp0.tiempo_trabajado || '',
+      empresas_laborado: expResumen.empresas_laborado || '',
+      areaExperiencia: splitMulti(expResumen.area_experiencia),
+
+      // Evaluación
+      relacionFamiliar: evalc.relacion_familiar || '',
+      desempenoLaboral: evalc.rendimiento_laboral || '',
+      felicitaciones: evalc.porque_lo_felicitarian || '',
+      situacionConflictiva: evalc.malentendido || '',
+      actividadesDiferentes: evalc.actividades_diarias || '',
+      personas_a_cargo: splitMulti(evalc.personas_a_cargo),
+
+      // Vivienda / entrevista
       familiaSolo: boolToSiNo(vivienda.familia_un_solo_ingreso),
       caracteristicasVivienda: vivienda.caracteristicas_vivienda || '',
       numeroHabitaciones: vivienda.num_habitaciones ?? '',
       personasPorHabitacion: vivienda.personas_por_habitacion ?? '',
-      numHijosDependientes: vivienda.num_hijos_dependen_economicamente ?? 0,
       cuidadorHijos: vivienda.responsable_hijos || '',
+      fuenteVacante: entr.como_se_entero || '',
+      numHijosDependientes: hijosBk.length || (vivienda.num_hijos_dependen_economicamente ?? 0),
 
       conQuienViveChecks: splitMulti(vivienda.personas_con_quien_convive),
       expectativasVidaChecks: splitMulti(vivienda.expectativas_de_vida),
-      areaExperiencia: splitMulti(expResumen.area_experiencia),
       tiposViviendaChecks: splitMulti(vivienda.tipo_vivienda),
       comodidadesChecks: splitMulti(vivienda.servicios),
+    });
+
+    // Hijos: numHijosDependientes ya reconstruyó el FormArray; se pueblan las filas.
+    const arrHijos: any = f.get('hijos');
+    hijosBk.forEach((h, i) => {
+      const g = arrHijos?.at?.(i);
+      if (g) g.patchValue({
+        nombreHijo: h.nombre || '',
+        sexoHijo: h.sexo || '',
+        fechaNacimientoHijo: toDate(h.fecha_nac),
+        docIdentidadHijo: h.numero_de_documento || '',
+        ocupacionHijo: h.ocupacion || '',
+        cursoHijo: h.curso || '',
+      });
     });
 
     // Cascadas departamento → municipio: set del depto dispara el listener que
@@ -2725,6 +3051,10 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     this.setDeptCity('departamentoExpedicionCC', 'municipioExpedicionCC', info.depto_expedicion, info.mpio_expedicion);
     this.setDeptCity('departamentoNacimiento', 'municipioNacimiento', info.depto_nacimiento, info.mpio_nacimiento);
     this.setDeptCity('departamento', 'ciudad', cand.departamento, cand.municipio);
+    // RF-032/035: cascadas nuevas. Residencia anterior solo tiene valor si NO era "TODO LA VIDA"
+    // (si vacío, canonDepto lo ignora). El contacto de emergencia siempre puede hidratarse.
+    this.setDeptCity('departamentoResidenciaAnterior', 'municipioResidenciaAnterior', residencia.residencia_anterior_departamento, residencia.residencia_anterior_municipio);
+    this.setDeptCity('departamentoEmergencia', 'municipioEmergencia', emer.departamento, emer.municipio);
 
     f.updateValueAndValidity();
     this.cdr.markForCheck();
@@ -2736,6 +3066,17 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       timer: 3500,
       showConfirmButton: false,
     });
+
+    // RF-026/032: reanudar desde el último paso guardado (no siempre en el paso 1). Solo si
+    // el preregistro está incompleto; un formulario ya FINALIZADO se deja en el paso 0.
+    const destino = Math.min(Number(cand.formulario_paso) || 0, 4);
+    const completo = Number(cand.formulario_completo) === 1;
+    if (destino > 0 && !completo && this.stepper) {
+      const wasLinear = this.stepper.linear;
+      this.stepper.linear = false;
+      this.stepper.selectedIndex = destino;
+      Promise.resolve().then(() => { if (this.stepper) this.stepper.linear = wasLinear; });
+    }
     return true;
   }
 
@@ -2801,10 +3142,12 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
             controles: [
               'zonaResidencia', 'departamento', 'ciudad', 'direccionResidencia',
               'numCelular', 'numWha', 'conQuienViveChecks', 'tiempoResidenciaZona',
+              'departamentoResidenciaAnterior', 'municipioResidenciaAnterior',
+              'barrioResidenciaAnterior', 'direccionResidenciaAnterior', 'razonCambioResidencia',
             ],
           },
           { titulo: 'Correo Electrónico', controles: ['correoUsuario', 'correoDominio', 'correo'] },
-          { titulo: 'Información de Perfil', controles: ['escolaridad', 'expectativasVidaChecks'] },
+          { titulo: 'Información de Perfil', controles: ['escolaridad', 'nivelEducacionSuperior', 'carreraEstudio', 'expectativasVidaChecks'] },
         ],
       },
       {
@@ -2817,13 +3160,15 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           },
           {
             titulo: 'Residencia (Detalles)',
-            controles: ['lugarAnteriorResidencia', 'razonCambioResidencia', 'zonasConocidas'],
+            controles: ['zonasConocidas'],
           },
           {
             titulo: 'Contacto de Emergencia',
             controles: [
-              'familiarEmergencia', 'parentescoFamiliarEmergencia', 'telefonoFamiliarEmergencia',
-              'ocupacionFamiliarEmergencia', 'direccionFamiliarEmergencia', 'barrioFamiliarEmergencia',
+              'emergenciaPrimerNombre', 'emergenciaSegundoNombre', 'emergenciaPrimerApellido',
+              'emergenciaSegundoApellido', 'parentescoFamiliarEmergencia', 'telefonoFamiliarEmergencia',
+              'ocupacionFamiliarEmergencia', 'departamentoEmergencia', 'municipioEmergencia',
+              'barrioFamiliarEmergencia', 'direccionFamiliarEmergencia',
             ],
           },
           {
@@ -2857,6 +3202,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
             controles: [
               'nombreReferenciaPersonal1', 'telefonoReferencia1', 'ocupacionReferencia1',
               'direccionReferenciaPersonal1', 'tiempoConoceReferenciaPersonal1',
+              'parentescoReferenciaPersonal1',
             ],
           },
           {
@@ -2864,6 +3210,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
             controles: [
               'nombreReferenciaPersonal2', 'telefonoReferencia2', 'ocupacionReferencia2',
               'direccionReferenciaPersonal2', 'tiempoConoceReferenciaPersonal2',
+              'parentescoReferenciaPersonal2',
             ],
           },
           {
@@ -3015,8 +3362,33 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
    * parecería roto; así se salta al paso que falta y se explica por qué.
    */
   siguientePaso(step: number): void {
-    if (!this.revisarPasosHasta(step)) return;
-    this.stepper.next();
+    if (this.guardandoPaso) return;              // RF-024: evita doble solicitud
+    if (!this.revisarPasosHasta(step)) return;   // RF-016/027: valida el paso actual
+    // RF-025/023: persistir el paso en BD y avanzar SOLO si el guardado fue exitoso.
+    this.guardandoPaso = true;
+    const payload: any = this.buildPayload(this.formHojaDeVida2.getRawValue());
+    payload.formulario_paso = step + 1;          // último paso alcanzado (0-based → siguiente)
+    this.registroProcesoContratacion.crearActualizarCandidato2(payload).subscribe({
+      next: (resp: any) => {
+        this.guardandoPaso = false;
+        this.mostrarGuardadoOk(resp?.offline === true);
+        this.stepper.next();
+      },
+      error: (err: any) => {
+        this.guardandoPaso = false;
+        this.handleBackendError(err);            // RF-023/025: permanece en el paso, no avanza
+      },
+    });
+  }
+
+  /** RF-033: feedback discreto de guardado (toast, no interrumpe el flujo). */
+  private mostrarGuardadoOk(offline: boolean): void {
+    if (!this.isBrowser) return;
+    Swal.fire({
+      toast: true, position: 'top-end', icon: offline ? 'info' : 'success',
+      title: offline ? 'Guardado sin conexión (se sincronizará)' : 'Información guardada',
+      showConfirmButton: false, timer: 1600, timerProgressBar: true,
+    });
   }
 
   /** "Anterior": volver nunca se bloquea, aunque un paso previo quedara incompleto. */
@@ -3255,6 +3627,11 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       { control: 'municipioExpedicionCC', search: this.searchMunExp },
       { control: 'departamentoNacimiento', search: this.searchDeptoNac },
       { control: 'municipioNacimiento', search: this.searchMunNac },
+      // RF-032/035: cascadas nuevas (para espejar el error rojo al validar el paso).
+      { control: 'departamentoResidenciaAnterior', search: this.searchDeptoResAnt },
+      { control: 'municipioResidenciaAnterior', search: this.searchMunResAnt },
+      { control: 'departamentoEmergencia', search: this.searchDeptoEmer },
+      { control: 'municipioEmergencia', search: this.searchMunEmer },
       { control: 'correoDominio', search: this.searchDominio },
     ];
   }
@@ -3325,7 +3702,10 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
 
     // Build Payload
     this.numeroCedula = cedula;
-    const payload = this.buildPayload(raw);
+    const payload: any = this.buildPayload(raw);
+    // RF-034/032: al finalizar se marca el preregistro como COMPLETO (último paso incluido).
+    payload.formulario_paso = 5;
+    payload.formulario_completo = 1;
 
     // Send
     this.enviando = true;
@@ -3626,6 +4006,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
 
     // Construct Dynamic Payload
     const formValue = {
+      "formulario_paso": 1,   // RF-025: el paso 0 (Pre-registro) queda guardado en BD
       "oficina": upper(g('oficina')),
       "tipo_doc": g('tipoDoc'),
       // String() explícito: si el control trae la cédula como número (borrador
@@ -4004,6 +4385,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
    */
   private async agregarCorreoComoCredencial(
     apiUrl: string,
+    tipoDoc: string,
     cedula: string,
     correo: string,
     password: string,
@@ -4012,9 +4394,12 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     const correoNorm = String(correo || '').trim().toLowerCase();
     if (!correoNorm || !password) return { ok: false, rechazo: 'Datos incompletos.' };
     try {
+      // El tipo viaja SIEMPRE: la identidad es el par (tipo, número) y el
+      // backend rechaza anexar a una cuenta cuyo tipo no coincida — (CC, 1234)
+      // y (PPT, 1234) son personas distintas que comparten dígitos.
       const res: any = await firstValueFrom(this.http.post(
         `${apiUrl}/gestion_admin/auth/agregar-credenciales/`,
-        { numero_de_documento: cedula, credenciales: [{ correo: correoNorm, password, etiqueta }] }
+        { numero_de_documento: cedula, tipo_documento: tipoDoc, credenciales: [{ correo: correoNorm, password, etiqueta }] }
       ));
       const agregadas = Array.isArray(res?.agregadas) ? res.agregadas : [];
       const rechazadas = Array.isArray(res?.rechazadas) ? res.rechazadas : [];
@@ -4036,7 +4421,24 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   private async manejarCuentaExistente(apiUrl: string, tipoDoc: string, cedula: string, correo: string, password: string): Promise<void> {
     const usuarioAcceso = this.usuarioDeAcceso(tipoDoc, cedula);
     const correoLower = (correo || '').toLowerCase();
-    const cred = await this.agregarCorreoComoCredencial(apiUrl, cedula, correoLower, password);
+    const cred = await this.agregarCorreoComoCredencial(apiUrl, tipoDoc, cedula, correoLower, password);
+
+    if (!cred.ok && /otro tipo de documento/i.test(cred.rechazo || '')) {
+      // El número existe pero con OTRO tipo de documento: es la cuenta de OTRA
+      // persona que comparte dígitos (una CC y un PPT). No se muestran
+      // credenciales (serían las del dueño) ni se dice "su cuenta ya existe".
+      Swal.fire({
+        icon: 'warning',
+        title: 'Documento registrado con otro tipo',
+        html: `<p style="text-align:left;">Sus datos del formulario <b>sí se guardaron correctamente</b>.</p>
+               <p style="text-align:left;">Pero el número <b>${this.esc(cedula)}</b> ya está registrado en el sistema con <b>otro tipo de documento</b>, así que no pudimos crearle una cuenta de acceso automáticamente.</p>
+               <p style="text-align:left;">Verifique que eligió bien su <b>tipo de documento</b> al inicio. Si el tipo es correcto, comuníquese con la oficina con su documento para que le habiliten el acceso.</p>`,
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#111827',
+        width: 540
+      });
+      return;
+    }
 
     if (!cred.ok && /pertenece a otro|no existe una cuenta/i.test(cred.rechazo || '')) {
       // "no existe una cuenta" = la cédula NO tiene usuario, así que lo que
@@ -4331,7 +4733,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       ciudad: 'Ciudad de Residencia',
       tiempoResidenciaZona: 'Cuanto tiempo lleva viviendo en la zona',
       conQuienViveChecks: '¿Con quién vive?',
-      escolaridad: 'Nivel de Escolaridad',
+      escolaridad: 'Grado(s) de escolaridad',
       expectativasVidaChecks: '¿Cómo se proyecta?',
       rh: 'Tipo de Sangre (RH)',
       lateralidad: 'Mano Dominante',
@@ -4342,9 +4744,19 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       lugarAnteriorResidencia: 'Lugar Anterior de Residencia',
       razonCambioResidencia: 'Razón de Cambio de Residencia',
       familiarEmergencia: 'Contacto de Emergencia (Nombre)',
+      emergenciaPrimerNombre: 'Primer nombre del Contacto',
+      emergenciaSegundoNombre: 'Segundo nombre del Contacto',
+      emergenciaPrimerApellido: 'Primer apellido del Contacto',
+      emergenciaSegundoApellido: 'Segundo apellido del Contacto',
+      departamentoEmergencia: 'Departamento del Contacto',
+      municipioEmergencia: 'Municipio del Contacto',
+      departamentoResidenciaAnterior: 'Departamento anterior',
+      municipioResidenciaAnterior: 'Municipio anterior',
+      barrioResidenciaAnterior: 'Barrio anterior',
+      direccionResidenciaAnterior: 'Dirección de residencia anterior',
       parentescoFamiliarEmergencia: 'Parentesco del Contacto',
       telefonoFamiliarEmergencia: 'Teléfono del Contacto',
-      direccionFamiliarEmergencia: 'Dirección del Contacto',
+      direccionFamiliarEmergencia: 'Dirección de residencia del Contacto',
       estudiaActualmente: '¿Estudia Actualmente?',
       nombresConyuge: 'Nombres del Cónyuge',
       apellidosConyuge: 'Apellidos del Cónyuge',
@@ -4365,8 +4777,10 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       telefonoMadre: 'Teléfono de la Madre',
       nombreReferenciaPersonal1: 'Referencia Personal 1 (Nombre)',
       telefonoReferencia1: 'Referencia Personal 1 (Teléfono)',
+      parentescoReferenciaPersonal1: 'Referencia Personal 1 (Parentesco)',
       nombreReferenciaPersonal2: 'Referencia Personal 2 (Nombre)',
       telefonoReferencia2: 'Referencia Personal 2 (Teléfono)',
+      parentescoReferenciaPersonal2: 'Referencia Personal 2 (Parentesco)',
       nombreReferenciaFamiliar1: 'Referencia Familiar 1 (Nombre)',
       telefonoReferenciaFamiliar1: 'Referencia Familiar 1 (Teléfono)',
       parentescoReferenciaFamiliar1: 'Referencia Familiar 1 (Parentesco)',
@@ -4390,6 +4804,8 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       anoFinalizacion: 'Fecha de Finalización de Estudios',
       tituloObtenido: 'Título Obtenido',
       estudiosExtrasSelect: 'Otros Estudios',
+      nivelEducacionSuperior: 'Nivel de educación superior',
+      carreraEstudio: 'Carrera / estudio',
       ocupacionConyuge: 'Ocupación del Cónyuge',
       ocupacionPadre: 'Ocupación del Padre',
       ocupacionMadre: 'Ocupación de la Madre',

@@ -187,6 +187,21 @@
                     </div>
                     <ng-container
                     *ngTemplateOutlet="selectField; context: {control: 'tiempoResidenciaZona', label: 'Cuanto tiempo lleva viviendo en la zona', options: haceCuantoViveEnlaZona}"></ng-container>
+                    <!-- RF-030/031/032: residencia anterior estructurada, junto al tiempo; solo si el
+                         tiempo no es "Toda la vida". -->
+                    @if (mostrarResidenciaAnterior) {
+                      <div class="full-width sub-section"><h4>Residencia Anterior</h4></div>
+                      <ng-container
+                      *ngTemplateOutlet="selectField; context: {control: 'departamentoResidenciaAnterior', label: 'Departamento anterior', options: filteredDeptoResAnt, optionsKey: 'departamento', valueKey: 'departamento', searchControl: searchDeptoResAnt}"></ng-container>
+                      <ng-container
+                      *ngTemplateOutlet="selectField; context: {control: 'municipioResidenciaAnterior', label: 'Municipio anterior', options: filteredMunResAnt, searchControl: searchMunResAnt}"></ng-container>
+                      <ng-container
+                      *ngTemplateOutlet="textField; context: {control: 'barrioResidenciaAnterior', label: 'Barrio anterior'}"></ng-container>
+                      <ng-container
+                      *ngTemplateOutlet="textField; context: {control: 'direccionResidenciaAnterior', label: 'Dirección de residencia anterior', isAddress: true}"></ng-container>
+                      <ng-container
+                      *ngTemplateOutlet="textField; context: {control: 'razonCambioResidencia', label: 'Razón del cambio'}"></ng-container>
+                    }
                   </div>
                   <!-- E) Correo electrónico -->
                   <div class="full-width sub-section">
@@ -247,7 +262,15 @@
                 </div>
                 <div class="grid-layout">
                   <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'escolaridad', label: 'Nivel Escolaridad', options: listaEscolaridad}"></ng-container>
+                  *ngTemplateOutlet="selectField; context: {control: 'escolaridad', label: 'Grado(s) de escolaridad', options: listaEscolaridadOpts, optionsKey: 'label', valueKey: 'codigo'}"></ng-container>
+                  <!-- RF-017: al elegir "Otros" en el grado, aquí mismo (junto al grado) se piden
+                       el nivel de educación superior y la carrera/estudio. -->
+                  @if (formHojaDeVida2.get('escolaridad')?.value === 'OTROS') {
+                    <ng-container
+                    *ngTemplateOutlet="selectField; context: {control: 'nivelEducacionSuperior', label: 'Nivel de educación superior', options: nivelSuperiorOpts, optionsKey: 'label', valueKey: 'codigo'}"></ng-container>
+                    <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'carreraEstudio', label: 'Carrera / estudio'}"></ng-container>
+                  }
                   <ng-container
                   *ngTemplateOutlet="selectField; context: {control: 'expectativasVidaChecks', label: '¿Cómo se proyecta?', options: expectativasVida, multiple: true}"></ng-container>
                 </div>
@@ -299,46 +322,62 @@
                   <div class="full-width sub-section">
                     <h4>Talla de dotación</h4>
                   </div>
+                  @if (faltaGeneroParaTallas) {
+                    <p class="full-width" style="color:#b45309;font-size:13px;margin:0 0 6px;">
+                      Seleccione primero el <b>Sexo</b> (en Datos Personales) para ver las tallas aplicables.
+                    </p>
+                  }
                   <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'tallaCamisa', label: 'Camisa', options: tallas}"></ng-container>
+                  *ngTemplateOutlet="selectField; context: {control: 'tallaCamisa', label: 'Camisa', options: tallasCamisa}"></ng-container>
                   <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'tallaPantalon', label: 'Pantalón', options: tallas}"></ng-container>
+                  *ngTemplateOutlet="selectField; context: {control: 'tallaPantalon', label: 'Pantalón', options: tallasPantalon}"></ng-container>
                   <ng-container
-                  *ngTemplateOutlet="selectField; context: {control: 'tallaChaqueta', label: 'Chaqueta', options: tallas}"></ng-container>
+                  *ngTemplateOutlet="selectField; context: {control: 'tallaChaqueta', label: 'Chaqueta', options: tallasChaqueta}"></ng-container>
                   <ng-container
                   *ngTemplateOutlet="selectField; context: {control: 'tallaCalzado', label: 'Calzado', options: tallasCalzado}"></ng-container>
                   <div class="full-width sub-section">
                     <h4>Residencia (Detalles)</h4>
                   </div>
-                  <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'lugarAnteriorResidencia', label: 'Lugar anterior'}"></ng-container>
-                  <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'razonCambioResidencia', label: 'Razón cambio'}"></ng-container>
+                  <!-- RF-030: "Lugar anterior" y "Razón del cambio" se movieron al bloque de Residencia
+                       (paso anterior), estructurados y condicionales. Aquí queda solo lo no relacionado. -->
                   <ng-container
                   *ngTemplateOutlet="textField; context: {control: 'zonasConocidas', label: 'Zonas que conoce'}"></ng-container>
                   <!-- Emergency Contact -->
                   <div class="full-width sub-section">
                     <h4>Contacto de Emergencia</h4>
                   </div>
+                  <!-- RF-033: nombre en componentes separados (primer nombre y primer apellido obligatorios). -->
                   <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'familiarEmergencia', label: 'Nombre Completo'}"></ng-container>
+                  *ngTemplateOutlet="textField; context: {control: 'emergenciaPrimerNombre', label: 'Primer nombre'}"></ng-container>
+                  <ng-container
+                  *ngTemplateOutlet="textField; context: {control: 'emergenciaSegundoNombre', label: 'Segundo nombre'}"></ng-container>
+                  <ng-container
+                  *ngTemplateOutlet="textField; context: {control: 'emergenciaPrimerApellido', label: 'Primer apellido'}"></ng-container>
+                  <ng-container
+                  *ngTemplateOutlet="textField; context: {control: 'emergenciaSegundoApellido', label: 'Segundo apellido'}"></ng-container>
                   <ng-container
                   *ngTemplateOutlet="selectField; context: {control: 'parentescoFamiliarEmergencia', label: 'Parentesco', options: listaParentescosFamiliares, optionsKey: 'descripcion', valueKey: 'codigo'}"></ng-container>
                   <ng-container
                   *ngTemplateOutlet="textField; context: {control: 'telefonoFamiliarEmergencia', label: 'Teléfono', type: 'tel'}"></ng-container>
                   <ng-container
                   *ngTemplateOutlet="selectField; context: {control: 'ocupacionFamiliarEmergencia', label: 'Ocupación', options: Ocupacion}"></ng-container>
+                  <!-- RF-035: ubicación territorial del contacto (cascada departamento → municipio). -->
                   <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'direccionFamiliarEmergencia', label: 'Dirección', isAddress: true}"></ng-container>
+                  *ngTemplateOutlet="selectField; context: {control: 'departamentoEmergencia', label: 'Departamento del contacto', options: filteredDeptoEmer, optionsKey: 'departamento', valueKey: 'departamento', searchControl: searchDeptoEmer}"></ng-container>
                   <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'barrioFamiliarEmergencia', label: 'Barrio'}"></ng-container>
+                  *ngTemplateOutlet="selectField; context: {control: 'municipioEmergencia', label: 'Municipio del contacto', options: filteredMunEmer, searchControl: searchMunEmer}"></ng-container>
+                  <ng-container
+                  *ngTemplateOutlet="textField; context: {control: 'barrioFamiliarEmergencia', label: 'Barrio del contacto'}"></ng-container>
+                  <!-- RF-034: etiqueta inequívoca (no dirección laboral). -->
+                  <ng-container
+                  *ngTemplateOutlet="textField; context: {control: 'direccionFamiliarEmergencia', label: 'Dirección de residencia del contacto', isAddress: true}"></ng-container>
                   <!-- Education -->
                   <!-- Education -->
                   <div class="full-width sub-section">
                     <h4>Formación Académica (Detalles)</h4>
                   </div>
-                  <!-- Conditional Education Fields (Moved back per request) -->
-                  @if (formHojaDeVida2.get('escolaridad')?.value !== 'SIN ESTUDIOS') {
+                  <!-- Formación de colegio: solo para grados 1..11 (no en "Sin estudio" ni "Otros"). -->
+                  @if (formHojaDeVida2.get('escolaridad')?.value !== 'SIN ESTUDIOS' && formHojaDeVida2.get('escolaridad')?.value !== 'OTROS') {
                     <ng-container
                     *ngTemplateOutlet="textField; context: {control: 'nombreInstitucion', label: 'Institución'}"></ng-container>
                     <ng-container
@@ -353,7 +392,7 @@
                 </div>
                 <div class="actions">
                   <button mat-button type="button" (click)="pasoAnterior()">Anterior</button>
-                  <button mat-button type="button" class="btn-next" (click)="siguientePaso(1)">Siguiente</button>
+                  <button mat-button type="button" class="btn-next" [disabled]="guardandoPaso" (click)="siguientePaso(1)">{{ guardandoPaso ? 'Guardando…' : 'Siguiente' }}</button>
                 </div>
               </ng-template>
             </mat-step>
@@ -454,6 +493,10 @@
                   *ngTemplateOutlet="textField; context: {control: 'direccionReferenciaPersonal1', label: 'Dirección y Barrio', isAddress: true}"></ng-container>
                   <ng-container
                   *ngTemplateOutlet="selectField; context: {control: 'tiempoConoceReferenciaPersonal1', label: 'Tiempo de conocerlo', options: tiempoTrabajado}"></ng-container>
+                  <!-- Parentesco también en las personales (p. ej. AMIGO(A)): lo
+                       precarga la entrevista de Selección en TesoroApp. -->
+                  <ng-container
+                  *ngTemplateOutlet="selectField; context: {control: 'parentescoReferenciaPersonal1', label: 'Parentesco / Relación', options: listaParentescosFamiliares, optionsKey: 'descripcion', valueKey: 'codigo'}"></ng-container>
                   <div class="full-width sub-section">
                     <h4>Referencia Personal 2</h4>
                   </div>
@@ -467,6 +510,8 @@
                   *ngTemplateOutlet="textField; context: {control: 'direccionReferenciaPersonal2', label: 'Dirección y Barrio', isAddress: true}"></ng-container>
                   <ng-container
                   *ngTemplateOutlet="selectField; context: {control: 'tiempoConoceReferenciaPersonal2', label: 'Tiempo de conocerlo', options: tiempoTrabajado}"></ng-container>
+                  <ng-container
+                  *ngTemplateOutlet="selectField; context: {control: 'parentescoReferenciaPersonal2', label: 'Parentesco / Relación', options: listaParentescosFamiliares, optionsKey: 'descripcion', valueKey: 'codigo'}"></ng-container>
                   <!-- Referencias Familiares -->
                   <div class="full-width sub-section">
                     <h4>Referencia Familiar 1</h4>
@@ -497,7 +542,7 @@
                 </div>
                 <div class="actions">
                   <button mat-button type="button" (click)="pasoAnterior()">Anterior</button>
-                  <button mat-button type="button" class="btn-next" (click)="siguientePaso(2)">Siguiente</button>
+                  <button mat-button type="button" class="btn-next" [disabled]="guardandoPaso" (click)="siguientePaso(2)">{{ guardandoPaso ? 'Guardando…' : 'Siguiente' }}</button>
                 </div>
               </ng-template>
             </mat-step>
@@ -654,7 +699,7 @@
 </div>
 <div class="actions">
   <button mat-button type="button" (click)="pasoAnterior()">Anterior</button>
-  <button mat-button type="button" class="btn-next" (click)="siguientePaso(3)">Siguiente</button>
+  <button mat-button type="button" class="btn-next" [disabled]="guardandoPaso" (click)="siguientePaso(3)">{{ guardandoPaso ? 'Guardando…' : 'Siguiente' }}</button>
 </div>
 </ng-template>
 </mat-step>
@@ -741,8 +786,9 @@
     </mat-form-field>
   </ng-template>
 
-  <!-- `disabled` no se declara: los campos que se bloquean (p. ej. Oficina con
-       ?oficina=) lo hacen deshabilitando su FormControl, no por contexto. -->
+  <!-- `disabled` no se declara: los campos que se bloquean lo hacen deshabilitando
+       su FormControl, no por contexto. Oficina ya NO se bloquea: el candidato la
+       elige (enlace público único, sin ?oficina=). -->
   <ng-template #selectField let-control="control" let-label="label" let-options="options" let-optionsKey="optionsKey"
     let-valueKey="valueKey" let-multiple="multiple" let-formGroup="formGroup"
     let-searchControl="searchControl">

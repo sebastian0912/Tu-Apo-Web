@@ -286,6 +286,9 @@ export class RegistroProcesoContratacion {
     // /upsert_forms/ solo guardaba nombres y NO entiende `numeroCedula`
     // — de ahí el "tipo_doc y numero_documento requeridos" al finalizar.
     const body = this.aCuerpoByDocumentUpsert(upperPayload);
+    // RF-025/032: propaga el estado del preregistro (último paso guardado / finalizado).
+    if ((payload as any).formulario_paso != null) body.formulario_paso = (payload as any).formulario_paso;
+    if ((payload as any).formulario_completo != null) body.formulario_completo = (payload as any).formulario_completo;
     const urlUpsert = `${this.apiUrl}/gestion_contratacion/candidatos/by-document-upsert/`;
 
     if (!isPlatformBrowser(this.platformId)) {
@@ -349,6 +352,12 @@ export class RegistroProcesoContratacion {
         lugar_anterior: p.lugarAnteriorResidencia,
         razon_mudanza: p.razonCambioResidencia,
         zonas_del_pais: p.zonasConocidas,
+        // RF-032: residencia anterior estructurada. Siempre viaja (?? '') para que el backend la
+        // LIMPIE con "" cuando el tiempo es "TODO LA VIDA" (containsKey en el servicio Java).
+        residencia_anterior_departamento: p.departamentoResidenciaAnterior ?? '',
+        residencia_anterior_municipio: p.municipioResidenciaAnterior ?? '',
+        residencia_anterior_direccion: p.direccionResidenciaAnterior ?? '',
+        residencia_anterior_barrio: p.barrioResidenciaAnterior ?? '',
       },
       vivienda: {
         personas_con_quien_convive: p.personasConQuienConvive,
@@ -447,19 +456,31 @@ export class RegistroProcesoContratacion {
         telefono: p.telefonoMadre,
         barrio: p.barrioMadre,
       }) : undefined,
-      emergencia: p.familiarEmergencia ? this.clean({
+      emergencia: (p.emergenciaPrimerNombre || p.familiarEmergencia) ? this.clean({
+        // RF-033: componentes separados + derivados nombre/apellido (compat legacy).
+        primer_nombre: p.emergenciaPrimerNombre,
+        segundo_nombre: p.emergenciaSegundoNombre,
+        primer_apellido: p.emergenciaPrimerApellido,
+        segundo_apellido: p.emergenciaSegundoApellido,
         nombre: p.familiarEmergencia,
+        apellido: [p.emergenciaPrimerApellido, p.emergenciaSegundoApellido].filter((x: any) => x).join(' ').trim() || undefined,
         parentesco: p.parentescoFamiliarEmergencia,
         telefono: p.telefonoFamiliarEmergencia,
         ocupacion: p.ocupacionFamiliarEmergencia,
-        direccion: p.direccionFamiliarEmergencia,
+        // RF-035: ubicación territorial del contacto.
+        departamento: p.departamentoEmergencia,
+        municipio: p.municipioEmergencia,
         barrio: p.barrioFamiliarEmergencia,
+        direccion: p.direccionFamiliarEmergencia,
       }) : undefined,
       referencias_personales: [
+        // El parentesco también viaja en las PERSONALES (p. ej. AMIGO(A)): la
+        // entrevista de Selección en TesoroApp (form-entrevista) lo precarga
+        // desde acá y quedaba siempre vacío.
         ref(p.nombreReferenciaPersonal1, p.telefonoReferenciaPersonal1, p.ocupacionReferenciaPersonal1,
-            p.direccionReferenciaPersonal1, { tiempo_conoce: p.tiempoConoceReferenciaPersonal1 }),
+            p.direccionReferenciaPersonal1, { tiempo_conoce: p.tiempoConoceReferenciaPersonal1, parentesco: p.parentescoReferenciaPersonal1 }),
         ref(p.nombreReferenciaPersonal2, p.telefonoReferenciaPersonal2, p.ocupacionReferenciaPersonal2,
-            p.direccionReferenciaPersonal2, { tiempo_conoce: p.tiempoConoceReferenciaPersonal2 }),
+            p.direccionReferenciaPersonal2, { tiempo_conoce: p.tiempoConoceReferenciaPersonal2, parentesco: p.parentescoReferenciaPersonal2 }),
       ].filter(Boolean),
       referencias_familiares: [
         ref(p.nombreReferenciaFamiliar1, p.telefonoReferenciaFamiliar1, p.ocupacionReferenciaFamiliar1,

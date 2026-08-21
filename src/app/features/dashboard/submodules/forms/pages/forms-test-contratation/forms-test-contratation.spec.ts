@@ -29,8 +29,14 @@ const CATALOGOS: Record<string, any> = {
   PARENTESCOS_FAMILIARES: V([{ codigo: 'HE', descripcion: 'HERMANO' }]),
   OCUPACIONES: V([{ codigo: 'EMPLEADO' }, { codigo: 'ESTUDIANTE' }]),
   CATALOGO_NIVELES_ESCOLARIDAD: V([{ codigo: 'BACHILLER' }]),
-  TALLA_ROPA: V([{ talla: 'M' }]),
-  TALLAS_CALZADO: V([{ talla: '40' }]),
+  DOTACION_TALLA: V([
+    { sexo: 'M', tipo_prenda: 'CAMISA', talla: '38', orden: 3 },
+    { sexo: 'M', tipo_prenda: 'PANTALON', talla: '32', orden: 3 },
+    { sexo: 'M', tipo_prenda: 'CHAQUETA', talla: '38', orden: 3 },
+    { sexo: 'M', tipo_prenda: 'CALZADO', talla: '40', orden: 5 },
+    { sexo: 'F', tipo_prenda: 'CAMISA', talla: '10', orden: 3 },
+    { sexo: 'F', tipo_prenda: 'CALZADO', talla: '37', orden: 4 },
+  ]),
   CATALOGO_SERVICIOS: V([{ codigo: 'AGUA' }]),
   CATALOGO_MARKETING: V([{ codigo: 'FACEBOOK' }]),
   CATALOGO_CON_QUIEN_VIVE: V([{ codigo: 'PADRES' }]),
@@ -287,13 +293,23 @@ describe('FormsTestContratation (DOM)', () => {
 
       // Paso 2 — detalles
       set('rh', 'O+'); set('lateralidad', 'D');
-      set('tallaCamisa', 'M'); set('tallaPantalon', 'M');
-      set('tallaChaqueta', 'M'); set('tallaCalzado', '40');
-      set('lugarAnteriorResidencia', 'MADRID');
+      // RF-029: tallas numéricas por sexo (M) + prenda.
+      set('tallaCamisa', '38'); set('tallaPantalon', '32');
+      set('tallaChaqueta', '38'); set('tallaCalzado', '40');
+      // RF-032: residencia anterior estructurada (tiempo != TODO LA VIDA => requerida).
+      set('departamentoResidenciaAnterior', 'Cundinamarca');
+      set('municipioResidenciaAnterior', 'Madrid');
+      set('barrioResidenciaAnterior', 'CENTRO');
+      set('direccionResidenciaAnterior', 'CL 9 8 7');
       set('razonCambioResidencia', 'TRABAJO');
-      set('familiarEmergencia', 'MARIA PEREZ');
+      // RF-033/035: contacto de emergencia estructurado + ubicación.
+      set('emergenciaPrimerNombre', 'MARIA');
+      set('emergenciaPrimerApellido', 'PEREZ');
       set('parentescoFamiliarEmergencia', 'HE');
       set('telefonoFamiliarEmergencia', '3111234567');
+      set('departamentoEmergencia', 'Cundinamarca');
+      set('municipioEmergencia', 'Funza');
+      set('barrioFamiliarEmergencia', 'SUR');
       set('direccionFamiliarEmergencia', 'CL 1 2 3');
       set('estudiaActualmente', 'NO');
 
@@ -303,9 +319,11 @@ describe('FormsTestContratation (DOM)', () => {
       set('nombreReferenciaPersonal1', 'JUAN PEREZ');
       set('telefonoReferencia1', '3200000001');
       set('direccionReferenciaPersonal1', 'CL 1 1 1');
+      set('parentescoReferenciaPersonal1', 'HE');
       set('nombreReferenciaPersonal2', 'ANA GOMEZ');
       set('telefonoReferencia2', '3200000002');
       set('direccionReferenciaPersonal2', 'CL 2 2 2');
+      set('parentescoReferenciaPersonal2', 'HE');
       set('nombreReferenciaFamiliar1', 'LUISA CASTRO');
       set('telefonoReferenciaFamiliar1', '3300000001');
       set('direccionReferenciaFamiliar1', 'CL 3 3 3');
