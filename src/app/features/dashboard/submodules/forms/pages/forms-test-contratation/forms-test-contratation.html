@@ -376,6 +376,15 @@
                   <div class="full-width sub-section">
                     <h4>Formación Académica (Detalles)</h4>
                   </div>
+                  <!-- RF-037: el grado ya informado en el pre-registro se muestra readonly;
+                       no se vuelve a pedir. Se actualiza solo si el usuario cambia el grado. -->
+                  @if (escolaridadSeleccionadaLabel) {
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>Grado de escolaridad (ya seleccionado)</mat-label>
+                      <input matInput [value]="escolaridadSeleccionadaLabel" readonly>
+                      <mat-hint>Para cambiarlo, vuelva al paso de Pre-registro.</mat-hint>
+                    </mat-form-field>
+                  }
                   <!-- Formación de colegio: solo para grados 1..11 (no en "Sin estudio" ni "Otros"). -->
                   @if (formHojaDeVida2.get('escolaridad')?.value !== 'SIN ESTUDIOS' && formHojaDeVida2.get('escolaridad')?.value !== 'OTROS') {
                     <ng-container
@@ -384,8 +393,10 @@
                     *ngTemplateOutlet="dateField; context: {control: 'anoFinalizacion', label: 'Fecha Finalización', max: hoy}"></ng-container>
                     <ng-container
                     *ngTemplateOutlet="textField; context: {control: 'tituloObtenido', label: 'Título'}"></ng-container>
-                    <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'estudiosExtrasSelect', label: 'Otros estudios', options: cursosDespuesColegio, multiple: true}"></ng-container>
+                    <!-- RF-038: "Otros estudios" se retira de la interfaz (clasificación duplicada:
+                         la formación superior/tipo de estudio ya se captura al elegir el grado 'Otros').
+                         El control `estudiosExtrasSelect` y la columna legacy `estudios_extra` se
+                         conservan; el detalle académico solo pide información complementaria. -->
                   }
                   <ng-container
                   *ngTemplateOutlet="selectField; context: {control: 'estudiaActualmente', label: '¿Estudia Actualmente?', options: opcionBinaria, optionsKey: 'display', valueKey: 'value'}"></ng-container>
@@ -447,8 +458,15 @@
                        los de la madre subían a su fila y parecían intercambiados. -->
                   <!-- Padre -->
                   <div class="grid-layout full-width">
+                    <!-- RF-040: nombre del padre en componentes (opcionales) -->
                     <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'nombrePadre', label: 'Nombre Padre'}"></ng-container>
+                    *ngTemplateOutlet="textField; context: {control: 'padrePrimerNombre', label: 'Primer nombre del padre', hint: 'Opcional'}"></ng-container>
+                    <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'padreSegundoNombre', label: 'Segundo nombre del padre', hint: 'Opcional'}"></ng-container>
+                    <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'padrePrimerApellido', label: 'Primer apellido del padre', hint: 'Opcional'}"></ng-container>
+                    <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'padreSegundoApellido', label: 'Segundo apellido del padre', hint: 'Opcional'}"></ng-container>
                     <ng-container
                     *ngTemplateOutlet="selectField; context: {control: 'elPadreVive', label: 'Estado del padre', options: parentStatusOptions, optionsKey: 'display', valueKey: 'value'}"></ng-container>
                     @if (formHojaDeVida2.get('elPadreVive')?.value === 'VIVE') {
@@ -464,8 +482,15 @@
                   </div>
                   <!-- Madre -->
                   <div class="grid-layout full-width">
+                    <!-- RF-040: nombre de la madre en componentes (opcionales) -->
                     <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'nombreMadre', label: 'Nombre Madre'}"></ng-container>
+                    *ngTemplateOutlet="textField; context: {control: 'madrePrimerNombre', label: 'Primer nombre de la madre', hint: 'Opcional'}"></ng-container>
+                    <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'madreSegundoNombre', label: 'Segundo nombre de la madre', hint: 'Opcional'}"></ng-container>
+                    <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'madrePrimerApellido', label: 'Primer apellido de la madre', hint: 'Opcional'}"></ng-container>
+                    <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'madreSegundoApellido', label: 'Segundo apellido de la madre', hint: 'Opcional'}"></ng-container>
                     <ng-container
                     *ngTemplateOutlet="selectField; context: {control: 'madreVive', label: 'Estado de la madre', options: parentStatusOptions, optionsKey: 'display', valueKey: 'value'}"></ng-container>
                     @if (formHojaDeVida2.get('madreVive')?.value === 'VIVE') {
@@ -483,8 +508,15 @@
                   <div class="full-width sub-section">
                     <h4>Referencia Personal 1</h4>
                   </div>
+                  <!-- RF-040: nombre de la referencia en componentes (primer nombre/apellido obligatorios) -->
                   <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'nombreReferenciaPersonal1', label: 'Nombre'}"></ng-container>
+                  *ngTemplateOutlet="textField; context: {control: 'refPersonal1PrimerNombre', label: 'Primer nombre'}"></ng-container>
+                  <ng-container
+                  *ngTemplateOutlet="textField; context: {control: 'refPersonal1SegundoNombre', label: 'Segundo nombre', hint: 'Opcional'}"></ng-container>
+                  <ng-container
+                  *ngTemplateOutlet="textField; context: {control: 'refPersonal1PrimerApellido', label: 'Primer apellido'}"></ng-container>
+                  <ng-container
+                  *ngTemplateOutlet="textField; context: {control: 'refPersonal1SegundoApellido', label: 'Segundo apellido', hint: 'Opcional'}"></ng-container>
                   <ng-container
                   *ngTemplateOutlet="textField; context: {control: 'telefonoReferencia1', label: 'Teléfono', type: 'tel'}"></ng-container>
                   <ng-container
@@ -500,8 +532,15 @@
                   <div class="full-width sub-section">
                     <h4>Referencia Personal 2</h4>
                   </div>
+                  <!-- RF-040: nombre de la referencia en componentes (primer nombre/apellido obligatorios) -->
                   <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'nombreReferenciaPersonal2', label: 'Nombre'}"></ng-container>
+                  *ngTemplateOutlet="textField; context: {control: 'refPersonal2PrimerNombre', label: 'Primer nombre'}"></ng-container>
+                  <ng-container
+                  *ngTemplateOutlet="textField; context: {control: 'refPersonal2SegundoNombre', label: 'Segundo nombre', hint: 'Opcional'}"></ng-container>
+                  <ng-container
+                  *ngTemplateOutlet="textField; context: {control: 'refPersonal2PrimerApellido', label: 'Primer apellido'}"></ng-container>
+                  <ng-container
+                  *ngTemplateOutlet="textField; context: {control: 'refPersonal2SegundoApellido', label: 'Segundo apellido', hint: 'Opcional'}"></ng-container>
                   <ng-container
                   *ngTemplateOutlet="textField; context: {control: 'telefonoReferencia2', label: 'Teléfono', type: 'tel'}"></ng-container>
                   <ng-container
@@ -516,8 +555,15 @@
                   <div class="full-width sub-section">
                     <h4>Referencia Familiar 1</h4>
                   </div>
+                  <!-- RF-040: nombre de la referencia en componentes (primer nombre/apellido obligatorios) -->
                   <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'nombreReferenciaFamiliar1', label: 'Nombre'}"></ng-container>
+                  *ngTemplateOutlet="textField; context: {control: 'refFamiliar1PrimerNombre', label: 'Primer nombre'}"></ng-container>
+                  <ng-container
+                  *ngTemplateOutlet="textField; context: {control: 'refFamiliar1SegundoNombre', label: 'Segundo nombre', hint: 'Opcional'}"></ng-container>
+                  <ng-container
+                  *ngTemplateOutlet="textField; context: {control: 'refFamiliar1PrimerApellido', label: 'Primer apellido'}"></ng-container>
+                  <ng-container
+                  *ngTemplateOutlet="textField; context: {control: 'refFamiliar1SegundoApellido', label: 'Segundo apellido', hint: 'Opcional'}"></ng-container>
                   <ng-container
                   *ngTemplateOutlet="textField; context: {control: 'telefonoReferenciaFamiliar1', label: 'Teléfono', type: 'tel'}"></ng-container>
                   <ng-container
@@ -529,8 +575,15 @@
                   <div class="full-width sub-section">
                     <h4>Referencia Familiar 2</h4>
                   </div>
+                  <!-- RF-040: nombre de la referencia en componentes (primer nombre/apellido obligatorios) -->
                   <ng-container
-                  *ngTemplateOutlet="textField; context: {control: 'nombreReferenciaFamiliar2', label: 'Nombre'}"></ng-container>
+                  *ngTemplateOutlet="textField; context: {control: 'refFamiliar2PrimerNombre', label: 'Primer nombre'}"></ng-container>
+                  <ng-container
+                  *ngTemplateOutlet="textField; context: {control: 'refFamiliar2SegundoNombre', label: 'Segundo nombre', hint: 'Opcional'}"></ng-container>
+                  <ng-container
+                  *ngTemplateOutlet="textField; context: {control: 'refFamiliar2PrimerApellido', label: 'Primer apellido'}"></ng-container>
+                  <ng-container
+                  *ngTemplateOutlet="textField; context: {control: 'refFamiliar2SegundoApellido', label: 'Segundo apellido', hint: 'Opcional'}"></ng-container>
                   <ng-container
                   *ngTemplateOutlet="textField; context: {control: 'telefonoReferenciaFamiliar2', label: 'Teléfono', type: 'tel'}"></ng-container>
                   <ng-container
@@ -558,27 +611,47 @@
                   <ng-container
                   *ngTemplateOutlet="selectField; context: {control: 'experienciaLaboral', label: '¿Experiencia Laboral?', options: opcionBinaria, optionsKey: 'display', valueKey: 'value'}"></ng-container>
                   @if (formHojaDeVida2.get('experienciaLaboral')?.value === 'SI') {
+                    <!-- RF-043/044: bloque 1 — DATOS DE LA EMPRESA -->
+                    <div class="full-width sub-section"><h4>Datos de la empresa</h4></div>
                     <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'nombreEmpresa1', label: 'Empresa'}"></ng-container>
+                    *ngTemplateOutlet="textField; context: {control: 'nombreEmpresa1', label: 'Nombre de la empresa'}"></ng-container>
+                    <!-- RF-036: territorio estructurado de la empresa (departamento → municipio) -->
                     <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'telefonosEmpresa1', label: 'Teléfono', type: 'tel', sanitizar: 'telefono', hint: 'Celular o fijo. Ej: 3101234567 o 6012345678'}"></ng-container>
+                    *ngTemplateOutlet="selectField; context: {control: 'departamentoEmpresa1', label: 'Departamento de la empresa', options: filteredDeptoEmp, optionsKey: 'departamento', valueKey: 'departamento', searchControl: searchDeptoEmp}"></ng-container>
                     <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'direccionEmpresa1', label: 'Dirección y Barrio', isAddress: true}"></ng-container>
-                    <!-- barrioEmpresa1 REMOVED (Merged) -->
+                    *ngTemplateOutlet="selectField; context: {control: 'municipioEmpresa1', label: 'Municipio de la empresa', options: filteredMunEmp, searchControl: searchMunEmp}"></ng-container>
                     <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'nombreJefe1', label: 'Jefe Inmediato'}"></ng-container>
+                    *ngTemplateOutlet="textField; context: {control: 'barrioEmpresa1', label: 'Barrio de la empresa', hint: 'Opcional'}"></ng-container>
                     <ng-container
-                    *ngTemplateOutlet="textField; context: {control: 'cargoEmpresa1', label: 'Cargo'}"></ng-container>
+                    *ngTemplateOutlet="textField; context: {control: 'direccionEmpresa1', label: 'Dirección de la empresa', isAddress: true}"></ng-container>
+                    <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'telefonosEmpresa1', label: 'Teléfono de la empresa', type: 'tel', sanitizar: 'telefono', hint: 'Celular o fijo. Ej: 3101234567 o 6012345678'}"></ng-container>
+
+                    <!-- RF-043: bloque 2 — CARGO DESEMPEÑADO POR EL CANDIDATO -->
+                    <div class="full-width sub-section"><h4>Cargo desempeñado por el candidato</h4></div>
+                    <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'cargoEmpresa1', label: 'Cargo desempeñado por el candidato'}"></ng-container>
                     <ng-container
                     *ngTemplateOutlet="selectField; context: {control: 'areaExperiencia', label: 'Áreas', options: areasExperiencia, multiple: true}"></ng-container>
                     <ng-container
-                    *ngTemplateOutlet="dateField; context: {control: 'fechaRetiro1', label: 'Fecha Retiro', max: hoy}"></ng-container>
+                    *ngTemplateOutlet="dateField; context: {control: 'fechaRetiro1', label: 'Fecha de retiro', max: hoy}"></ng-container>
                     <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'tiempoExperiencia', label: 'Tiempo Experiencia', options: tiempoTrabajado}"></ng-container>
+                    *ngTemplateOutlet="selectField; context: {control: 'tiempoExperiencia', label: 'Tiempo de experiencia', options: tiempoTrabajado}"></ng-container>
                     <ng-container
-                    *ngTemplateOutlet="selectField; context: {control: 'motivoRetiro1', label: 'Motivo Retiro', options: motivoRetiroOptions}"></ng-container>
+                    *ngTemplateOutlet="selectField; context: {control: 'motivoRetiro1', label: 'Motivo de retiro', options: motivoRetiroOptions}"></ng-container>
                     <ng-container
                     *ngTemplateOutlet="textField; context: {control: 'empresas_laborado', label: 'Otras empresas (separadas por coma)'}"></ng-container>
+
+                    <!-- RF-043/044: bloque 3 — REFERENCIA / JEFE INMEDIATO -->
+                    <div class="full-width sub-section"><h4>Referencia / Jefe inmediato</h4></div>
+                    <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'jefePrimerNombre1', label: 'Primer nombre del jefe inmediato'}"></ng-container>
+                    <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'jefePrimerApellido1', label: 'Primer apellido del jefe inmediato'}"></ng-container>
+                    <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'cargoJefe1', label: 'Cargo del jefe inmediato', hint: 'Opcional'}"></ng-container>
+                    <ng-container
+                    *ngTemplateOutlet="textField; context: {control: 'telefonoJefe1', label: 'Teléfono del jefe / referencia', type: 'tel', sanitizar: 'telefono', hint: 'Opcional'}"></ng-container>
                   }
                   <!-- Hijos -->
                   <div class="full-width sub-section">
@@ -600,15 +673,37 @@
                           class="child-card">
                           <h5>Hijo {{i+1}}</h5>
                           <div class="grid-layout compact">
-                            <mat-form-field appearance="outline"><mat-label>Nombre</mat-label><input matInput
-                            formControlName="nombreHijo">
-                            @if (h.get('nombreHijo')?.hasError('required')) {
-                              <mat-error>Nombre requerido</mat-error>
+                            <!-- RF-045: nombres estructurados del hijo/dependiente -->
+                            <mat-form-field appearance="outline"><mat-label>Primer nombre</mat-label><input matInput
+                            formControlName="hijoPrimerNombre">
+                            @if (h.get('hijoPrimerNombre')?.hasError('required')) {
+                              <mat-error>Requerido</mat-error>
                             }
-                            @if (h.get('nombreHijo')?.hasError('invalidName')) {
+                            @if (h.get('hijoPrimerNombre')?.hasError('invalidName')) {
                               <mat-error>Nombre inválido</mat-error>
                             }
                           </mat-form-field>
+                          <mat-form-field appearance="outline"><mat-label>Segundo nombre</mat-label><input matInput
+                          formControlName="hijoSegundoNombre">
+                          @if (h.get('hijoSegundoNombre')?.hasError('invalidName')) {
+                            <mat-error>Nombre inválido</mat-error>
+                          }
+                        </mat-form-field>
+                        <mat-form-field appearance="outline"><mat-label>Primer apellido</mat-label><input matInput
+                        formControlName="hijoPrimerApellido">
+                        @if (h.get('hijoPrimerApellido')?.hasError('required')) {
+                          <mat-error>Requerido</mat-error>
+                        }
+                        @if (h.get('hijoPrimerApellido')?.hasError('invalidName')) {
+                          <mat-error>Apellido inválido</mat-error>
+                        }
+                      </mat-form-field>
+                      <mat-form-field appearance="outline"><mat-label>Segundo apellido</mat-label><input matInput
+                      formControlName="hijoSegundoApellido">
+                      @if (h.get('hijoSegundoApellido')?.hasError('invalidName')) {
+                        <mat-error>Apellido inválido</mat-error>
+                      }
+                    </mat-form-field>
                           <mat-form-field appearance="outline"><mat-label>Sexo</mat-label><mat-select
                           formControlName="sexoHijo"><mat-option value="M">M</mat-option><mat-option
                         value="F">F</mat-option></mat-select>
@@ -628,7 +723,16 @@
                       <mat-error>La fecha no puede ser futura</mat-error>
                     }
                   </mat-form-field>
-                  <mat-form-field appearance="outline"><mat-label>Doc ID</mat-label><input matInput
+                  <!-- RF-046: tipo de documento del dependiente (RC/TI/CC/CE) -->
+                  <mat-form-field appearance="outline"><mat-label>Tipo de documento</mat-label><mat-select
+                  formControlName="tipoDocHijo">@for (o of tiposDocDependiente; track o.codigo) {
+                  <mat-option [value]="o.codigo">{{o.descripcion}}</mat-option>
+                }</mat-select>
+                @if (h.get('tipoDocHijo')?.hasError('required')) {
+                  <mat-error>Requerido</mat-error>
+                }
+              </mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>No. de documento</mat-label><input matInput
                   formControlName="docIdentidadHijo" inputmode="numeric">
                   @if (h.get('docIdentidadHijo')?.hasError('required')) {
                     <mat-error>Requerido</mat-error>

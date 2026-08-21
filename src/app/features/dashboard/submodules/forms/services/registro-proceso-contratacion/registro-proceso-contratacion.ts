@@ -413,18 +413,34 @@ export class RegistroProcesoContratacion {
       experiencias: p.nombreExpeLaboral1Empresa ? [this.clean({
         empresa: p.nombreExpeLaboral1Empresa,
         tiempo_trabajado: p.tiempoExperiencia,
-        telefonos: p.telefonosEmpresa1,
+        telefonos: p.telefonosEmpresa1,           // teléfono de la EMPRESA
         direccion: p.direccionEmpresa1,
-        nombre_jefe: p.nombreJefeEmpresa1,
-        cargo: p.cargoEmpresa1,
+        // RF-036/044: territorio estructurado de la empresa.
+        departamento: p.departamentoEmpresa1,
+        municipio: p.municipioEmpresa1,
+        barrio: p.barrioEmpresa1,
+        // RF-043: datos del jefe/referencia, separados de la empresa.
+        nombre_jefe: p.nombreJefeEmpresa1,        // legacy derivado
+        jefe_primer_nombre: p.jefePrimerNombre1,
+        jefe_primer_apellido: p.jefePrimerApellido1,
+        cargo_jefe: p.cargoJefe1,                 // cargo del JEFE
+        telefono_jefe: p.telefonoJefe1,           // teléfono del JEFE/referencia
+        cargo: p.cargoEmpresa1,                   // cargo del CANDIDATO
         fecha_retiro: p.fechaRetiroEmpresa1,
         motivo_retiro: p.motivoRetiroEmpresa1,
       })] : undefined,
       // Hijos: claves canónicas del backend (clave_front → clave DTO).
       hijos: (p.hijos || []).map((h: any) => this.clean({
         nombre: h.nombreHijo,
+        // RF-045: nombres estructurados del dependiente.
+        primer_nombre: h.hijoPrimerNombre,
+        segundo_nombre: h.hijoSegundoNombre,
+        primer_apellido: h.hijoPrimerApellido,
+        segundo_apellido: h.hijoSegundoApellido,
         sexo: h.sexoHijo,
         fecha_nac: h.fechaNacimientoHijo,
+        // RF-046: tipo de documento del dependiente.
+        tipo_documento: h.tipoDocHijo,
         numero_de_documento: h.docIdentidadHijo,
         ocupacion: h.ocupacionHijo,
         curso: h.cursoHijo,
@@ -442,6 +458,11 @@ export class RegistroProcesoContratacion {
       }) : undefined,
       padre: p.vivePadre ? this.clean({
         nombre: p.nombrePadre,
+        // RF-040: nombre del padre en componentes.
+        primer_nombre: p.padrePrimerNombre,
+        segundo_nombre: p.padreSegundoNombre,
+        primer_apellido: p.padrePrimerApellido,
+        segundo_apellido: p.padreSegundoApellido,
         vive_con: p.vivePadre, // VIVE | NO VIVE | NO LO CONOCE (semántica del legacy)
         ocupacion: p.ocupacionPadre,
         direccion: p.direccionPadre,
@@ -450,6 +471,11 @@ export class RegistroProcesoContratacion {
       }) : undefined,
       madre: p.viveMadre ? this.clean({
         nombre: p.nombreMadre,
+        // RF-040: nombre de la madre en componentes.
+        primer_nombre: p.madrePrimerNombre,
+        segundo_nombre: p.madreSegundoNombre,
+        primer_apellido: p.madrePrimerApellido,
+        segundo_apellido: p.madreSegundoApellido,
         vive_con: p.viveMadre,
         ocupacion: p.ocupacionMadre,
         direccion: p.direccionMadre,
@@ -477,16 +503,21 @@ export class RegistroProcesoContratacion {
         // El parentesco también viaja en las PERSONALES (p. ej. AMIGO(A)): la
         // entrevista de Selección en TesoroApp (form-entrevista) lo precarga
         // desde acá y quedaba siempre vacío.
+        // RF-040: nombre de la referencia en componentes (primer/segundo nombre y apellido).
         ref(p.nombreReferenciaPersonal1, p.telefonoReferenciaPersonal1, p.ocupacionReferenciaPersonal1,
-            p.direccionReferenciaPersonal1, { tiempo_conoce: p.tiempoConoceReferenciaPersonal1, parentesco: p.parentescoReferenciaPersonal1 }),
+            p.direccionReferenciaPersonal1, { tiempo_conoce: p.tiempoConoceReferenciaPersonal1, parentesco: p.parentescoReferenciaPersonal1,
+              primer_nombre: p.refPersonal1PrimerNombre, segundo_nombre: p.refPersonal1SegundoNombre, primer_apellido: p.refPersonal1PrimerApellido, segundo_apellido: p.refPersonal1SegundoApellido }),
         ref(p.nombreReferenciaPersonal2, p.telefonoReferenciaPersonal2, p.ocupacionReferenciaPersonal2,
-            p.direccionReferenciaPersonal2, { tiempo_conoce: p.tiempoConoceReferenciaPersonal2, parentesco: p.parentescoReferenciaPersonal2 }),
+            p.direccionReferenciaPersonal2, { tiempo_conoce: p.tiempoConoceReferenciaPersonal2, parentesco: p.parentescoReferenciaPersonal2,
+              primer_nombre: p.refPersonal2PrimerNombre, segundo_nombre: p.refPersonal2SegundoNombre, primer_apellido: p.refPersonal2PrimerApellido, segundo_apellido: p.refPersonal2SegundoApellido }),
       ].filter(Boolean),
       referencias_familiares: [
         ref(p.nombreReferenciaFamiliar1, p.telefonoReferenciaFamiliar1, p.ocupacionReferenciaFamiliar1,
-            p.direccionReferenciaFamiliar1, { parentesco: p.parentescoReferenciaFamiliar1 }),
+            p.direccionReferenciaFamiliar1, { parentesco: p.parentescoReferenciaFamiliar1,
+              primer_nombre: p.refFamiliar1PrimerNombre, segundo_nombre: p.refFamiliar1SegundoNombre, primer_apellido: p.refFamiliar1PrimerApellido, segundo_apellido: p.refFamiliar1SegundoApellido }),
         ref(p.nombreReferenciaFamiliar2, p.telefonoReferenciaFamiliar2, p.ocupacionReferenciaFamiliar2,
-            p.direccionReferenciaFamiliar2, { parentesco: p.parentescoReferenciaFamiliar2 }),
+            p.direccionReferenciaFamiliar2, { parentesco: p.parentescoReferenciaFamiliar2,
+              primer_nombre: p.refFamiliar2PrimerNombre, segundo_nombre: p.refFamiliar2SegundoNombre, primer_apellido: p.refFamiliar2PrimerApellido, segundo_apellido: p.refFamiliar2SegundoApellido }),
       ].filter(Boolean),
     });
   }

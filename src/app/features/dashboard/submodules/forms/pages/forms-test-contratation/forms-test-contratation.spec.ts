@@ -174,6 +174,29 @@ describe('FormsTestContratation (DOM)', () => {
     expect(fixture.nativeElement.querySelectorAll('.child-card').length).toBe(2);
   });
 
+  it('RF-045/046: cada hijo tiene nombres estructurados + tipo de documento independientes', async () => {
+    await abrirFormulario();
+    await irAlPaso(3);
+    comp.formHojaDeVida2.get('numHijosDependientes')!.setValue(2);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const g0: any = comp.hijosFormArray.at(0);
+    const g1: any = comp.hijosFormArray.at(1);
+    // Los controles nuevos existen por fila (no se comparten entre hijos).
+    for (const g of [g0, g1]) {
+      for (const k of ['hijoPrimerNombre', 'hijoSegundoNombre', 'hijoPrimerApellido', 'hijoSegundoApellido', 'tipoDocHijo']) {
+        expect(g.get(k)).withContext(k).not.toBeNull();
+      }
+    }
+    g0.get('hijoPrimerNombre')!.setValue('JUAN');
+    g1.get('hijoPrimerNombre')!.setValue('ANA');
+    expect(g0.get('hijoPrimerNombre')!.value).toBe('JUAN');
+    expect(g1.get('hijoPrimerNombre')!.value).withContext('no se mezclan entre filas').toBe('ANA');
+    // Primer nombre, primer apellido y tipo de documento son obligatorios.
+    expect(g0.get('hijoPrimerApellido')!.hasError('required')).toBeTrue();
+    expect(g0.get('tipoDocHijo')!.hasError('required')).toBeTrue();
+  });
+
   it('el barrio del padre aparece solo cuando el padre VIVE', async () => {
     await abrirFormulario();
     await irAlPaso(2);
@@ -200,33 +223,61 @@ describe('FormsTestContratation (DOM)', () => {
     expect(camposBarrio()).withContext('padre y madre VIVE').toBe(2);
   });
 
-  it('marcar NO VIVE conserva el nombre del padre; NO LO CONOCE lo vacía recordándolo', async () => {
+  it('marcar NO VIVE conserva el nombre del padre; NO LO CONOCE lo vacía recordándolo (RF-040)', async () => {
     await abrirFormulario();
     await irAlPaso(2);
     const f = comp.formHojaDeVida2;
-    f.get('nombrePadre')!.setValue('JUAN PEREZ');
+    // RF-040: el nombre del padre vive en componentes.
+    f.get('padrePrimerNombre')!.setValue('JUAN');
+    f.get('padrePrimerApellido')!.setValue('PEREZ');
 
     // NO VIVE: la dirección/teléfono/ocupación dejan de aplicar, pero el
     // nombre del fallecido se conserva (antes se borraba: bug reportado).
     f.get('elPadreVive')!.setValue('NO VIVE');
     fixture.detectChanges();
     await fixture.whenStable();
-    expect(f.get('nombrePadre')!.value).toBe('JUAN PEREZ');
-    expect(f.get('nombrePadre')!.enabled).toBeTrue();
+    expect(f.get('padrePrimerNombre')!.value).toBe('JUAN');
+    expect(f.get('padrePrimerNombre')!.enabled).toBeTrue();
 
     // NO LO CONOCE: sí se vacía y bloquea…
     f.get('elPadreVive')!.setValue('NO LO CONOCE');
     fixture.detectChanges();
     await fixture.whenStable();
-    expect(f.get('nombrePadre')!.value).toBe('');
-    expect(f.get('nombrePadre')!.disabled).toBeTrue();
+    expect(f.get('padrePrimerNombre')!.value).toBe('');
+    expect(f.get('padrePrimerNombre')!.disabled).toBeTrue();
 
     // …y al volver a VIVE se restaura lo recordado.
     f.get('elPadreVive')!.setValue('VIVE');
     fixture.detectChanges();
     await fixture.whenStable();
-    expect(f.get('nombrePadre')!.value).toBe('JUAN PEREZ');
-    expect(f.get('nombrePadre')!.enabled).toBeTrue();
+    expect(f.get('padrePrimerNombre')!.value).toBe('JUAN');
+    expect(f.get('padrePrimerNombre')!.enabled).toBeTrue();
+  });
+
+  it('RF-039: cambiar el estado del padre NO altera el nombre de la madre (y viceversa)', async () => {
+    await abrirFormulario();
+    await irAlPaso(2);
+    const f = comp.formHojaDeVida2;
+    f.get('padrePrimerNombre')!.setValue('JUAN');
+    f.get('padrePrimerApellido')!.setValue('PEREZ');
+    f.get('madrePrimerNombre')!.setValue('MARIA');
+    f.get('madrePrimerApellido')!.setValue('GOMEZ');
+
+    // Cambiar padre a NO LO CONOCE (vacía SOLO al padre).
+    f.get('elPadreVive')!.setValue('NO LO CONOCE');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(f.get('madrePrimerNombre')!.value).withContext('la madre no debe tocarse').toBe('MARIA');
+    expect(f.get('madrePrimerApellido')!.value).toBe('GOMEZ');
+    expect(f.get('madrePrimerNombre')!.enabled).toBeTrue();
+
+    // Y al revés: cambiar la madre no toca al padre (recordado tras NO LO CONOCE).
+    f.get('elPadreVive')!.setValue('VIVE');
+    f.get('madreVive')!.setValue('NO LO CONOCE');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(f.get('padrePrimerNombre')!.value).withContext('el padre no debe tocarse').toBe('JUAN');
+    expect(f.get('padrePrimerNombre')!.enabled).toBeTrue();
   });
 
   it('finalizar con pendientes muestra el resumen TOTAL por pasos y NO llama al backend', async () => {
@@ -316,19 +367,20 @@ describe('FormsTestContratation (DOM)', () => {
       // Paso 3 — familia y referencias (padres sin detalle obligatorio)
       set('elPadreVive', 'NO LO CONOCE');
       set('madreVive', 'NO LO CONOCE');
-      set('nombreReferenciaPersonal1', 'JUAN PEREZ');
+      // RF-040: nombre de referencia en componentes (primer nombre/apellido obligatorios).
+      set('refPersonal1PrimerNombre', 'JUAN'); set('refPersonal1PrimerApellido', 'PEREZ');
       set('telefonoReferencia1', '3200000001');
       set('direccionReferenciaPersonal1', 'CL 1 1 1');
       set('parentescoReferenciaPersonal1', 'HE');
-      set('nombreReferenciaPersonal2', 'ANA GOMEZ');
+      set('refPersonal2PrimerNombre', 'ANA'); set('refPersonal2PrimerApellido', 'GOMEZ');
       set('telefonoReferencia2', '3200000002');
       set('direccionReferenciaPersonal2', 'CL 2 2 2');
       set('parentescoReferenciaPersonal2', 'HE');
-      set('nombreReferenciaFamiliar1', 'LUISA CASTRO');
+      set('refFamiliar1PrimerNombre', 'LUISA'); set('refFamiliar1PrimerApellido', 'CASTRO');
       set('telefonoReferenciaFamiliar1', '3300000001');
       set('direccionReferenciaFamiliar1', 'CL 3 3 3');
       set('parentescoReferenciaFamiliar1', 'HE');
-      set('nombreReferenciaFamiliar2', 'PEDRO RIOS');
+      set('refFamiliar2PrimerNombre', 'PEDRO'); set('refFamiliar2PrimerApellido', 'RIOS');
       set('telefonoReferenciaFamiliar2', '3300000002');
       set('direccionReferenciaFamiliar2', 'CL 4 4 4');
       set('parentescoReferenciaFamiliar2', 'HE');
@@ -403,7 +455,8 @@ describe('FormsTestContratation (DOM)', () => {
     it('falta una referencia (paso 3): bloquea y NO envía', async () => {
       await abrirFormulario();
       await llenarTodoValido();
-      comp.formHojaDeVida2.get('nombreReferenciaPersonal1')!.setValue('');
+      // RF-040: el nombre obligatorio vive en el componente primer nombre.
+      comp.formHojaDeVida2.get('refPersonal1PrimerNombre')!.setValue('');
       const spy = await finalizar();
       expect(spy).not.toHaveBeenCalled();
       expect(swalTexto()).toContain('Paso 3');

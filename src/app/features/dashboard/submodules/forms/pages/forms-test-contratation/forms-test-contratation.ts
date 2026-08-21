@@ -259,6 +259,8 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   estadosCiviles: any[] = [];
   listamanos: any[] = [];
   listaParentescosFamiliares: string[] = [];
+  // RF-046: tipos de documento del dependiente (RC/TI/CC/CE) — catálogo TIPOS_DOC_DEPENDIENTE.
+  tiposDocDependiente: { codigo: string; descripcion: string }[] = [];
   Ocupacion: string[] = [];
   listaEscolaridad: string[] = [];
   // RF-014/016 (solo presentación): el GRADO se muestra con nombre legible y "Sin estudio"
@@ -320,6 +322,9 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   searchMunResAnt = new FormControl('');
   searchDeptoEmer = new FormControl('');
   searchMunEmer = new FormControl('');
+  // RF-036/044: cascada territorial de la empresa anterior (experiencia laboral #1).
+  searchDeptoEmp = new FormControl('');
+  searchMunEmp = new FormControl('');
 
   // Computed / Dynamic Lists (+ Filtered versions)
   ciudadesResidencia: string[] = [];
@@ -341,6 +346,10 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   ciudadesEmergencia: string[] = [];
   filteredDeptoEmer: any[] = [];
   filteredMunEmer: string[] = [];
+
+  ciudadesEmpresa: string[] = [];
+  filteredDeptoEmp: any[] = [];
+  filteredMunEmp: string[] = [];
 
   // Options
   opcionBinaria = OPCION_BINARIA;
@@ -384,6 +393,8 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     'DOMINANCIA_MANUAL': { prop: 'listamanos', map: (d: any) => ({ mano: d.codigo, descripcion: d.descripcion }) },
     // Improve Parentesco to show description if available, else name, else code
     'PARENTESCOS_FAMILIARES': { prop: 'listaParentescosFamiliares', map: (d: any) => ({ codigo: d.codigo, descripcion: d.descripcion || d.nombre || d.codigo }) },
+    // RF-046: tipos de documento del dependiente (RC/TI/CC/CE).
+    'TIPOS_DOC_DEPENDIENTE': { prop: 'tiposDocDependiente', map: (d: any) => ({ codigo: d.codigo, descripcion: d.descripcion || d.nombre || d.codigo }) },
     'OCUPACIONES': { prop: 'Ocupacion', map: (d: any) => d.codigo },
     'CATALOGO_NIVELES_ESCOLARIDAD': { prop: 'listaEscolaridad', map: (d: any) => d.codigo },
     // RF-029: se conserva el `sexo` del valor del catálogo (hoy vacío = unisex) para poder filtrar
@@ -723,22 +734,40 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
 
       // Padres. Igual que el cónyuge: dirección/teléfono/ocupación solo se
       // dibujan (y solo se exigen) cuando el estado es "VIVE".
-      nombrePadre: [{ value: '', disabled: false }, this.fullNameValidator(true)],
+      // RF-040: nombres en componentes (fuente primaria). El nombre completo legacy
+      // `nombrePadre`/`nombreMadre` se conserva como DERIVADO (sin validador propio,
+      // ya no se captura directo). Para padre/madre los componentes son OPCIONALES
+      // (paridad con el comportamiento previo: el nombre del progenitor no era obligatorio).
+      nombrePadre: [''],
+      padrePrimerNombre: ['', this.nameValidator(false)],
+      padreSegundoNombre: ['', this.nameValidator(false)],
+      padrePrimerApellido: ['', this.nameValidator(false)],
+      padreSegundoApellido: ['', this.nameValidator(false)],
       elPadreVive: ['', req],
       ocupacionPadre: [''],
       direccionPadre: [''],
       telefonoPadre: ['', this.phoneCOValidator()],
       barrioPadre: [''],
 
-      nombreMadre: [{ value: '', disabled: false }, this.fullNameValidator(true)],
+      nombreMadre: [''],
+      madrePrimerNombre: ['', this.nameValidator(false)],
+      madreSegundoNombre: ['', this.nameValidator(false)],
+      madrePrimerApellido: ['', this.nameValidator(false)],
+      madreSegundoApellido: ['', this.nameValidator(false)],
       madreVive: ['', req],
       ocupacionMadre: [''],
       direccionMadre: [''],
       telefonoMadre: ['', this.phoneCOValidator()],
       barrioMadre: [''],
 
-      // Referencias
-      nombreReferenciaPersonal1: ['', fullName],
+      // Referencias — RF-040: primer nombre y primer apellido obligatorios (paridad con el
+      // `fullName` previo, que ya exigía el nombre); segundo nombre/apellido opcionales.
+      // El `nombreReferencia*` legacy queda derivado, sin validador propio.
+      nombreReferenciaPersonal1: [''],
+      refPersonal1PrimerNombre: ['', name],
+      refPersonal1SegundoNombre: ['', this.nameValidator(false)],
+      refPersonal1PrimerApellido: ['', name],
+      refPersonal1SegundoApellido: ['', this.nameValidator(false)],
       telefonoReferencia1: ['', phone],
       ocupacionReferencia1: [''],
       direccionReferenciaPersonal1: ['', [Validators.required]],
@@ -747,21 +776,33 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       // de Selección en TesoroApp lo precarga y quedaba siempre vacío.
       parentescoReferenciaPersonal1: ['', req],
 
-      nombreReferenciaPersonal2: ['', fullName],
+      nombreReferenciaPersonal2: [''],
+      refPersonal2PrimerNombre: ['', name],
+      refPersonal2SegundoNombre: ['', this.nameValidator(false)],
+      refPersonal2PrimerApellido: ['', name],
+      refPersonal2SegundoApellido: ['', this.nameValidator(false)],
       telefonoReferencia2: ['', phone],
       ocupacionReferencia2: [''],
       direccionReferenciaPersonal2: ['', [Validators.required]],
       tiempoConoceReferenciaPersonal2: [''],
       parentescoReferenciaPersonal2: ['', req],
 
-      nombreReferenciaFamiliar1: ['', fullName],
+      nombreReferenciaFamiliar1: [''],
+      refFamiliar1PrimerNombre: ['', name],
+      refFamiliar1SegundoNombre: ['', this.nameValidator(false)],
+      refFamiliar1PrimerApellido: ['', name],
+      refFamiliar1SegundoApellido: ['', this.nameValidator(false)],
       telefonoReferenciaFamiliar1: ['', phone],
       ocupacionReferenciaFamiliar1: [''],
       direccionReferenciaFamiliar1: ['', [Validators.required]],
       parentescoReferenciaFamiliar1: ['', req],
       // barrioReferenciaFamiliar1 REMOVED
 
-      nombreReferenciaFamiliar2: ['', fullName],
+      nombreReferenciaFamiliar2: [''],
+      refFamiliar2PrimerNombre: ['', name],
+      refFamiliar2SegundoNombre: ['', this.nameValidator(false)],
+      refFamiliar2PrimerApellido: ['', name],
+      refFamiliar2SegundoApellido: ['', this.nameValidator(false)],
       telefonoReferenciaFamiliar2: ['', phone],
       ocupacionReferenciaFamiliar2: [''],
       direccionReferenciaFamiliar2: ['', [Validators.required]],
@@ -770,17 +811,30 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
 
       // Step 4: Experience & Housing
       experienciaLaboral: ['', req],
+      // --- DATOS DE LA EMPRESA (RF-043/044) ---
       nombreEmpresa1: [''],
-      telefonosEmpresa1: ['', this.telefonoEmpresaValidator()],
-      nombreJefe1: [''],
-      cargoEmpresa1: [''],
+      // RF-036/044: territorio estructurado de la empresa anterior (texto, colombia.json,
+      // mismo mecanismo que residencia). Municipio arranca deshabilitado (cascada por depto).
+      departamentoEmpresa1: [''],
+      municipioEmpresa1: [{ value: '', disabled: true }],
+      barrioEmpresa1: [''],
+      direccionEmpresa1: [''],
+      telefonosEmpresa1: ['', this.telefonoEmpresaValidator()],   // teléfono de la EMPRESA
+      // --- CARGO DEL CANDIDATO (RF-043) ---
+      cargoEmpresa1: [''],                                        // cargo desempeñado por el CANDIDATO
       areaExperiencia: [[]],
       fechaRetiro1: [''],
       tiempoExperiencia: [''], // Declarado: se ata en HTML (selectField) y se lee en buildPayload
       motivoRetiro1: [''],
       empresas_laborado: [''],
-      direccionEmpresa1: [''],
-      // barrioEmpresa1 MERGED into direccionEmpresa1 per request
+      // --- REFERENCIA / JEFE INMEDIATO (RF-043/044) ---
+      // Legacy `nombreJefe1` (nombre completo) se conserva como DERIVADO. Nombre del jefe en
+      // componentes; cargo y teléfono del jefe SEPARADOS de los de la empresa.
+      nombreJefe1: [''],
+      jefePrimerNombre1: ['', this.nameValidator(false)],
+      jefePrimerApellido1: ['', this.nameValidator(false)],
+      cargoJefe1: [''],                                           // cargo del JEFE (distinto de cargoEmpresa1)
+      telefonoJefe1: ['', this.phoneCOValidator()],               // teléfono del JEFE/referencia
 
       // Hijos
       numHijosDependientes: [0, [req, Validators.min(0), Validators.max(10)]],
@@ -960,8 +1014,8 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       const req = val === 'SI';
       toggle('nombreEmpresa1', req);
       toggle('telefonosEmpresa1', req);
-      // Relaxed Validator: Just required, no full name enforcement
-      toggle('nombreJefe1', req, [Validators.required]);
+      // RF-043: el jefe se captura ahora en componentes (jefePrimerNombre1/jefePrimerApellido1),
+      // opcionales; `nombreJefe1` legacy queda derivado y sin obligatoriedad propia.
       toggle('cargoEmpresa1', req);
       toggle('fechaRetiro1', req);
       toggle('tiempoExperiencia', req);
@@ -1027,10 +1081,12 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     // "SI" (VIVE) -> Campos obligatorios
     // "NO" (NO VIVE) -> Campos NO obligatorios? Or just Name?
     // "NO LO CONOCE" -> Nada obligatorio
+    // RF-039/040: padre y madre son INDEPENDIENTES; cada suscripción solo toca sus
+    // propios controles (nunca los del otro progenitor). El nombre vive en componentes.
     const updateParent = (prefix: 'Padre' | 'Madre', val: string) => {
       const isVive = val === 'VIVE';
       const isNoConoce = val === 'NO LO CONOCE';
-      const isNoVive = val === 'NO VIVE';
+      const base = prefix.toLowerCase(); // padre | madre
 
       // Address/Phone/Job -> Required ONLY if Alive (VIVE)
       toggle(`direccion${prefix}`, isVive, [Validators.required]);
@@ -1041,21 +1097,20 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       if (isVive) this.restaurarRecordado(`barrio${prefix}`);
       else this.vaciarRecordando(`barrio${prefix}`);
 
-      // Nombre: requerido solo si VIVE, pero NUNCA se borra por marcar
-      // "NO VIVE" — el nombre del padre/madre fallecido se conserva en el
-      // registro (pasarlo por `toggle(false)` lo vaciaba: era el bug de
-      // "selecciono NO VIVE y me borra el nombre"). Solo "NO LO CONOCE" lo
-      // vacía (recordándolo, por si fue un clic errado) y bloquea el campo.
-      const nombreCtrl = f.get(`nombre${prefix}`);
-      nombreCtrl?.setValidators([this.fullNameValidator(isVive)]);
+      // RF-040: nombre en componentes. Primer nombre y primer apellido requeridos solo si
+      // VIVE. "NO VIVE" NUNCA borra el nombre (bug histórico: se conserva el del fallecido).
+      // Solo "NO LO CONOCE" lo vacía (recordándolo, por si fue un clic errado) y bloquea.
+      const claves = [`${base}PrimerNombre`, `${base}SegundoNombre`, `${base}PrimerApellido`, `${base}SegundoApellido`];
+      f.get(`${base}PrimerNombre`)?.setValidators([this.nameValidator(isVive)]);
+      f.get(`${base}SegundoNombre`)?.setValidators([this.nameValidator(false)]);
+      f.get(`${base}PrimerApellido`)?.setValidators([this.nameValidator(isVive)]);
+      f.get(`${base}SegundoApellido`)?.setValidators([this.nameValidator(false)]);
       if (isNoConoce) {
-        this.vaciarRecordando(`nombre${prefix}`);
-        nombreCtrl?.disable({ emitEvent: false });
+        claves.forEach(k => { this.vaciarRecordando(k); f.get(k)?.disable({ emitEvent: false }); });
       } else {
-        nombreCtrl?.enable({ emitEvent: false });
-        this.restaurarRecordado(`nombre${prefix}`);
+        claves.forEach(k => { f.get(k)?.enable({ emitEvent: false }); this.restaurarRecordado(k); });
       }
-      nombreCtrl?.updateValueAndValidity({ emitEvent: false });
+      claves.forEach(k => f.get(k)?.updateValueAndValidity({ emitEvent: false }));
     };
 
     f.get('elPadreVive')?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(val => updateParent('Padre', val));
@@ -1068,6 +1123,8 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     // RF-032/035: cascadas territoriales nuevas (residencia anterior y contacto de emergencia).
     this.setupLocationListener('departamentoResidenciaAnterior', 'municipioResidenciaAnterior', 'ciudadesResidenciaAnterior', this.searchMunResAnt);
     this.setupLocationListener('departamentoEmergencia', 'municipioEmergencia', 'ciudadesEmergencia', this.searchMunEmer);
+    // RF-036/044: empresa anterior.
+    this.setupLocationListener('departamentoEmpresa1', 'municipioEmpresa1', 'ciudadesEmpresa', this.searchMunEmp);
   }
 
   /**
@@ -1156,6 +1213,13 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     this.searchMunEmer.valueChanges.pipe(startWith(''), takeUntil(this.destroy$)).subscribe(val => {
       this.filteredMunEmer = this.filterList(this.ciudadesEmergencia, val);
     });
+    // RF-036/044: empresa anterior
+    this.searchDeptoEmp.valueChanges.pipe(startWith(''), takeUntil(this.destroy$)).subscribe(val => {
+      this.filteredDeptoEmp = this.filterList(this.datos, val, 'departamento');
+    });
+    this.searchMunEmp.valueChanges.pipe(startWith(''), takeUntil(this.destroy$)).subscribe(val => {
+      this.filteredMunEmp = this.filterList(this.ciudadesEmpresa, val);
+    });
 
     // Dominio
     this.searchDominio.valueChanges.pipe(startWith(''), takeUntil(this.destroy$)).subscribe(val => {
@@ -1187,10 +1251,18 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     while (arr.length > total) arr.removeAt(arr.length - 1);
     while (arr.length < total) {
       const g = this.fb.group({
-        nombreHijo: ['', [Validators.required]],
+        // RF-045: nombres estructurados del hijo (primer nombre y primer apellido obligatorios;
+        // el nombre completo se deriva en buildPayload). `nombreHijo` se conserva para compat.
+        hijoPrimerNombre: ['', [Validators.required, this.nameValidator()]],
+        hijoSegundoNombre: ['', this.nameValidator(false)],
+        hijoPrimerApellido: ['', [Validators.required, this.nameValidator()]],
+        hijoSegundoApellido: ['', this.nameValidator(false)],
+        nombreHijo: [''],
         sexoHijo: ['', Validators.required],
         // Un hijo no puede nacer en el futuro (el datepicker además acota con [max]).
         fechaNacimientoHijo: ['', [Validators.required, this.noFuturaValidator()]],
+        // RF-046: tipo de documento del hijo (RC/TI/CC/CE) — catálogo TIPOS_DOC_DEPENDIENTE.
+        tipoDocHijo: ['', [Validators.required]],
         // Registro civil / TI del hijo: solo dígitos, igual de estricto que el
         // documento principal (antes aceptaba cualquier texto).
         docIdentidadHijo: ['', [Validators.required, Validators.pattern(REGEX_NUMERIC), Validators.maxLength(11)]],
@@ -1483,6 +1555,11 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     const g = (k: string) => raw[k];
     const upper = (v: any) => typeof v === 'string' ? v.toUpperCase().trim() : v;
     const addr = (k: string) => this.normalizeAddressCO(raw[k]); // Normalize Address
+    // RF-040/045: nombre completo derivado de los componentes (primer nombre, segundo nombre,
+    // primer apellido, segundo apellido). Se conserva como legacy para compatibilidad.
+    const nombreDe = (pn: string, sn: string, pa: string, sa: string, legacy?: string) =>
+      [g(pn), g(sn), g(pa), g(sa)].map((x: any) => (x || '').trim()).filter(Boolean).join(' ')
+      || (legacy ? (g(legacy) || '') : '');
 
     // Strict Mapping matching original
     const p: any = {
@@ -1557,44 +1634,79 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       telefonoConyugue: g('telefonoConyuge'),
       barrioMunicipioConyugue: g('barrioMunicipioConyugue'),
       ocupacion_conyugue: g('ocupacionConyuge'),
-      nombrePadre: g('nombrePadre'),
+      // RF-040: nombre del padre derivado + componentes.
+      nombrePadre: nombreDe('padrePrimerNombre', 'padreSegundoNombre', 'padrePrimerApellido', 'padreSegundoApellido', 'nombrePadre'),
+      padrePrimerNombre: g('padrePrimerNombre'),
+      padreSegundoNombre: g('padreSegundoNombre'),
+      padrePrimerApellido: g('padrePrimerApellido'),
+      padreSegundoApellido: g('padreSegundoApellido'),
       vivePadre: g('elPadreVive'),
       ocupacionPadre: g('ocupacionPadre'),
       direccionPadre: addr('direccionPadre'),
       telefonoPadre: g('telefonoPadre'),
       barrioPadre: g('barrioPadre'),
-      nombreMadre: g('nombreMadre'),
+      // RF-040: nombre de la madre derivado + componentes.
+      nombreMadre: nombreDe('madrePrimerNombre', 'madreSegundoNombre', 'madrePrimerApellido', 'madreSegundoApellido', 'nombreMadre'),
+      madrePrimerNombre: g('madrePrimerNombre'),
+      madreSegundoNombre: g('madreSegundoNombre'),
+      madrePrimerApellido: g('madrePrimerApellido'),
+      madreSegundoApellido: g('madreSegundoApellido'),
       viveMadre: g('madreVive'),
       ocupacionMadre: g('ocupacionMadre'),
       direccionMadre: addr('direccionMadre'),
       telefonoMadre: g('telefonoMadre'),
       barrioMadre: g('barrioMadre'),
-      nombreReferenciaPersonal1: g('nombreReferenciaPersonal1'),
+      // RF-040: referencias con nombre derivado + componentes.
+      nombreReferenciaPersonal1: nombreDe('refPersonal1PrimerNombre', 'refPersonal1SegundoNombre', 'refPersonal1PrimerApellido', 'refPersonal1SegundoApellido', 'nombreReferenciaPersonal1'),
+      refPersonal1PrimerNombre: g('refPersonal1PrimerNombre'),
+      refPersonal1SegundoNombre: g('refPersonal1SegundoNombre'),
+      refPersonal1PrimerApellido: g('refPersonal1PrimerApellido'),
+      refPersonal1SegundoApellido: g('refPersonal1SegundoApellido'),
       telefonoReferenciaPersonal1: g('telefonoReferencia1'),
       ocupacionReferenciaPersonal1: g('ocupacionReferencia1'),
       tiempoConoceReferenciaPersonal1: g('tiempoConoceReferenciaPersonal1'),
       direccionReferenciaPersonal1: addr('direccionReferenciaPersonal1'),
       parentescoReferenciaPersonal1: g('parentescoReferenciaPersonal1'),
-      nombreReferenciaPersonal2: g('nombreReferenciaPersonal2'),
+      nombreReferenciaPersonal2: nombreDe('refPersonal2PrimerNombre', 'refPersonal2SegundoNombre', 'refPersonal2PrimerApellido', 'refPersonal2SegundoApellido', 'nombreReferenciaPersonal2'),
+      refPersonal2PrimerNombre: g('refPersonal2PrimerNombre'),
+      refPersonal2SegundoNombre: g('refPersonal2SegundoNombre'),
+      refPersonal2PrimerApellido: g('refPersonal2PrimerApellido'),
+      refPersonal2SegundoApellido: g('refPersonal2SegundoApellido'),
       telefonoReferenciaPersonal2: g('telefonoReferencia2'),
       ocupacionReferenciaPersonal2: g('ocupacionReferencia2'),
       tiempoConoceReferenciaPersonal2: g('tiempoConoceReferenciaPersonal2'),
       direccionReferenciaPersonal2: addr('direccionReferenciaPersonal2'),
       parentescoReferenciaPersonal2: g('parentescoReferenciaPersonal2'),
-      nombreReferenciaFamiliar1: g('nombreReferenciaFamiliar1'),
+      nombreReferenciaFamiliar1: nombreDe('refFamiliar1PrimerNombre', 'refFamiliar1SegundoNombre', 'refFamiliar1PrimerApellido', 'refFamiliar1SegundoApellido', 'nombreReferenciaFamiliar1'),
+      refFamiliar1PrimerNombre: g('refFamiliar1PrimerNombre'),
+      refFamiliar1SegundoNombre: g('refFamiliar1SegundoNombre'),
+      refFamiliar1PrimerApellido: g('refFamiliar1PrimerApellido'),
+      refFamiliar1SegundoApellido: g('refFamiliar1SegundoApellido'),
       telefonoReferenciaFamiliar1: g('telefonoReferenciaFamiliar1'),
       ocupacionReferenciaFamiliar1: g('ocupacionReferenciaFamiliar1'),
       parentescoReferenciaFamiliar1: g('parentescoReferenciaFamiliar1'),
       direccionReferenciaFamiliar1: addr('direccionReferenciaFamiliar1'),
-      nombreReferenciaFamiliar2: g('nombreReferenciaFamiliar2'),
+      nombreReferenciaFamiliar2: nombreDe('refFamiliar2PrimerNombre', 'refFamiliar2SegundoNombre', 'refFamiliar2PrimerApellido', 'refFamiliar2SegundoApellido', 'nombreReferenciaFamiliar2'),
+      refFamiliar2PrimerNombre: g('refFamiliar2PrimerNombre'),
+      refFamiliar2SegundoNombre: g('refFamiliar2SegundoNombre'),
+      refFamiliar2PrimerApellido: g('refFamiliar2PrimerApellido'),
+      refFamiliar2SegundoApellido: g('refFamiliar2SegundoApellido'),
       telefonoReferenciaFamiliar2: g('telefonoReferenciaFamiliar2'),
       ocupacionReferenciaFamiliar2: g('ocupacionReferenciaFamiliar2'),
       parentescoReferenciaFamiliar2: g('parentescoReferenciaFamiliar2'),
       direccionReferenciaFamiliar2: addr('direccionReferenciaFamiliar2'),
+      // RF-036/043/044: empresa (territorio + teléfono empresa) y jefe (nombre/cargo/teléfono separados).
       nombreExpeLaboral1Empresa: g('nombreEmpresa1'),
+      departamentoEmpresa1: g('departamentoEmpresa1'),
+      municipioEmpresa1: g('municipioEmpresa1'),
+      barrioEmpresa1: g('barrioEmpresa1'),
       direccionEmpresa1: addr('direccionEmpresa1'),
       telefonosEmpresa1: g('telefonosEmpresa1'),
-      nombreJefeEmpresa1: g('nombreJefe1'),
+      nombreJefeEmpresa1: nombreDe('jefePrimerNombre1', '', 'jefePrimerApellido1', '', 'nombreJefe1'),
+      jefePrimerNombre1: g('jefePrimerNombre1'),
+      jefePrimerApellido1: g('jefePrimerApellido1'),
+      cargoJefe1: g('cargoJefe1'),
+      telefonoJefe1: g('telefonoJefe1'),
       fechaRetiroEmpresa1: this.toYmd(g('fechaRetiro1')),
       motivoRetiroEmpresa1: g('motivoRetiro1'),
       cargoEmpresa1: g('cargoEmpresa1'),
@@ -1623,12 +1735,18 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       actividades_diarias: g('actividadesDiferentes'),
     };
 
-    // Hijos Array
+    // Hijos Array — RF-045: el nombre completo legacy se deriva de las partes
+    // estructuradas para conservar compatibilidad con `nombre`.
     const hijosArr = g('hijos') || [];
-    p.hijos = hijosArr.map((h: any) => ({
-      ...h,
-      fechaNacimientoHijo: this.toYmd(h.fechaNacimientoHijo)
-    }));
+    p.hijos = hijosArr.map((h: any) => {
+      const nombreCompleto = [h.hijoPrimerNombre, h.hijoSegundoNombre, h.hijoPrimerApellido, h.hijoSegundoApellido]
+        .map((s: any) => (s || '').trim()).filter(Boolean).join(' ');
+      return {
+        ...h,
+        nombreHijo: (h.nombreHijo || '').trim() || nombreCompleto,
+        fechaNacimientoHijo: this.toYmd(h.fechaNacimientoHijo)
+      };
+    });
 
     // Convert to Uppercase Recursively
     return this.convertValuesToUpperCase(p);
@@ -2945,42 +3063,66 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       direccionConyuge: cony.direccion || '',
       barrioMunicipioConyugue: cony.barrio || '',
 
-      // Padre (elPadreVive primero → detalles)
+      // Padre (elPadreVive primero → detalles) — RF-040: nombre en componentes.
       elPadreVive: padre.vive_con || '',
       nombrePadre: padre.nombre || '',
+      padrePrimerNombre: padre.primer_nombre || '',
+      padreSegundoNombre: padre.segundo_nombre || '',
+      padrePrimerApellido: padre.primer_apellido || '',
+      padreSegundoApellido: padre.segundo_apellido || '',
       ocupacionPadre: padre.ocupacion || '',
       direccionPadre: padre.direccion || '',
       telefonoPadre: padre.telefono || '',
       barrioPadre: padre.barrio || '',
 
-      // Madre
+      // Madre — RF-040: nombre en componentes.
       madreVive: madre.vive_con || '',
       nombreMadre: madre.nombre || '',
+      madrePrimerNombre: madre.primer_nombre || '',
+      madreSegundoNombre: madre.segundo_nombre || '',
+      madrePrimerApellido: madre.primer_apellido || '',
+      madreSegundoApellido: madre.segundo_apellido || '',
       ocupacionMadre: madre.ocupacion || '',
       direccionMadre: madre.direccion || '',
       telefonoMadre: madre.telefono || '',
       barrioMadre: madre.barrio || '',
 
-      // Referencias personales
+      // Referencias personales — RF-040: nombre en componentes.
       nombreReferenciaPersonal1: rp0.nombre || '',
+      refPersonal1PrimerNombre: rp0.primer_nombre || '',
+      refPersonal1SegundoNombre: rp0.segundo_nombre || '',
+      refPersonal1PrimerApellido: rp0.primer_apellido || '',
+      refPersonal1SegundoApellido: rp0.segundo_apellido || '',
       telefonoReferencia1: rp0.telefono || '',
       ocupacionReferencia1: rp0.ocupacion || '',
       direccionReferenciaPersonal1: rp0.direccion || '',
       tiempoConoceReferenciaPersonal1: rp0.tiempo_conoce || '',
       parentescoReferenciaPersonal1: rp0.parentesco || '',
       nombreReferenciaPersonal2: rp1.nombre || '',
+      refPersonal2PrimerNombre: rp1.primer_nombre || '',
+      refPersonal2SegundoNombre: rp1.segundo_nombre || '',
+      refPersonal2PrimerApellido: rp1.primer_apellido || '',
+      refPersonal2SegundoApellido: rp1.segundo_apellido || '',
       telefonoReferencia2: rp1.telefono || '',
       ocupacionReferencia2: rp1.ocupacion || '',
       direccionReferenciaPersonal2: rp1.direccion || '',
       tiempoConoceReferenciaPersonal2: rp1.tiempo_conoce || '',
       parentescoReferenciaPersonal2: rp1.parentesco || '',
-      // Referencias familiares
+      // Referencias familiares — RF-040: nombre en componentes.
       nombreReferenciaFamiliar1: rf0.nombre || '',
+      refFamiliar1PrimerNombre: rf0.primer_nombre || '',
+      refFamiliar1SegundoNombre: rf0.segundo_nombre || '',
+      refFamiliar1PrimerApellido: rf0.primer_apellido || '',
+      refFamiliar1SegundoApellido: rf0.segundo_apellido || '',
       telefonoReferenciaFamiliar1: rf0.telefono || '',
       ocupacionReferenciaFamiliar1: rf0.ocupacion || '',
       direccionReferenciaFamiliar1: rf0.direccion || '',
       parentescoReferenciaFamiliar1: rf0.parentesco || '',
       nombreReferenciaFamiliar2: rf1.nombre || '',
+      refFamiliar2PrimerNombre: rf1.primer_nombre || '',
+      refFamiliar2SegundoNombre: rf1.segundo_nombre || '',
+      refFamiliar2PrimerApellido: rf1.primer_apellido || '',
+      refFamiliar2SegundoApellido: rf1.segundo_apellido || '',
       telefonoReferenciaFamiliar2: rf1.telefono || '',
       ocupacionReferenciaFamiliar2: rf1.ocupacion || '',
       direccionReferenciaFamiliar2: rf1.direccion || '',
@@ -2997,11 +3139,17 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       estudiaActualmente: boolToSiNo(vivienda.estudia_actualmente),
 
       // Experiencia laboral (gatillo primero → detalle)
+      // RF-036/043/044: territorio empresa (depto/mpio vía setDeptCity abajo) + jefe separado.
       experienciaLaboral: boolToSiNo(expResumen.tiene_experiencia),
       nombreEmpresa1: exp0.empresa || '',
       telefonosEmpresa1: exp0.telefonos || '',
+      barrioEmpresa1: exp0.barrio || '',
       direccionEmpresa1: exp0.direccion || '',
       nombreJefe1: exp0.nombre_jefe || '',
+      jefePrimerNombre1: exp0.jefe_primer_nombre || '',
+      jefePrimerApellido1: exp0.jefe_primer_apellido || '',
+      cargoJefe1: exp0.cargo_jefe || '',
+      telefonoJefe1: exp0.telefono_jefe || '',
       cargoEmpresa1: exp0.cargo || '',
       fechaRetiro1: toDate(exp0.fecha_retiro),
       motivoRetiro1: exp0.motivo_retiro || '',
@@ -3037,9 +3185,16 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     hijosBk.forEach((h, i) => {
       const g = arrHijos?.at?.(i);
       if (g) g.patchValue({
+        // RF-045: reponer partes estructuradas; el nombre legacy queda de respaldo.
+        hijoPrimerNombre: h.primer_nombre || '',
+        hijoSegundoNombre: h.segundo_nombre || '',
+        hijoPrimerApellido: h.primer_apellido || '',
+        hijoSegundoApellido: h.segundo_apellido || '',
         nombreHijo: h.nombre || '',
         sexoHijo: h.sexo || '',
         fechaNacimientoHijo: toDate(h.fecha_nac),
+        // RF-046: tipo de documento del dependiente.
+        tipoDocHijo: h.tipo_documento || '',
         docIdentidadHijo: h.numero_de_documento || '',
         ocupacionHijo: h.ocupacion || '',
         cursoHijo: h.curso || '',
@@ -3055,6 +3210,8 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     // (si vacío, canonDepto lo ignora). El contacto de emergencia siempre puede hidratarse.
     this.setDeptCity('departamentoResidenciaAnterior', 'municipioResidenciaAnterior', residencia.residencia_anterior_departamento, residencia.residencia_anterior_municipio);
     this.setDeptCity('departamentoEmergencia', 'municipioEmergencia', emer.departamento, emer.municipio);
+    // RF-036/044: territorio de la empresa anterior.
+    this.setDeptCity('departamentoEmpresa1', 'municipioEmpresa1', exp0.departamento, exp0.municipio);
 
     f.updateValueAndValidity();
     this.cdr.markForCheck();
@@ -3193,14 +3350,19 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           {
             titulo: 'Padres',
             controles: [
-              'nombrePadre', 'elPadreVive', 'ocupacionPadre', 'direccionPadre', 'barrioPadre', 'telefonoPadre',
-              'nombreMadre', 'madreVive', 'ocupacionMadre', 'direccionMadre', 'barrioMadre', 'telefonoMadre',
+              // RF-040: nombre en componentes (opcionales).
+              'padrePrimerNombre', 'padreSegundoNombre', 'padrePrimerApellido', 'padreSegundoApellido',
+              'elPadreVive', 'ocupacionPadre', 'direccionPadre', 'barrioPadre', 'telefonoPadre',
+              'madrePrimerNombre', 'madreSegundoNombre', 'madrePrimerApellido', 'madreSegundoApellido',
+              'madreVive', 'ocupacionMadre', 'direccionMadre', 'barrioMadre', 'telefonoMadre',
             ],
           },
           {
             titulo: 'Referencia Personal 1',
             controles: [
-              'nombreReferenciaPersonal1', 'telefonoReferencia1', 'ocupacionReferencia1',
+              // RF-040: primer nombre/apellido obligatorios.
+              'refPersonal1PrimerNombre', 'refPersonal1SegundoNombre', 'refPersonal1PrimerApellido', 'refPersonal1SegundoApellido',
+              'telefonoReferencia1', 'ocupacionReferencia1',
               'direccionReferenciaPersonal1', 'tiempoConoceReferenciaPersonal1',
               'parentescoReferenciaPersonal1',
             ],
@@ -3208,7 +3370,8 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           {
             titulo: 'Referencia Personal 2',
             controles: [
-              'nombreReferenciaPersonal2', 'telefonoReferencia2', 'ocupacionReferencia2',
+              'refPersonal2PrimerNombre', 'refPersonal2SegundoNombre', 'refPersonal2PrimerApellido', 'refPersonal2SegundoApellido',
+              'telefonoReferencia2', 'ocupacionReferencia2',
               'direccionReferenciaPersonal2', 'tiempoConoceReferenciaPersonal2',
               'parentescoReferenciaPersonal2',
             ],
@@ -3216,14 +3379,16 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           {
             titulo: 'Referencia Familiar 1',
             controles: [
-              'nombreReferenciaFamiliar1', 'telefonoReferenciaFamiliar1', 'ocupacionReferenciaFamiliar1',
+              'refFamiliar1PrimerNombre', 'refFamiliar1SegundoNombre', 'refFamiliar1PrimerApellido', 'refFamiliar1SegundoApellido',
+              'telefonoReferenciaFamiliar1', 'ocupacionReferenciaFamiliar1',
               'direccionReferenciaFamiliar1', 'parentescoReferenciaFamiliar1',
             ],
           },
           {
             titulo: 'Referencia Familiar 2',
             controles: [
-              'nombreReferenciaFamiliar2', 'telefonoReferenciaFamiliar2', 'ocupacionReferenciaFamiliar2',
+              'refFamiliar2PrimerNombre', 'refFamiliar2SegundoNombre', 'refFamiliar2PrimerApellido', 'refFamiliar2SegundoApellido',
+              'telefonoReferenciaFamiliar2', 'ocupacionReferenciaFamiliar2',
               'direccionReferenciaFamiliar2', 'parentescoReferenciaFamiliar2',
             ],
           },
@@ -3235,9 +3400,11 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           {
             titulo: 'Experiencia Laboral',
             controles: [
-              'experienciaLaboral', 'nombreEmpresa1', 'telefonosEmpresa1', 'direccionEmpresa1',
-              'nombreJefe1', 'cargoEmpresa1', 'areaExperiencia', 'fechaRetiro1',
-              'tiempoExperiencia', 'motivoRetiro1', 'empresas_laborado',
+              // RF-036/043/044: empresa (territorio+tel) / cargo candidato / jefe (nombre+cargo+tel) separados.
+              'experienciaLaboral', 'nombreEmpresa1', 'departamentoEmpresa1', 'municipioEmpresa1',
+              'barrioEmpresa1', 'direccionEmpresa1', 'telefonosEmpresa1',
+              'cargoEmpresa1', 'areaExperiencia', 'fechaRetiro1', 'tiempoExperiencia', 'motivoRetiro1', 'empresas_laborado',
+              'jefePrimerNombre1', 'jefePrimerApellido1', 'cargoJefe1', 'telefonoJefe1',
             ],
           },
           { titulo: 'Hijos', controles: ['numHijosDependientes', 'cuidadorHijos', 'hijos'] },
@@ -4673,28 +4840,31 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       // Las CUATRO referencias tienen que ser cuatro personas distintas. Antes
       // solo se comparaba personal 1 vs 2 y familiar 1 vs 2, así que repetir la
       // misma persona como referencia personal Y familiar pasaba sin más.
+      // RF-040: el nombre de la referencia ahora vive en componentes; la clave del
+      // duplicado se arma con primer nombre + primer apellido y se marca en el primer nombre.
       const refs = [
-        { nombre: 'nombreReferenciaPersonal1', telefono: 'telefonoReferencia1' },
-        { nombre: 'nombreReferenciaPersonal2', telefono: 'telefonoReferencia2' },
-        { nombre: 'nombreReferenciaFamiliar1', telefono: 'telefonoReferenciaFamiliar1' },
-        { nombre: 'nombreReferenciaFamiliar2', telefono: 'telefonoReferenciaFamiliar2' },
+        { pn: 'refPersonal1PrimerNombre', pa: 'refPersonal1PrimerApellido', telefono: 'telefonoReferencia1' },
+        { pn: 'refPersonal2PrimerNombre', pa: 'refPersonal2PrimerApellido', telefono: 'telefonoReferencia2' },
+        { pn: 'refFamiliar1PrimerNombre', pa: 'refFamiliar1PrimerApellido', telefono: 'telefonoReferenciaFamiliar1' },
+        { pn: 'refFamiliar2PrimerNombre', pa: 'refFamiliar2PrimerApellido', telefono: 'telefonoReferenciaFamiliar2' },
       ];
+      const claveRef = (r: any) => clave(`${v[r.pn] ?? ''} ${v[r.pa] ?? ''}`);
 
       // Un teléfono de referencia tampoco puede ser el del propio candidato.
       const propios = new Set([clave(v.numCelular, true), clave(v.numWha, true)].filter(Boolean));
 
       for (let i = 0; i < refs.length; i++) {
-        const nom = clave(v[refs[i].nombre]);
+        const nom = claveRef(refs[i]);
         const tel = clave(v[refs[i].telefono], true);
 
         // Se compara solo contra las anteriores: el error se marca en la
         // segunda aparición, que es la que el usuario debe corregir.
-        const nomRepetido = !!nom && refs.slice(0, i).some(r => clave(v[r.nombre]) === nom);
+        const nomRepetido = !!nom && refs.slice(0, i).some(r => claveRef(r) === nom);
         const telRepetido = !!tel && (
           propios.has(tel) || refs.slice(0, i).some(r => clave(v[r.telefono], true) === tel)
         );
 
-        marcar(g.get(refs[i].nombre), 'duplicateReferenceName', nomRepetido);
+        marcar(g.get(refs[i].pn), 'duplicateReferenceName', nomRepetido);
         marcar(g.get(refs[i].telefono), 'duplicateReferencePhone', telRepetido);
       }
 
@@ -4819,11 +4989,18 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       ocupacionReferenciaFamiliar2: 'Referencia Familiar 2 (Ocupación)',
       direccionReferenciaFamiliar1: 'Referencia Familiar 1 (Dirección)',
       direccionReferenciaFamiliar2: 'Referencia Familiar 2 (Dirección)',
-      nombreEmpresa1: 'Empresa donde Trabajó',
+      nombreEmpresa1: 'Nombre de la Empresa',
+      departamentoEmpresa1: 'Departamento de la Empresa',
+      municipioEmpresa1: 'Municipio de la Empresa',
+      barrioEmpresa1: 'Barrio de la Empresa',
       telefonosEmpresa1: 'Teléfono de la Empresa',
       direccionEmpresa1: 'Dirección de la Empresa',
       nombreJefe1: 'Jefe Inmediato',
-      cargoEmpresa1: 'Cargo Desempeñado',
+      jefePrimerNombre1: 'Primer nombre del Jefe Inmediato',
+      jefePrimerApellido1: 'Primer apellido del Jefe Inmediato',
+      cargoJefe1: 'Cargo del Jefe Inmediato',
+      telefonoJefe1: 'Teléfono del Jefe / Referencia',
+      cargoEmpresa1: 'Cargo Desempeñado por el Candidato',
       areaExperiencia: 'Áreas de Experiencia',
       fechaRetiro1: 'Fecha de Retiro',
       tiempoExperiencia: 'Tiempo de Experiencia',
@@ -4832,6 +5009,23 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       cuidadorHijos: '¿Quién cuida a los hijos?',
       hijos: 'Datos de los Hijos',
       hojaDeVida: 'Hoja de Vida (PDF)',
+      // RF-040: nombres estructurados de padre/madre/referencias.
+      padrePrimerNombre: 'Primer nombre del Padre',
+      padreSegundoNombre: 'Segundo nombre del Padre',
+      padrePrimerApellido: 'Primer apellido del Padre',
+      padreSegundoApellido: 'Segundo apellido del Padre',
+      madrePrimerNombre: 'Primer nombre de la Madre',
+      madreSegundoNombre: 'Segundo nombre de la Madre',
+      madrePrimerApellido: 'Primer apellido de la Madre',
+      madreSegundoApellido: 'Segundo apellido de la Madre',
+      refPersonal1PrimerNombre: 'Referencia Personal 1 (Primer nombre)',
+      refPersonal1PrimerApellido: 'Referencia Personal 1 (Primer apellido)',
+      refPersonal2PrimerNombre: 'Referencia Personal 2 (Primer nombre)',
+      refPersonal2PrimerApellido: 'Referencia Personal 2 (Primer apellido)',
+      refFamiliar1PrimerNombre: 'Referencia Familiar 1 (Primer nombre)',
+      refFamiliar1PrimerApellido: 'Referencia Familiar 1 (Primer apellido)',
+      refFamiliar2PrimerNombre: 'Referencia Familiar 2 (Primer nombre)',
+      refFamiliar2PrimerApellido: 'Referencia Familiar 2 (Primer apellido)',
     };
     return map[key] || key;
   }
@@ -4839,6 +5033,20 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   // Public accessor for Hijos FormArray
   get hijosFormArray(): FormArray {
     return this.formHojaDeVida2.get('hijos') as FormArray;
+  }
+
+  /**
+   * RF-037: etiqueta legible del grado de escolaridad ya elegido en el pre-registro.
+   * Se muestra readonly en el detalle académico para no volver a pedir el mismo nivel;
+   * si el usuario vuelve atrás y cambia el grado, esta etiqueta se recalcula sola.
+   */
+  get escolaridadSeleccionadaLabel(): string {
+    const code = String(this.formHojaDeVida2?.get('escolaridad')?.value || '').trim();
+    if (!code) return '';
+    const opt = this.listaEscolaridadOpts.find(o => o.codigo === code);
+    const sup = String(this.formHojaDeVida2?.get('nivelEducacionSuperior')?.value || '').trim();
+    const base = opt?.label || code;
+    return code === 'OTROS' && sup ? `${base} — ${sup}` : base;
   }
 
 
