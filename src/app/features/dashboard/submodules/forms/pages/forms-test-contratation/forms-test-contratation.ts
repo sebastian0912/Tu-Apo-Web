@@ -351,6 +351,16 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   filteredDeptoEmp: any[] = [];
   filteredMunEmp: string[] = [];
 
+  // RF-036 (familia): cascadas territoriales de TODAS las direcciones del paso Familia
+  // (cónyuge, padre, madre y las 4 referencias). Se manejan por diccionario para no
+  // declarar 21 propiedades sueltas; el patrón (depto→municipio, texto de colombia.json)
+  // es el mismo que residencia/empresa. Claves = sufijo del control (departamento<Key>).
+  readonly FAM_DIRECCIONES = ['Conyuge', 'Padre', 'Madre', 'RefPersonal1', 'RefPersonal2', 'RefFamiliar1', 'RefFamiliar2'] as const;
+  busqFam: Record<string, FormControl> = {};      // '<Key>Dep' / '<Key>Mun' (buscadores del selectField)
+  ciudadesFam: Record<string, string[]> = {};     // municipios del depto elegido, por dirección
+  filteredDeptoFam: Record<string, any[]> = {};
+  filteredMunFam: Record<string, string[]> = {};
+
   // Options
   opcionBinaria = OPCION_BINARIA;
   parentStatusOptions = PARENT_STATUS_OPTIONS;
@@ -496,6 +506,16 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     @Inject(PLATFORM_ID) private platformId: Object
   ) {
     this.isBrowser = isPlatformBrowser(this.platformId);
+
+    // RF-036 (familia): crea los buscadores y listas de cada cascada territorial de
+    // familia antes de construir el formulario (la plantilla los enlaza por diccionario).
+    for (const k of this.FAM_DIRECCIONES) {
+      this.busqFam[k + 'Dep'] = new FormControl('');
+      this.busqFam[k + 'Mun'] = new FormControl('');
+      this.ciudadesFam[k] = [];
+      this.filteredDeptoFam[k] = [];
+      this.filteredMunFam[k] = [];
+    }
 
     // 1. Init Search Form (Pre-check)
     // La fecha de expedición NO se pide acá: vive en el paso "Identificación"
@@ -808,6 +828,17 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       direccionReferenciaFamiliar2: ['', [Validators.required]],
       parentescoReferenciaFamiliar2: ['', req],
       // barrioReferenciaFamiliar2 REMOVED
+
+      // RF-036 (familia): territorio (departamento → municipio) de cada dirección del paso
+      // Familia. Texto de colombia.json, mismo mecanismo que residencia. Municipio arranca
+      // deshabilitado (lo habilita la cascada). Opcionales (paridad con las direcciones actuales).
+      departamentoConyuge: [''],       municipioConyuge: [{ value: '', disabled: true }],
+      departamentoPadre: [''],         municipioPadre: [{ value: '', disabled: true }],
+      departamentoMadre: [''],         municipioMadre: [{ value: '', disabled: true }],
+      departamentoRefPersonal1: [''],  municipioRefPersonal1: [{ value: '', disabled: true }],
+      departamentoRefPersonal2: [''],  municipioRefPersonal2: [{ value: '', disabled: true }],
+      departamentoRefFamiliar1: [''],  municipioRefFamiliar1: [{ value: '', disabled: true }],
+      departamentoRefFamiliar2: [''],  municipioRefFamiliar2: [{ value: '', disabled: true }],
 
       // Step 4: Experience & Housing
       experienciaLaboral: ['', req],
@@ -1125,6 +1156,10 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     this.setupLocationListener('departamentoEmergencia', 'municipioEmergencia', 'ciudadesEmergencia', this.searchMunEmer);
     // RF-036/044: empresa anterior.
     this.setupLocationListener('departamentoEmpresa1', 'municipioEmpresa1', 'ciudadesEmpresa', this.searchMunEmp);
+    // RF-036 (familia): cónyuge, padre, madre y las 4 referencias.
+    for (const k of this.FAM_DIRECCIONES) {
+      this.setupLocationListenerFam(`departamento${k}`, `municipio${k}`, k, this.busqFam[k + 'Mun']);
+    }
   }
 
   /**
@@ -1166,6 +1201,24 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       (this as any)[listProp] = dData ? dData.ciudades : [];
       this.formHojaDeVida2.get(cityKey)?.enable();
       // Al cambiar de departamento se limpia el municipio (RF-021/037: no dejar uno incompatible).
+      searchMun?.setValue('');
+      this.formHojaDeVida2.get(cityKey)?.setValue('');
+    });
+  }
+
+  /**
+   * RF-036 (familia): como `setupLocationListener` pero volcando la lista de municipios
+   * en el diccionario `ciudadesFam[famKey]` (una dirección de familia por clave).
+   */
+  private setupLocationListenerFam(deptKey: string, cityKey: string, famKey: string, searchMun?: FormControl) {
+    this.formHojaDeVida2.get(deptKey)?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(dept => {
+      const objetivo = this.normalizarTexto(dept);
+      const dData = objetivo
+        ? this.datos?.find((d: any) => this.normalizarTexto(d.departamento) === objetivo)
+        : null;
+      this.ciudadesFam[famKey] = dData ? dData.ciudades : [];
+      this.formHojaDeVida2.get(cityKey)?.enable();
+      // Al cambiar de departamento se limpia el municipio (no dejar uno incompatible).
       searchMun?.setValue('');
       this.formHojaDeVida2.get(cityKey)?.setValue('');
     });
@@ -1220,6 +1273,15 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     this.searchMunEmp.valueChanges.pipe(startWith(''), takeUntil(this.destroy$)).subscribe(val => {
       this.filteredMunEmp = this.filterList(this.ciudadesEmpresa, val);
     });
+    // RF-036 (familia): filtros de búsqueda de cada cascada territorial de familia.
+    for (const k of this.FAM_DIRECCIONES) {
+      this.busqFam[k + 'Dep'].valueChanges.pipe(startWith(''), takeUntil(this.destroy$)).subscribe(val => {
+        this.filteredDeptoFam[k] = this.filterList(this.datos, val, 'departamento');
+      });
+      this.busqFam[k + 'Mun'].valueChanges.pipe(startWith(''), takeUntil(this.destroy$)).subscribe(val => {
+        this.filteredMunFam[k] = this.filterList(this.ciudadesFam[k], val);
+      });
+    }
 
     // Dominio
     this.searchDominio.valueChanges.pipe(startWith(''), takeUntil(this.destroy$)).subscribe(val => {
@@ -1629,6 +1691,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       numDocIdentidadConyugue: g('documentoIdentidadConyuge'),
       viveConElConyugue: g('viveConyuge'),
       direccionConyugue: addr('direccionConyuge'),
+      departamentoConyuge: g('departamentoConyuge'), municipioConyuge: g('municipioConyuge'),
       // El control se llama `telefonoConyuge` (sin la "u"): leerlo con el nombre
       // del payload devolvía undefined y el teléfono del cónyuge nunca viajaba.
       telefonoConyugue: g('telefonoConyuge'),
@@ -1643,6 +1706,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       vivePadre: g('elPadreVive'),
       ocupacionPadre: g('ocupacionPadre'),
       direccionPadre: addr('direccionPadre'),
+      departamentoPadre: g('departamentoPadre'), municipioPadre: g('municipioPadre'),
       telefonoPadre: g('telefonoPadre'),
       barrioPadre: g('barrioPadre'),
       // RF-040: nombre de la madre derivado + componentes.
@@ -1654,6 +1718,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       viveMadre: g('madreVive'),
       ocupacionMadre: g('ocupacionMadre'),
       direccionMadre: addr('direccionMadre'),
+      departamentoMadre: g('departamentoMadre'), municipioMadre: g('municipioMadre'),
       telefonoMadre: g('telefonoMadre'),
       barrioMadre: g('barrioMadre'),
       // RF-040: referencias con nombre derivado + componentes.
@@ -1666,6 +1731,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       ocupacionReferenciaPersonal1: g('ocupacionReferencia1'),
       tiempoConoceReferenciaPersonal1: g('tiempoConoceReferenciaPersonal1'),
       direccionReferenciaPersonal1: addr('direccionReferenciaPersonal1'),
+      departamentoRefPersonal1: g('departamentoRefPersonal1'), municipioRefPersonal1: g('municipioRefPersonal1'),
       parentescoReferenciaPersonal1: g('parentescoReferenciaPersonal1'),
       nombreReferenciaPersonal2: nombreDe('refPersonal2PrimerNombre', 'refPersonal2SegundoNombre', 'refPersonal2PrimerApellido', 'refPersonal2SegundoApellido', 'nombreReferenciaPersonal2'),
       refPersonal2PrimerNombre: g('refPersonal2PrimerNombre'),
@@ -1676,6 +1742,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       ocupacionReferenciaPersonal2: g('ocupacionReferencia2'),
       tiempoConoceReferenciaPersonal2: g('tiempoConoceReferenciaPersonal2'),
       direccionReferenciaPersonal2: addr('direccionReferenciaPersonal2'),
+      departamentoRefPersonal2: g('departamentoRefPersonal2'), municipioRefPersonal2: g('municipioRefPersonal2'),
       parentescoReferenciaPersonal2: g('parentescoReferenciaPersonal2'),
       nombreReferenciaFamiliar1: nombreDe('refFamiliar1PrimerNombre', 'refFamiliar1SegundoNombre', 'refFamiliar1PrimerApellido', 'refFamiliar1SegundoApellido', 'nombreReferenciaFamiliar1'),
       refFamiliar1PrimerNombre: g('refFamiliar1PrimerNombre'),
@@ -1686,6 +1753,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       ocupacionReferenciaFamiliar1: g('ocupacionReferenciaFamiliar1'),
       parentescoReferenciaFamiliar1: g('parentescoReferenciaFamiliar1'),
       direccionReferenciaFamiliar1: addr('direccionReferenciaFamiliar1'),
+      departamentoRefFamiliar1: g('departamentoRefFamiliar1'), municipioRefFamiliar1: g('municipioRefFamiliar1'),
       nombreReferenciaFamiliar2: nombreDe('refFamiliar2PrimerNombre', 'refFamiliar2SegundoNombre', 'refFamiliar2PrimerApellido', 'refFamiliar2SegundoApellido', 'nombreReferenciaFamiliar2'),
       refFamiliar2PrimerNombre: g('refFamiliar2PrimerNombre'),
       refFamiliar2SegundoNombre: g('refFamiliar2SegundoNombre'),
@@ -1695,6 +1763,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       ocupacionReferenciaFamiliar2: g('ocupacionReferenciaFamiliar2'),
       parentescoReferenciaFamiliar2: g('parentescoReferenciaFamiliar2'),
       direccionReferenciaFamiliar2: addr('direccionReferenciaFamiliar2'),
+      departamentoRefFamiliar2: g('departamentoRefFamiliar2'), municipioRefFamiliar2: g('municipioRefFamiliar2'),
       // RF-036/043/044: empresa (territorio + teléfono empresa) y jefe (nombre/cargo/teléfono separados).
       nombreExpeLaboral1Empresa: g('nombreEmpresa1'),
       departamentoEmpresa1: g('departamentoEmpresa1'),
@@ -3212,6 +3281,14 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
     this.setDeptCity('departamentoEmergencia', 'municipioEmergencia', emer.departamento, emer.municipio);
     // RF-036/044: territorio de la empresa anterior.
     this.setDeptCity('departamentoEmpresa1', 'municipioEmpresa1', exp0.departamento, exp0.municipio);
+    // RF-036 (familia): territorio de cónyuge, padre, madre y las 4 referencias.
+    this.setDeptCity('departamentoConyuge', 'municipioConyuge', cony.departamento, cony.municipio);
+    this.setDeptCity('departamentoPadre', 'municipioPadre', padre.departamento, padre.municipio);
+    this.setDeptCity('departamentoMadre', 'municipioMadre', madre.departamento, madre.municipio);
+    this.setDeptCity('departamentoRefPersonal1', 'municipioRefPersonal1', rp0.departamento, rp0.municipio);
+    this.setDeptCity('departamentoRefPersonal2', 'municipioRefPersonal2', rp1.departamento, rp1.municipio);
+    this.setDeptCity('departamentoRefFamiliar1', 'municipioRefFamiliar1', rf0.departamento, rf0.municipio);
+    this.setDeptCity('departamentoRefFamiliar2', 'municipioRefFamiliar2', rf1.departamento, rf1.municipio);
 
     f.updateValueAndValidity();
     this.cdr.markForCheck();
@@ -3344,7 +3421,9 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
             titulo: 'Cónyuge',
             controles: [
               'nombresConyuge', 'apellidosConyuge', 'viveConyuge', 'documentoIdentidadConyuge',
-              'ocupacionConyuge', 'telefonoConyuge', 'direccionConyuge', 'barrioMunicipioConyugue',
+              'ocupacionConyuge', 'telefonoConyuge',
+              // RF-036 (familia): territorio antes de la dirección.
+              'departamentoConyuge', 'municipioConyuge', 'direccionConyuge', 'barrioMunicipioConyugue',
             ],
           },
           {
@@ -3352,9 +3431,9 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
             controles: [
               // RF-040: nombre en componentes (opcionales).
               'padrePrimerNombre', 'padreSegundoNombre', 'padrePrimerApellido', 'padreSegundoApellido',
-              'elPadreVive', 'ocupacionPadre', 'direccionPadre', 'barrioPadre', 'telefonoPadre',
+              'elPadreVive', 'ocupacionPadre', 'departamentoPadre', 'municipioPadre', 'direccionPadre', 'barrioPadre', 'telefonoPadre',
               'madrePrimerNombre', 'madreSegundoNombre', 'madrePrimerApellido', 'madreSegundoApellido',
-              'madreVive', 'ocupacionMadre', 'direccionMadre', 'barrioMadre', 'telefonoMadre',
+              'madreVive', 'ocupacionMadre', 'departamentoMadre', 'municipioMadre', 'direccionMadre', 'barrioMadre', 'telefonoMadre',
             ],
           },
           {
@@ -3363,6 +3442,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
               // RF-040: primer nombre/apellido obligatorios.
               'refPersonal1PrimerNombre', 'refPersonal1SegundoNombre', 'refPersonal1PrimerApellido', 'refPersonal1SegundoApellido',
               'telefonoReferencia1', 'ocupacionReferencia1',
+              'departamentoRefPersonal1', 'municipioRefPersonal1',
               'direccionReferenciaPersonal1', 'tiempoConoceReferenciaPersonal1',
               'parentescoReferenciaPersonal1',
             ],
@@ -3372,6 +3452,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
             controles: [
               'refPersonal2PrimerNombre', 'refPersonal2SegundoNombre', 'refPersonal2PrimerApellido', 'refPersonal2SegundoApellido',
               'telefonoReferencia2', 'ocupacionReferencia2',
+              'departamentoRefPersonal2', 'municipioRefPersonal2',
               'direccionReferenciaPersonal2', 'tiempoConoceReferenciaPersonal2',
               'parentescoReferenciaPersonal2',
             ],
@@ -3381,6 +3462,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
             controles: [
               'refFamiliar1PrimerNombre', 'refFamiliar1SegundoNombre', 'refFamiliar1PrimerApellido', 'refFamiliar1SegundoApellido',
               'telefonoReferenciaFamiliar1', 'ocupacionReferenciaFamiliar1',
+              'departamentoRefFamiliar1', 'municipioRefFamiliar1',
               'direccionReferenciaFamiliar1', 'parentescoReferenciaFamiliar1',
             ],
           },
@@ -3389,6 +3471,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
             controles: [
               'refFamiliar2PrimerNombre', 'refFamiliar2SegundoNombre', 'refFamiliar2PrimerApellido', 'refFamiliar2SegundoApellido',
               'telefonoReferenciaFamiliar2', 'ocupacionReferenciaFamiliar2',
+              'departamentoRefFamiliar2', 'municipioRefFamiliar2',
               'direccionReferenciaFamiliar2', 'parentescoReferenciaFamiliar2',
             ],
           },
@@ -5026,6 +5109,21 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       refFamiliar1PrimerApellido: 'Referencia Familiar 1 (Primer apellido)',
       refFamiliar2PrimerNombre: 'Referencia Familiar 2 (Primer nombre)',
       refFamiliar2PrimerApellido: 'Referencia Familiar 2 (Primer apellido)',
+      // RF-036 (familia): territorio de las direcciones del paso Familia.
+      departamentoConyuge: 'Departamento del Cónyuge',
+      municipioConyuge: 'Municipio del Cónyuge',
+      departamentoPadre: 'Departamento del Padre',
+      municipioPadre: 'Municipio del Padre',
+      departamentoMadre: 'Departamento de la Madre',
+      municipioMadre: 'Municipio de la Madre',
+      departamentoRefPersonal1: 'Referencia Personal 1 (Departamento)',
+      municipioRefPersonal1: 'Referencia Personal 1 (Municipio)',
+      departamentoRefPersonal2: 'Referencia Personal 2 (Departamento)',
+      municipioRefPersonal2: 'Referencia Personal 2 (Municipio)',
+      departamentoRefFamiliar1: 'Referencia Familiar 1 (Departamento)',
+      municipioRefFamiliar1: 'Referencia Familiar 1 (Municipio)',
+      departamentoRefFamiliar2: 'Referencia Familiar 2 (Departamento)',
+      municipioRefFamiliar2: 'Referencia Familiar 2 (Municipio)',
     };
     return map[key] || key;
   }

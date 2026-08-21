@@ -441,6 +441,11 @@
                           *ngTemplateOutlet="textField; context: {control: 'telefonoConyuge', label: 'Teléfono', type: 'tel'}"></ng-container>
                         </div>
                         <div class="grid-col-3">
+                          <!-- RF-036 (familia): territorio antes de la dirección -->
+                          <ng-container
+                          *ngTemplateOutlet="selectField; context: {control: 'departamentoConyuge', label: 'Departamento del cónyuge', options: filteredDeptoFam['Conyuge'], optionsKey: 'departamento', valueKey: 'departamento', searchControl: busqFam['ConyugeDep']}"></ng-container>
+                          <ng-container
+                          *ngTemplateOutlet="selectField; context: {control: 'municipioConyuge', label: 'Municipio del cónyuge', options: filteredMunFam['Conyuge'], searchControl: busqFam['ConyugeMun']}"></ng-container>
                           <ng-container
                           *ngTemplateOutlet="textField; context: {control: 'direccionConyuge', label: 'Dirección (Ej: CR 35 B 25 53. Se normaliza)', isAddress: true}"></ng-container>
                           <ng-container
@@ -472,6 +477,11 @@
                     @if (formHojaDeVida2.get('elPadreVive')?.value === 'VIVE') {
                       <ng-container
                       *ngTemplateOutlet="selectField; context: {control: 'ocupacionPadre', label: 'Ocupación', options: Ocupacion}"></ng-container>
+                      <!-- RF-036 (familia): territorio antes de la dirección -->
+                      <ng-container
+                      *ngTemplateOutlet="selectField; context: {control: 'departamentoPadre', label: 'Departamento del padre', options: filteredDeptoFam['Padre'], optionsKey: 'departamento', valueKey: 'departamento', searchControl: busqFam['PadreDep']}"></ng-container>
+                      <ng-container
+                      *ngTemplateOutlet="selectField; context: {control: 'municipioPadre', label: 'Municipio del padre', options: filteredMunFam['Padre'], searchControl: busqFam['PadreMun']}"></ng-container>
                       <ng-container
                       *ngTemplateOutlet="textField; context: {control: 'direccionPadre', label: 'Dirección (Ej: CR 35 B 25 53. Se normaliza)', isAddress: true}"></ng-container>
                       <ng-container
@@ -496,6 +506,11 @@
                     @if (formHojaDeVida2.get('madreVive')?.value === 'VIVE') {
                       <ng-container
                       *ngTemplateOutlet="selectField; context: {control: 'ocupacionMadre', label: 'Ocupación', options: Ocupacion}"></ng-container>
+                      <!-- RF-036 (familia): territorio antes de la dirección -->
+                      <ng-container
+                      *ngTemplateOutlet="selectField; context: {control: 'departamentoMadre', label: 'Departamento de la madre', options: filteredDeptoFam['Madre'], optionsKey: 'departamento', valueKey: 'departamento', searchControl: busqFam['MadreDep']}"></ng-container>
+                      <ng-container
+                      *ngTemplateOutlet="selectField; context: {control: 'municipioMadre', label: 'Municipio de la madre', options: filteredMunFam['Madre'], searchControl: busqFam['MadreMun']}"></ng-container>
                       <ng-container
                       *ngTemplateOutlet="textField; context: {control: 'direccionMadre', label: 'Dirección (Ej: CR 35 B 25 53. Se normaliza)', isAddress: true}"></ng-container>
                       <ng-container
@@ -522,6 +537,10 @@
                   <ng-container
                   *ngTemplateOutlet="selectField; context: {control: 'ocupacionReferencia1', label: 'Ocupación', options: Ocupacion}"></ng-container>
                   <ng-container
+                  *ngTemplateOutlet="selectField; context: {control: 'departamentoRefPersonal1', label: 'Departamento de la referencia', options: filteredDeptoFam['RefPersonal1'], optionsKey: 'departamento', valueKey: 'departamento', searchControl: busqFam['RefPersonal1Dep']}"></ng-container>
+                  <ng-container
+                  *ngTemplateOutlet="selectField; context: {control: 'municipioRefPersonal1', label: 'Municipio de la referencia', options: filteredMunFam['RefPersonal1'], searchControl: busqFam['RefPersonal1Mun']}"></ng-container>
+                  <ng-container
                   *ngTemplateOutlet="textField; context: {control: 'direccionReferenciaPersonal1', label: 'Dirección y Barrio', isAddress: true}"></ng-container>
                   <ng-container
                   *ngTemplateOutlet="selectField; context: {control: 'tiempoConoceReferenciaPersonal1', label: 'Tiempo de conocerlo', options: tiempoTrabajado}"></ng-container>
@@ -546,6 +565,10 @@
                   <ng-container
                   *ngTemplateOutlet="selectField; context: {control: 'ocupacionReferencia2', label: 'Ocupación', options: Ocupacion}"></ng-container>
                   <ng-container
+                  *ngTemplateOutlet="selectField; context: {control: 'departamentoRefPersonal2', label: 'Departamento de la referencia', options: filteredDeptoFam['RefPersonal2'], optionsKey: 'departamento', valueKey: 'departamento', searchControl: busqFam['RefPersonal2Dep']}"></ng-container>
+                  <ng-container
+                  *ngTemplateOutlet="selectField; context: {control: 'municipioRefPersonal2', label: 'Municipio de la referencia', options: filteredMunFam['RefPersonal2'], searchControl: busqFam['RefPersonal2Mun']}"></ng-container>
+                  <ng-container
                   *ngTemplateOutlet="textField; context: {control: 'direccionReferenciaPersonal2', label: 'Dirección y Barrio', isAddress: true}"></ng-container>
                   <ng-container
                   *ngTemplateOutlet="selectField; context: {control: 'tiempoConoceReferenciaPersonal2', label: 'Tiempo de conocerlo', options: tiempoTrabajado}"></ng-container>
@@ -569,6 +592,10 @@
                   <ng-container
                   *ngTemplateOutlet="selectField; context: {control: 'ocupacionReferenciaFamiliar1', label: 'Ocupación', options: Ocupacion}"></ng-container>
                   <ng-container
+                  *ngTemplateOutlet="selectField; context: {control: 'departamentoRefFamiliar1', label: 'Departamento de la referencia', options: filteredDeptoFam['RefFamiliar1'], optionsKey: 'departamento', valueKey: 'departamento', searchControl: busqFam['RefFamiliar1Dep']}"></ng-container>
+                  <ng-container
+                  *ngTemplateOutlet="selectField; context: {control: 'municipioRefFamiliar1', label: 'Municipio de la referencia', options: filteredMunFam['RefFamiliar1'], searchControl: busqFam['RefFamiliar1Mun']}"></ng-container>
+                  <ng-container
                   *ngTemplateOutlet="textField; context: {control: 'direccionReferenciaFamiliar1', label: 'Dirección y Barrio', isAddress: true}"></ng-container>
                   <ng-container
                   *ngTemplateOutlet="selectField; context: {control: 'parentescoReferenciaFamiliar1', label: 'Parentesco', options: listaParentescosFamiliares, optionsKey: 'descripcion', valueKey: 'codigo'}"></ng-container>
@@ -588,6 +615,10 @@
                   *ngTemplateOutlet="textField; context: {control: 'telefonoReferenciaFamiliar2', label: 'Teléfono', type: 'tel'}"></ng-container>
                   <ng-container
                   *ngTemplateOutlet="selectField; context: {control: 'ocupacionReferenciaFamiliar2', label: 'Ocupación', options: Ocupacion}"></ng-container>
+                  <ng-container
+                  *ngTemplateOutlet="selectField; context: {control: 'departamentoRefFamiliar2', label: 'Departamento de la referencia', options: filteredDeptoFam['RefFamiliar2'], optionsKey: 'departamento', valueKey: 'departamento', searchControl: busqFam['RefFamiliar2Dep']}"></ng-container>
+                  <ng-container
+                  *ngTemplateOutlet="selectField; context: {control: 'municipioRefFamiliar2', label: 'Municipio de la referencia', options: filteredMunFam['RefFamiliar2'], searchControl: busqFam['RefFamiliar2Mun']}"></ng-container>
                   <ng-container
                   *ngTemplateOutlet="textField; context: {control: 'direccionReferenciaFamiliar2', label: 'Dirección y Barrio', isAddress: true}"></ng-container>
                   <ng-container

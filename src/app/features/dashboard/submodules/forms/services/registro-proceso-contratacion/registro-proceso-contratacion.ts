@@ -453,6 +453,9 @@ export class RegistroProcesoContratacion {
         vive_con: p.viveConElConyugue,
         direccion: p.direccionConyugue,
         barrio: p.barrioMunicipioConyugue,
+        // RF-036 (familia): territorio del cónyuge.
+        departamento: p.departamentoConyuge,
+        municipio: p.municipioConyuge,
         telefono: p.telefonoConyugue,
         ocupacion: p.ocupacion_conyugue,
       }) : undefined,
@@ -468,6 +471,9 @@ export class RegistroProcesoContratacion {
         direccion: p.direccionPadre,
         telefono: p.telefonoPadre,
         barrio: p.barrioPadre,
+        // RF-036 (familia): territorio del padre.
+        departamento: p.departamentoPadre,
+        municipio: p.municipioPadre,
       }) : undefined,
       madre: p.viveMadre ? this.clean({
         nombre: p.nombreMadre,
@@ -481,6 +487,9 @@ export class RegistroProcesoContratacion {
         direccion: p.direccionMadre,
         telefono: p.telefonoMadre,
         barrio: p.barrioMadre,
+        // RF-036 (familia): territorio de la madre.
+        departamento: p.departamentoMadre,
+        municipio: p.municipioMadre,
       }) : undefined,
       emergencia: (p.emergenciaPrimerNombre || p.familiarEmergencia) ? this.clean({
         // RF-033: componentes separados + derivados nombre/apellido (compat legacy).
@@ -506,18 +515,22 @@ export class RegistroProcesoContratacion {
         // RF-040: nombre de la referencia en componentes (primer/segundo nombre y apellido).
         ref(p.nombreReferenciaPersonal1, p.telefonoReferenciaPersonal1, p.ocupacionReferenciaPersonal1,
             p.direccionReferenciaPersonal1, { tiempo_conoce: p.tiempoConoceReferenciaPersonal1, parentesco: p.parentescoReferenciaPersonal1,
-              primer_nombre: p.refPersonal1PrimerNombre, segundo_nombre: p.refPersonal1SegundoNombre, primer_apellido: p.refPersonal1PrimerApellido, segundo_apellido: p.refPersonal1SegundoApellido }),
+              primer_nombre: p.refPersonal1PrimerNombre, segundo_nombre: p.refPersonal1SegundoNombre, primer_apellido: p.refPersonal1PrimerApellido, segundo_apellido: p.refPersonal1SegundoApellido,
+              departamento: p.departamentoRefPersonal1, municipio: p.municipioRefPersonal1 }),
         ref(p.nombreReferenciaPersonal2, p.telefonoReferenciaPersonal2, p.ocupacionReferenciaPersonal2,
             p.direccionReferenciaPersonal2, { tiempo_conoce: p.tiempoConoceReferenciaPersonal2, parentesco: p.parentescoReferenciaPersonal2,
-              primer_nombre: p.refPersonal2PrimerNombre, segundo_nombre: p.refPersonal2SegundoNombre, primer_apellido: p.refPersonal2PrimerApellido, segundo_apellido: p.refPersonal2SegundoApellido }),
+              primer_nombre: p.refPersonal2PrimerNombre, segundo_nombre: p.refPersonal2SegundoNombre, primer_apellido: p.refPersonal2PrimerApellido, segundo_apellido: p.refPersonal2SegundoApellido,
+              departamento: p.departamentoRefPersonal2, municipio: p.municipioRefPersonal2 }),
       ].filter(Boolean),
       referencias_familiares: [
         ref(p.nombreReferenciaFamiliar1, p.telefonoReferenciaFamiliar1, p.ocupacionReferenciaFamiliar1,
             p.direccionReferenciaFamiliar1, { parentesco: p.parentescoReferenciaFamiliar1,
-              primer_nombre: p.refFamiliar1PrimerNombre, segundo_nombre: p.refFamiliar1SegundoNombre, primer_apellido: p.refFamiliar1PrimerApellido, segundo_apellido: p.refFamiliar1SegundoApellido }),
+              primer_nombre: p.refFamiliar1PrimerNombre, segundo_nombre: p.refFamiliar1SegundoNombre, primer_apellido: p.refFamiliar1PrimerApellido, segundo_apellido: p.refFamiliar1SegundoApellido,
+              departamento: p.departamentoRefFamiliar1, municipio: p.municipioRefFamiliar1 }),
         ref(p.nombreReferenciaFamiliar2, p.telefonoReferenciaFamiliar2, p.ocupacionReferenciaFamiliar2,
             p.direccionReferenciaFamiliar2, { parentesco: p.parentescoReferenciaFamiliar2,
-              primer_nombre: p.refFamiliar2PrimerNombre, segundo_nombre: p.refFamiliar2SegundoNombre, primer_apellido: p.refFamiliar2PrimerApellido, segundo_apellido: p.refFamiliar2SegundoApellido }),
+              primer_nombre: p.refFamiliar2PrimerNombre, segundo_nombre: p.refFamiliar2SegundoNombre, primer_apellido: p.refFamiliar2PrimerApellido, segundo_apellido: p.refFamiliar2SegundoApellido,
+              departamento: p.departamentoRefFamiliar2, municipio: p.municipioRefFamiliar2 }),
       ].filter(Boolean),
     });
   }
