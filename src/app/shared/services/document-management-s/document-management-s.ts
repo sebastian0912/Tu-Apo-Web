@@ -34,6 +34,25 @@ export class DocumentManagementS {
     return this.http.post(`${this.apiUrl}/gestion_documental/documentosPruebas/`, formData);
   }
 
+  /**
+   * RF-048: subida asociando por NOMBRE de tipo (typeName) en vez de id numérico. La usa el
+   * soporte del hijo/dependiente (owner_id = documento del hijo, typeName = SOPORTE_HIJO). El
+   * backend resuelve/crea el tipo por nombre. Misma ruta pública anónima que la hoja de vida.
+   */
+  guardarDocumentoPorTipo(
+    title: string,
+    owner_id: string,
+    typeName: string,
+    file: File
+  ): Observable<any> {
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('owner_id', owner_id);
+    formData.append('typeName', typeName);
+    formData.append('file', file);
+    return this.http.post(`${this.apiUrl}/gestion_documental/documentosPruebas/`, formData);
+  }
+
   // Método para obtener documentos de un usuario
   getDocuments(cedula: string, type?: number, contract_number?: string): Observable<any> {
     let params = new URLSearchParams();

@@ -78,6 +78,12 @@ const MAX_HIJOS = 10;
 // celular pasa de 10 MB con facilidad.
 const MAX_ARCHIVO_MB = 50;
 const MIME_PDF = new Set(['application/pdf', 'application/x-pdf', 'application/acrobat']);
+// RF-048: el soporte del hijo (registro civil / TI) puede ser PDF o imagen escaneada.
+const MIME_SOPORTE_HIJO = new Set([
+  'application/pdf', 'application/x-pdf', 'application/acrobat',
+  'image/jpeg', 'image/jpg', 'image/png',
+]);
+const EXT_SOPORTE_HIJO = /\.(pdf|jpe?g|png)$/i;
 
 const OPCION_BINARIA = [{ value: 'SI', display: 'SÍ' }, { value: 'NO', display: 'NO' }];
 const PARENT_STATUS_OPTIONS = [
@@ -251,6 +257,17 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   numeroCedula = '';
   datos: any[] = []; // Colombia JSON
   uploadedFiles: { [key: string]: { file: File | string; fileName: string } | undefined } = {};
+  // RF-048: soporte documental por hijo (índice de fila → archivo en memoria; se sube al finalizar
+  // con owner_id = documento del hijo y typeName = SOPORTE_HIJO). Independiente por hijo.
+  soportesHijo: { [i: number]: { file: File; fileName: string } | undefined } = {};
+  // Estado de carga recuperado del prefill (reingreso), por índice de hijo / hoja de vida.
+  soporteHijoPrefill: { [i: number]: { cargado: boolean; nombre: string } } = {};
+  hojaVidaPrefill: { cargado: boolean; nombre: string } = { cargado: false, nombre: '' };
+  private soportesHijoSubidos = new Set<number>();
+  // RF-050: evita re-subir un mismo archivo (p. ej. la hoja de vida) si se finaliza dos veces
+  // en la misma sesión (los archivos no se persisten en el borrador, así que el reingreso no
+  // trae ninguno y no puede duplicar).
+  private archivosSubidos = new Set<string>();
 
   // Catalogs (Public properties for HTML access)
   tipoDocs: any[] = [];
@@ -262,6 +279,11 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   // RF-046: tipos de documento del dependiente (RC/TI/CC/CE) — catálogo TIPOS_DOC_DEPENDIENTE.
   tiposDocDependiente: { codigo: string; descripcion: string }[] = [];
   Ocupacion: string[] = [];
+  // RF-047: lista PARALELA de ocupación del hijo/dependiente, con rango de edad parametrizable.
+  // Se deriva del MISMO catálogo OCUPACIONES (sin tocar `Ocupacion` string[] que usan los otros
+  // 8 selects). edadMin/edadMax vienen del JSON del catálogo (edad_minima/edad_maxima); si están
+  // ausentes = sin cota (retrocompatible hasta que negocio apruebe el catálogo definitivo).
+  ocupacionesHijo: { codigo: string; descripcion: string; edadMin: number | null; edadMax: number | null; orden: number }[] = [];
   listaEscolaridad: string[] = [];
   // RF-014/016 (solo presentación): el GRADO se muestra con nombre legible y "Sin estudio"
   // va primero, pero el `value` guardado sigue siendo el código del catálogo
@@ -885,11 +907,13 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
 
       // Evaluación (Opcional) — preguntas que llenaba el evaluador en TesoroApp
       // y que ahora puede llenar el candidato desde la web.
-      relacionFamiliar: [''],
-      desempenoLaboral: [''],
-      felicitaciones: [''],
-      situacionConflictiva: [''],
-      actividadesDiferentes: [''],
+      // RF-049: la evaluación ocupacional pasa de opcional a OBLIGATORIA. Son textos/'SI'|'NO'
+      // (ninguna es booleana ni numérica), así que `required` no confunde false/0 con vacío.
+      relacionFamiliar: ['', req],
+      desempenoLaboral: ['', req],
+      felicitaciones: ['', req],
+      situacionConflictiva: ['', req],
+      actividadesDiferentes: ['', req],
 
       // Step 5: Final
       // `deseaGenerar` se eliminó: no existe en el backend (ni como campo ni en
@@ -1346,6 +1370,17 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
         curso?.updateValueAndValidity({ emitEvent: false });
       });
 
+      // RF-047: al cambiar la fecha de nacimiento, si la ocupación elegida deja de ser
+      // compatible con la edad del hijo, se limpia SOLO esa ocupación (no otros datos) para
+      // obligar a re-elegir una válida entre las opciones filtradas.
+      g.get('fechaNacimientoHijo')?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(() => {
+        const occ = g.get('ocupacionHijo')?.value;
+        if (occ && !this.ocupacionesParaHijo(g).some(o => o.codigo === occ)) {
+          g.get('ocupacionHijo')?.setValue('');
+        }
+        this.cdr.markForCheck();
+      });
+
       arr.push(g);
     }
   }
@@ -1561,6 +1596,23 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
         this.listaEscolaridadOpts = [...this.listaEscolaridad]
           .sort((a, b) => rankG(a) - rankG(b) || a.localeCompare(b))
           .map(c => ({ codigo: c, label: FormsTestContratation.GRADO_ESCOLARIDAD_LABEL[c] ?? c }));
+        // RF-047: lista paralela de ocupación del hijo con edad_minima/edad_maxima (del MISMO
+        // catálogo OCUPACIONES, sin alterar `Ocupacion`). Lee el JSON crudo de cada valor.
+        const num = (x: any) => { const n = Number(x); return Number.isFinite(n) ? n : null; };
+        const ocuRaw: any[] = (results['OCUPACIONES'] ?? []).filter((i: any) => i.activo !== false);
+        const seenO = new Set<string>();
+        this.ocupacionesHijo = ocuRaw.map((i: any) => {
+          const d = i.datos || {};
+          return {
+            codigo: String(d.codigo ?? ''),
+            descripcion: String(d.descripcion ?? d.codigo ?? ''),
+            edadMin: num(d.edad_minima),
+            edadMax: num(d.edad_maxima),
+            orden: Number(d.orden ?? 0),
+          };
+        }).filter(o => o.codigo && !seenO.has(o.codigo) && seenO.add(o.codigo))
+          .sort((a, b) => (a.orden - b.orden) || FormsTestContratation.COLLATOR_ES.compare(a.descripcion, b.descripcion));
+
         this.recomputarTallas();   // RF-029: derivar tallas visibles según el género ya cargado
         this.loadingCatalogos = false;
         this.avisarSiNoHayCatalogos();
@@ -1910,13 +1962,76 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   }
 
   subirTodosLosArchivos(): Promise<boolean> {
-    const pend = Object.keys(this.uploadedFiles).filter(k => this.typeMap[k] && this.uploadedFiles[k]?.file instanceof File);
+    // RF-050: no re-sube lo ya subido en esta sesión (dedup de doble finalización).
+    const pend = Object.keys(this.uploadedFiles).filter(k =>
+      this.typeMap[k] && this.uploadedFiles[k]?.file instanceof File && !this.archivosSubidos.has(k));
     if (!pend.length) return Promise.resolve(true);
 
     const promises = pend.map(k => {
       const d = this.uploadedFiles[k];
       if (!d) return Promise.resolve(true);
-      return firstValueFrom(this.gestionDocumentosService.guardarDocumento(d.fileName, this.numeroCedula, this.typeMap[k], d.file as File));
+      return firstValueFrom(this.gestionDocumentosService.guardarDocumento(d.fileName, this.numeroCedula, this.typeMap[k], d.file as File))
+        .then(() => { this.archivosSubidos.add(k); return true; });
+    });
+    return Promise.all(promises).then(() => true).catch(() => false);
+  }
+
+  /**
+   * RF-048: adjunta el soporte documental de un hijo (PDF o imagen). OPCIONAL en el preregistro:
+   * se guarda en memoria y se sube al FINALIZAR; nunca bloquea Siguiente ni Finalizar.
+   */
+  async subirSoporteHijo(event: any, i: number): Promise<void> {
+    const input = event?.target as HTMLInputElement | undefined;
+    const file: File | undefined = input?.files?.[0];
+    if (!file) return;
+    const rechazar = (titulo: string, texto: string) => {
+      if (input) input.value = '';
+      Swal.fire({ icon: 'error', title: titulo, text: texto, confirmButtonColor: '#111827' });
+    };
+    if (file.name.length > 100) return rechazar('Nombre muy largo', 'El nombre del archivo no puede pasar de 100 caracteres.');
+    if (!EXT_SOPORTE_HIJO.test(file.name)) return rechazar('Formato no permitido', 'El soporte debe ser PDF, JPG o PNG.');
+    if (file.type && !MIME_SOPORTE_HIJO.has(file.type.toLowerCase())) return rechazar('Formato no permitido', `Se recibió un archivo de tipo "${file.type}". Adjunte PDF, JPG o PNG.`);
+    if (!file.size) return rechazar('Archivo vacío', 'El archivo está vacío (0 KB).');
+    if (file.size > MAX_ARCHIVO_MB * 1024 * 1024) {
+      const mb = (file.size / (1024 * 1024)).toFixed(1);
+      return rechazar('Archivo muy pesado', `Su archivo pesa ${mb} MB y el máximo son ${MAX_ARCHIVO_MB} MB.`);
+    }
+    this.soportesHijo[i] = { file, fileName: file.name };
+    this.soportesHijoSubidos.delete(i); // archivo nuevo → se subirá al finalizar
+    if (input) input.value = '';
+    this.cdr.markForCheck();
+  }
+
+  /** RF-048: estado visible del soporte de un hijo (recién adjuntado o recuperado del prefill). */
+  soporteHijoEstado(i: number): { cargado: boolean; nombre: string } {
+    const local = this.soportesHijo[i];
+    if (local) return { cargado: true, nombre: local.fileName };
+    return this.soporteHijoPrefill[i] ?? { cargado: false, nombre: '' };
+  }
+
+  verSoporteHijo(i: number): void {
+    const f = this.soportesHijo[i]?.file;
+    if (!f) return;
+    const url = URL.createObjectURL(f);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
+
+  /**
+   * RF-048: sube los soportes de hijos adjuntados en esta sesión, cada uno con owner_id = su
+   * número de documento y typeName = SOPORTE_HIJO. Se llama al FINALIZAR. Idempotente por sesión.
+   */
+  subirSoportesHijos(): Promise<boolean> {
+    const arr = this.formHojaDeVida2.get('hijos') as FormArray;
+    const idx = Object.keys(this.soportesHijo).map(Number)
+      .filter(i => this.soportesHijo[i]?.file instanceof File && !this.soportesHijoSubidos.has(i));
+    if (!idx.length) return Promise.resolve(true);
+    const promises = idx.map(i => {
+      const d = this.soportesHijo[i]!;
+      const doc = String(arr?.at(i)?.get('docIdentidadHijo')?.value || '').trim();
+      if (!doc) return Promise.resolve(true); // sin documento del hijo no hay owner estable
+      return firstValueFrom(this.gestionDocumentosService.guardarDocumentoPorTipo(d.fileName, doc, 'SOPORTE_HIJO', d.file))
+        .then(() => { this.soportesHijoSubidos.add(i); return true; });
     });
     return Promise.all(promises).then(() => true).catch(() => false);
   }
@@ -2656,6 +2771,28 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
    * (`hoy.getFullYear() - nacimiento.getFullYear()`) da un año de más a quien
    * todavía no cumple, que es justo el borde que hay que cuidar acá.
    */
+  /** RF-047: edad del hijo (años cumplidos exactos año/mes/día); null si no hay fecha válida. */
+  edadDeHijo(g: AbstractControl | null | undefined): number | null {
+    const nac = this.aFecha(g?.get?.('fechaNacimientoHijo')?.value);
+    return nac ? this.edadCumplida(nac) : null;
+  }
+
+  /**
+   * RF-047: opciones de ocupación válidas para un hijo según su edad. Sin fecha aún → se
+   * muestran todas (no se puede filtrar). Data-driven: una opción aplica si su [edadMin, edadMax]
+   * contiene la edad (cotas null = sin límite). La regla "menor de 18" (edad < 18) la expresa el
+   * catálogo poniendo edad_minima=18 a las ocupaciones que NO aplican a menores. Sin llaves de
+   * edad en el catálogo (estado actual, pendiente de aprobación) = sin filtro (retrocompatible).
+   */
+  ocupacionesParaHijo(g: AbstractControl | null | undefined): { codigo: string; descripcion: string }[] {
+    const edad = this.edadDeHijo(g);
+    const base = this.ocupacionesHijo;
+    if (edad === null) return base;
+    return base.filter(o =>
+      (o.edadMin === null || edad >= o.edadMin) &&
+      (o.edadMax === null || edad <= o.edadMax));
+  }
+
   private edadCumplida(nacimiento: Date, referencia: Date = new Date()): number {
     let edad = referencia.getFullYear() - nacimiento.getFullYear();
     const cumpleEsteAno =
@@ -3249,9 +3386,15 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       comodidadesChecks: splitMulti(vivienda.servicios),
     });
 
+    // RF-048/050: estado de carga documental recuperado del prefill (reingreso).
+    this.soporteHijoPrefill = {};
+    this.hojaVidaPrefill = { cargado: !!cand.hoja_vida_cargada, nombre: cand.hoja_vida_nombre || '' };
+
     // Hijos: numHijosDependientes ya reconstruyó el FormArray; se pueblan las filas.
     const arrHijos: any = f.get('hijos');
     hijosBk.forEach((h, i) => {
+      // RF-048: recordar si este hijo ya tiene soporte cargado (para mostrar el estado).
+      if (h.soporte_cargado) this.soporteHijoPrefill[i] = { cargado: true, nombre: h.soporte_nombre || 'documento' };
       const g = arrHijos?.at?.(i);
       if (g) g.patchValue({
         // RF-045: reponer partes estructuradas; el nombre legacy queda de respaldo.
@@ -3502,7 +3645,8 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
             ],
           },
           {
-            titulo: 'Evaluación (Opcional)',
+            // RF-049: obligatoria (los controles ya llevan Validators.required).
+            titulo: 'Evaluación ocupacional',
             controles: [
               'relacionFamiliar', 'desempenoLaboral', 'felicitaciones',
               'situacionConflictiva', 'actividadesDiferentes',
@@ -3989,6 +4133,10 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
           let filesOk = true;
           try {
             filesOk = await this.subirTodosLosArchivos();
+            // RF-048: los soportes de los hijos se suben aquí también (owner_id = documento del
+            // hijo). No bloqueante: si alguno falla, el registro queda completo igual.
+            const soportesOk = await this.subirSoportesHijos();
+            filesOk = filesOk && soportesOk;
           } catch(e) {
             filesOk = false;
           }

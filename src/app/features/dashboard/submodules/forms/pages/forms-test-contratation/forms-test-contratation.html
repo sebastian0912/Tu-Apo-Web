@@ -772,11 +772,16 @@
                     <mat-error>Solo números (máx. 11 dígitos)</mat-error>
                   }
                 </mat-form-field>
+                <!-- RF-047: la ocupación del hijo se filtra por su edad (menor de 18 no ve
+                     ocupaciones adult-only). La lista es data-driven desde el catálogo. -->
                 <mat-form-field appearance="outline"><mat-label>Ocupación</mat-label><mat-select
-                formControlName="ocupacionHijo">@for (o of Ocupacion; track o) {
+                formControlName="ocupacionHijo">@for (o of ocupacionesParaHijo(h); track o.codigo) {
                 <mat-option
-                [value]="o">{{o}}</mat-option>
+                [value]="o.codigo">{{o.descripcion}}</mat-option>
               }</mat-select>
+              @if (edadDeHijo(h) !== null) {
+                <mat-hint>Edad: {{ edadDeHijo(h) }} años</mat-hint>
+              }
               @if (h.get('ocupacionHijo')?.hasError('required')) {
                 <mat-error>Requerido</mat-error>
               }
@@ -790,6 +795,24 @@
                 }
               </mat-form-field>
             }
+            <!-- RF-048: soporte documental del hijo (registro civil / TI). OPCIONAL: no bloquea. -->
+            <div class="full-width soporte-hijo">
+              <label class="soporte-label">Soporte documental <span class="opcional">(opcional · PDF, JPG o PNG)</span></label>
+              <div class="soporte-acciones">
+                <input type="file" hidden #inSop accept=".pdf,.jpg,.jpeg,.png"
+                  (change)="subirSoporteHijo($event, i)"
+                  [attr.aria-label]="'Adjuntar soporte documental del hijo ' + (i+1)">
+                <button mat-stroked-button type="button" (click)="inSop.click()">
+                  {{ soporteHijoEstado(i).cargado ? 'Reemplazar archivo' : 'Adjuntar archivo' }}
+                </button>
+                @if (soporteHijoEstado(i).cargado) {
+                  <span class="soporte-ok">✓ {{ soporteHijoEstado(i).nombre }}</span>
+                  @if (soportesHijo[i]?.file) {
+                    <button mat-button type="button" (click)="verSoporteHijo(i)">Ver</button>
+                  }
+                }
+              </div>
+            </div>
           </div>
         </div>
       }
@@ -817,9 +840,10 @@
   *ngTemplateOutlet="selectField; context: {control: 'comodidadesChecks', label: 'Servicios', options: comodidades, multiple: true}"></ng-container>
   <!-- `fuenteVacante` se movió al inicio del paso 1 (Pre-registro). -->
 
-  <!-- Evaluación (Opcional) -->
+  <!-- Evaluación ocupacional — RF-049: ahora obligatoria (antes opcional). El estado
+       rojo/mensaje del propio campo (patrón RF-027) marca los que falten. -->
   <div class="full-width sub-section">
-    <h4>Evaluación (Opcional)</h4>
+    <h4>Evaluación ocupacional</h4>
   </div>
   <ng-container
   *ngTemplateOutlet="textField; context: {control: 'relacionFamiliar', label: '¿Cómo es su relación familiar?'}"></ng-container>
@@ -849,7 +873,7 @@
       <div class="full-width box-upload">
         <label>Hoja de Vida (PDF)</label>
         <div class="upload-controls">
-          <input matInput [value]="uploadedFiles['hojaDeVida']?.fileName || 'Sin archivo'" readonly
+          <input matInput [value]="uploadedFiles['hojaDeVida']?.fileName || (hojaVidaPrefill.cargado ? (hojaVidaPrefill.nombre || 'Hoja de vida cargada') : 'Sin archivo')" readonly
             class="file-name">
             <button mat-mini-fab color="primary" type="button"
               (click)="fileIn.click()"><mat-icon>cloud_upload</mat-icon></button>
@@ -859,6 +883,12 @@
                 }
                 <input #fileIn type="file" hidden accept=".pdf" (change)="subirArchivo($event, 'hojaDeVida')">
               </div>
+              <!-- RF-050: al reingresar, si ya hay una hoja de vida cargada se avisa (puede reemplazarse). -->
+              @if (hojaVidaPrefill.cargado && !uploadedFiles['hojaDeVida']?.fileName) {
+                <p class="hint-text" style="font-size:12px;color:#166534;margin:6px 0 0;">
+                  ✓ Hoja de vida cargada anteriormente. Puede reemplazarla adjuntando otra.
+                </p>
+              }
               <p class="hint-text" style="font-size:12px;color:#666;margin:6px 0 0;">
                 Solo PDF, máximo 50 MB. Si tiene fotos del documento, únalas en un PDF antes de subirlo.
               </p>

@@ -395,6 +395,12 @@ describe('FormsTestContratation (DOM)', () => {
       set('personasPorHabitacion', '2');
       set('caracteristicasVivienda', 'LADRILLO');
       set('comodidadesChecks', ['AGUA']);
+      // RF-049: evaluación ocupacional ahora obligatoria (paso 4).
+      set('relacionFamiliar', 'BUENA');
+      set('desempenoLaboral', 'BUENO');
+      set('felicitaciones', 'PUNTUALIDAD');
+      set('situacionConflictiva', 'NO');
+      set('actividadesDiferentes', 'SI');
 
       fixture.detectChanges();
       await fixture.whenStable();
@@ -471,6 +477,21 @@ describe('FormsTestContratation (DOM)', () => {
       expect(spy).not.toHaveBeenCalled();
       expect(swalTexto()).toContain('Paso 4');
       await cerrarSwal();
+    });
+
+    it('RF-049: evaluación ocupacional vacía (paso 4) bloquea y NO envía', async () => {
+      await abrirFormulario();
+      await llenarTodoValido();
+      // Una pregunta de evaluación sin responder debe bloquear la finalización.
+      comp.formHojaDeVida2.get('relacionFamiliar')!.setValue('');
+      const spy = await finalizar();
+      expect(spy).not.toHaveBeenCalled();
+      expect(swalTexto()).toContain('Paso 4');
+      await cerrarSwal();
+      // 'NO' es una respuesta válida (no debe tratarse como vacío).
+      comp.formHojaDeVida2.get('relacionFamiliar')!.setValue('BUENA');
+      comp.formHojaDeVida2.get('actividadesDiferentes')!.setValue('NO');
+      expect(comp.formHojaDeVida2.get('actividadesDiferentes')!.valid).toBeTrue();
     });
 
     it('condicional cónyuge: CASADO sin datos del cónyuge bloquea', async () => {
