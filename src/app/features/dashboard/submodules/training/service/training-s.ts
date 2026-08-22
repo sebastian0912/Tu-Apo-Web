@@ -51,6 +51,20 @@ export class TrainingS {
     );
   }
 
+  /**
+   * Archivo de un material de lección.
+   *
+   * Va por learning-ms y no directo a ms-documents porque ese exige JWT y una etiqueta
+   * `<img>`/`<video>` no manda cabeceras: el navegador recibiría un 401. Como es una GET, el
+   * `offlineInterceptor` guarda el blob en IndexedDB y después lo sirve sin señal.
+   */
+  descargarMaterial(resourceId: string): Promise<Blob> {
+    return firstValueFrom(
+      this.http.get(`${this.base}/me/resources/${resourceId}/file`,
+        { headers: this.headers(), responseType: 'blob' })
+    );
+  }
+
   misCertificados(): Promise<Certificado[]> {
     return firstValueFrom(
       this.http.get<Certificado[]>(`${this.base}/me/certificates`, { headers: this.headers() })

@@ -6,7 +6,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import Swal from 'sweetalert2';
 import {
-  TrainingS, PaqueteCurso, LeccionOffline, PreguntaPresentacion, RespuestaEnviada
+  TrainingS, PaqueteCurso, LeccionOffline, PreguntaPresentacion, RecursoOffline, RespuestaEnviada
 } from '../../service/training-s';
 import { TrainingOffline } from '../../service/training-offline';
 
@@ -46,6 +46,10 @@ export class CoursePlayer implements OnInit {
   readonly respuestas = signal<Record<string, string[]>>({});
   readonly resultadoQuiz = signal<{ nota: number; correctas: number; total: number } | null>(null);
 
+  /** Material ya descargado en esta sesión: id del recurso -> object URL del blob. */
+  readonly materiales = signal<Record<string, string>>({});
+  readonly descargandoMaterial = signal<string | null>(null);
+
   private enrollmentId = '';
 
   readonly lecciones = computed<LeccionOffline[]>(() =>
@@ -82,6 +86,46 @@ export class CoursePlayer implements OnInit {
     } finally {
       this.cargando.set(false);
     }
+  }
+
+  /**
+   * Descarga el material y lo deja listo para verse.
+   *
+   * La primera vez necesita conexión; a partir de ahí el interceptor tiene el blob en
+   * IndexedDB y lo sirve sin señal. Se hace bajo demanda y no al abrir la lección: un video de
+   * 40 MB bajado sin que nadie lo pida es el plan de datos de la persona.
+   */
+  async abrirMaterial(recurso: RecursoOffline): Promise<void> {
+    if (this.materiales()[recurso.id]) {
+      this.mostrar(recurso, this.materiales()[recurso.id]);
+      return;
+    }
+    this.descargandoMaterial.set(recurso.id);
+    try {
+      const blob = await this.api.descargarMaterial(recurso.id);
+      const url = URL.createObjectURL(blob);
+      this.materiales.update(m => ({ ...m, [recurso.id]: url }));
+      this.mostrar(recurso, url);
+    } catch {
+      Swal.fire('No pudimos abrir el material',
+        this.offline.enLinea
+          ? 'Intenta de nuevo en un momento.'
+          : 'Necesitas conexión la primera vez que abres este material. Después queda guardado.',
+        'info');
+    } finally {
+      this.descargandoMaterial.set(null);
+    }
+  }
+
+  /** El video se ve en la página; lo demás se abre aparte, que es lo que espera la gente. */
+  private mostrar(recurso: RecursoOffline, url: string): void {
+    if (recurso.tipo !== 'VIDEO') {
+      window.open(url, '_blank');
+    }
+  }
+
+  urlMaterial(recursoId: string): string | null {
+    return this.materiales()[recursoId] ?? null;
   }
 
   seleccionar(leccion: LeccionOffline): void {

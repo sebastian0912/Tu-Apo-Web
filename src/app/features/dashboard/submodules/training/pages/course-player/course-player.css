@@ -64,7 +64,18 @@
   padding: 10px 12px; border-radius: 10px; background: #f4f8fb;
   border: 1px solid #d7e0e6; color: #194262; text-decoration: none; font-size: 1rem;
 }
-.recurso-pendiente { color: #6b4a00; background: #fff4d6; border-color: #e0b400; }
+.recurso-boton {
+  width: 100%; text-align: left; cursor: pointer; font-family: inherit;
+}
+.recurso-boton:disabled { opacity: .6; cursor: progress; }
+
+.video {
+  width: 100%;
+  max-height: 60vh;
+  margin-top: 8px;
+  border-radius: 10px;
+  background: #000;      /* el negro evita el parpadeo blanco al cargar en gama baja */
+}
 
 .actividades { margin-top: 16px; }
 .actividades h3 { font-size: 1.05rem; color: #194262; }

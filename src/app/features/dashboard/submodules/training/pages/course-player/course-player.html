@@ -88,11 +88,20 @@
                     <span>{{ r.nombre || 'Material de la lección' }}</span>
                   </a>
                 } @else {
-                  <!-- Archivo en ms-documents: necesita conexión y un endpoint que lo sirva -->
-                  <span class="recurso recurso-pendiente">
-                    <mat-icon>cloud_download</mat-icon>
-                    <span>{{ r.nombre || 'Material de la lección' }} — necesita conexión</span>
-                  </span>
+                  <!-- Archivo en ms-documents, servido por learning-ms con el JWT de la sesión -->
+                  <button type="button" class="recurso recurso-boton"
+                          [disabled]="descargandoMaterial() === r.id"
+                          (click)="abrirMaterial(r)">
+                    <mat-icon>{{ r.tipo === 'VIDEO' ? 'play_circle' : 'description' }}</mat-icon>
+                    <span>
+                      {{ r.nombre || 'Material de la lección' }}
+                      @if (descargandoMaterial() === r.id) { — abriendo… }
+                    </span>
+                  </button>
+
+                  @if (r.tipo === 'VIDEO' && urlMaterial(r.id); as fuente) {
+                    <video class="video" controls preload="none" [src]="fuente"></video>
+                  }
                 }
               </li>
             }
