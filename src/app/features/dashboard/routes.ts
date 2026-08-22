@@ -11,6 +11,8 @@ export const routes: Routes = [
       { path: 'desprendibles-de-pago', loadChildren: () => import('./submodules/payments/payments.routes').then(m => m.routes) },
       // formulario
       { path: 'formulario', loadChildren: () => import('./submodules/forms/form.routes').then(m => m.routes) },
+      // capacitaciones (learning-ms)
+      { path: 'capacitaciones', loadChildren: () => import('./submodules/training/training.routes').then(m => m.routes) },
     ]
   },
   // Ruta de fallback
