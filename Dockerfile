@@ -8,6 +8,11 @@
 # NO este contenedor. (El legacy formulario.tsservicios.co quedó apagado.)
 FROM node:22-alpine AS builder
 WORKDIR /app
+# El build inlina Google Fonts (descarga en compile-time). El DNS devuelve
+# AAAA pero el host NO tiene salida IPv6: cuando Node probaba la IPv6 primero,
+# el fetch moría con error TLS y el build fallaba de forma intermitente
+# ("Inlining of fonts failed"). IPv4 primero lo hace determinista.
+ENV NODE_OPTIONS=--dns-result-order=ipv4first
 COPY package.json package-lock.json ./
 # npm ci = instalacion reproducible desde el lockfile. --legacy-peer-deps por los
 # conflictos de peer-deps habituales de Angular 21 (mismo criterio que el resto de frontends).
