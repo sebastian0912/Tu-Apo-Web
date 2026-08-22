@@ -80,9 +80,13 @@ export class CoursePlayer implements OnInit {
       // Se abre donde la persona se quedó, no en la primera: retomar es el caso normal.
       const pendiente = p.modulos.flatMap(m => m.lecciones).find(l => l.estado !== 'COMPLETADA');
       this.leccionActivaId.set((pendiente ?? p.modulos[0]?.lecciones[0])?.id ?? null);
-    } catch {
-      this.error.set('No pudimos abrir el curso. Conéctate una vez para descargarlo y '
-        + 'después podrás estudiarlo sin internet.');
+    } catch (err) {
+      const status = (err as { status?: number } | null)?.status ?? -1;
+      this.error.set(status === 0
+        ? 'No hay conexión y este curso todavía no está descargado. Conéctate una vez y '
+          + 'después podrás estudiarlo sin internet.'
+        : 'No pudimos abrir el curso. Vuelve a intentar en un momento; si sigue igual, '
+          + 'avisa a tu coordinador.');
     } finally {
       this.cargando.set(false);
     }

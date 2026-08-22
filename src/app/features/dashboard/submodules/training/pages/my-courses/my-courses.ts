@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { HttpErrorResponse } from '@angular/common/http';
 import { TrainingS, ResumenCurso } from '../../service/training-s';
 import { TrainingOffline } from '../../service/training-offline';
 
@@ -49,13 +50,37 @@ export class MyCourses implements OnInit {
     this.error.set(null);
     try {
       this.cursos.set(await this.api.misCursos());
-    } catch {
+    } catch (err) {
       // El interceptor ya sirve la última versión cacheada si la hay; si llegamos aquí es que
-      // no hay ni caché, y decirlo claro vale más que una pantalla vacía.
-      this.error.set('No pudimos cargar tus cursos. Conéctate a internet e intenta de nuevo.');
+      // no hay ni caché. Decir SIEMPRE "conéctate a internet" era desorientar a quien tiene
+      // internet perfectamente y está viendo otra cosa — un fallo del servidor, por ejemplo.
+      this.error.set(MyCourses.explicar(err));
     } finally {
       this.cargando.set(false);
     }
+  }
+
+  /** Qué decirle a la persona según lo que falló de verdad. */
+  static explicar(err: unknown): string {
+    const status = err instanceof HttpErrorResponse ? err.status : -1;
+    if (status === 0) {
+      return 'Parece que no hay conexión. Cuando vuelvas a tener internet, inténtalo de nuevo.';
+    }
+    if (status === 401 || status === 403) {
+      return 'Tu sesión expiró. Vuelve a iniciar sesión y entra otra vez.';
+    }
+    if (status === 404) {
+      return 'Todavía no apareces registrado en capacitaciones. Avisa a tu coordinador para '
+           + 'que te asignen tus cursos.';
+    }
+    if (status === 429) {
+      return 'Hay demasiadas solicitudes en este momento. Espera unos segundos y reintenta.';
+    }
+    if (status >= 500) {
+      return 'El servidor tuvo un problema al traer tus cursos. Vuelve a intentar en un momento; '
+           + 'si sigue igual, avisa a soporte.';
+    }
+    return 'No pudimos cargar tus cursos. Vuelve a intentar en un momento.';
   }
 
   abrir(curso: ResumenCurso): void {
