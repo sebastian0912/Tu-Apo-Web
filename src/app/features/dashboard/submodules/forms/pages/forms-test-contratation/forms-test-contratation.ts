@@ -291,6 +291,14 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
   motivoRetiroOptions = MOTIVO_RETIRO_OPTIONS;
   oficinas = OFICINAS;
 
+  // Relación de las referencias PERSONALES. Lista fija local: el catálogo
+  // PARENTESCOS_FAMILIARES no aplica (una referencia personal no es familiar)
+  // y el backend guarda este dato en Referencia.parentesco (columna de 32).
+  relacionesReferenciaPersonal: string[] = [
+    'AMIGO(A)', 'VECINO(A)', 'COMPAÑERO(A) DE TRABAJO',
+    'COMPAÑERO(A) DE ESTUDIO', 'EX JEFE', 'CONOCIDO(A)',
+  ];
+
   dominiosCorreo = [
     'GMAIL.COM', 'HOTMAIL.COM', 'YAHOO.COM', 'ICLOUD.COM', 'OUTLOOK.COM',
     'OUTLOOK.ES', 'MAIL.COM', 'YAHOO.COM.CO', 'UNICARTAGENA.EDU.CO',
@@ -659,12 +667,14 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       nombreReferenciaPersonal1: ['', fullName],
       telefonoReferencia1: ['', phone],
       ocupacionReferencia1: [''],
+      parentescoReferenciaPersonal1: ['', req],
       direccionReferenciaPersonal1: ['', [Validators.required]],
       tiempoConoceReferenciaPersonal1: [''],
 
       nombreReferenciaPersonal2: ['', fullName],
       telefonoReferencia2: ['', phone],
       ocupacionReferencia2: [''],
+      parentescoReferenciaPersonal2: ['', req],
       direccionReferenciaPersonal2: ['', [Validators.required]],
       tiempoConoceReferenciaPersonal2: [''],
 
@@ -1359,11 +1369,13 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       nombreReferenciaPersonal1: g('nombreReferenciaPersonal1'),
       telefonoReferenciaPersonal1: g('telefonoReferencia1'),
       ocupacionReferenciaPersonal1: g('ocupacionReferencia1'),
+      parentescoReferenciaPersonal1: g('parentescoReferenciaPersonal1'),
       tiempoConoceReferenciaPersonal1: g('tiempoConoceReferenciaPersonal1'),
       direccionReferenciaPersonal1: addr('direccionReferenciaPersonal1'),
       nombreReferenciaPersonal2: g('nombreReferenciaPersonal2'),
       telefonoReferenciaPersonal2: g('telefonoReferencia2'),
       ocupacionReferenciaPersonal2: g('ocupacionReferencia2'),
+      parentescoReferenciaPersonal2: g('parentescoReferenciaPersonal2'),
       tiempoConoceReferenciaPersonal2: g('tiempoConoceReferenciaPersonal2'),
       direccionReferenciaPersonal2: addr('direccionReferenciaPersonal2'),
       nombreReferenciaFamiliar1: g('nombreReferenciaFamiliar1'),
@@ -2828,6 +2840,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
             titulo: 'Referencia Personal 1',
             controles: [
               'nombreReferenciaPersonal1', 'telefonoReferencia1', 'ocupacionReferencia1',
+              'parentescoReferenciaPersonal1',
               'direccionReferenciaPersonal1', 'tiempoConoceReferenciaPersonal1',
             ],
           },
@@ -2835,6 +2848,7 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
             titulo: 'Referencia Personal 2',
             controles: [
               'nombreReferenciaPersonal2', 'telefonoReferencia2', 'ocupacionReferencia2',
+              'parentescoReferenciaPersonal2',
               'direccionReferenciaPersonal2', 'tiempoConoceReferenciaPersonal2',
             ],
           },
@@ -4572,8 +4586,10 @@ export class FormsTestContratation implements OnInit, AfterViewInit, OnDestroy {
       telefonoMadre: 'Teléfono de la Madre',
       nombreReferenciaPersonal1: 'Referencia Personal 1 (Nombre)',
       telefonoReferencia1: 'Referencia Personal 1 (Teléfono)',
+      parentescoReferenciaPersonal1: 'Referencia Personal 1 (Relación)',
       nombreReferenciaPersonal2: 'Referencia Personal 2 (Nombre)',
       telefonoReferencia2: 'Referencia Personal 2 (Teléfono)',
+      parentescoReferenciaPersonal2: 'Referencia Personal 2 (Relación)',
       nombreReferenciaFamiliar1: 'Referencia Familiar 1 (Nombre)',
       telefonoReferenciaFamiliar1: 'Referencia Familiar 1 (Teléfono)',
       parentescoReferenciaFamiliar1: 'Referencia Familiar 1 (Parentesco)',
